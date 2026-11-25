@@ -8,4 +8,6 @@ RUN useradd -r -u 10001 app && mkdir /data && chown app /data
 USER app
 VOLUME /data
 EXPOSE 8000
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8000", "dero:create_app()"]
+# --preload: create the app (and the database) once in the master, not racing in every worker.
+# --no-control-socket: gunicorn 27 otherwise writes a socket to ~/.gunicorn, and the app user has no home dir.
+CMD ["gunicorn", "--preload", "--no-control-socket", "-w", "2", "-b", "0.0.0.0:8000", "dero:create_app()"]

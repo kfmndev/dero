@@ -22,6 +22,8 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     app.teardown_appcontext(db.close_db)
+    db_dir = os.path.dirname(os.path.abspath(app.config["DATABASE"]))
+    os.makedirs(db_dir, exist_ok=True)
     with app.app_context():
         db.init_db()
         env_fallback = os.environ.get("FALLBACK_URL", "")
