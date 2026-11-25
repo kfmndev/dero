@@ -11,7 +11,8 @@ ADMIN = {"Remote-User": "root", "Remote-Groups": "dero-admins,other"}
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app({"DATABASE": str(tmp_path / "t.db"), "SECRET_KEY": "test", "TESTING": True})
+    return create_app({"DATABASE": str(tmp_path / "t.db"), "SECRET_KEY": "test", "TESTING": True,
+                       "AUTH_MODE": "proxy"})
 
 
 @pytest.fixture
@@ -148,7 +149,78 @@ def test_admin_slug_reserved(client):
 
 
 def test_custom_admin_path(tmp_path):
-    app = create_app({"DATABASE": str(tmp_path / "c.db"), "SECRET_KEY": "t", "ADMIN_PATH": "manage"})
+    app = create_app({"DATABASE": str(tmp_path / "c.db"), "SECRET_KEY": "t", "ADMIN_PATH": "manage", "AUTH_MODE": "proxy"})
     c = app.test_client()
     assert c.get("/manage/", headers=USER).status_code == 200
     assert c.get("/admin/", headers=USER).status_code == 404
+
+
+# ---------------------------------------------------------------- basic auth
+import base64
+
+from dero.passwd import main as passwd_main, make_line
+
+
+def basic(user, pw):
+    return {"Authorization": "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode()}
+
+
+@pytest.fixture
+def bclient(tmp_path):
+    users = tmp_path / "users.txt"
+    users.write_text("# comment\n" + make_line("alice", "user", "alice-password") + "\n"
+                     + make_line("root", "admin", "root-password") + "\n" + "garbage line\n")
+    app = create_app({"DATABASE": str(tmp_path / "b.db"), "SECRET_KEY": "t", "USERS_FILE": str(users)})
+    return app.test_client()
+
+
+def test_basic_requires_credentials(bclient):
+    r = bclient.get("/admin/")
+    assert r.status_code == 401 and "Basic" in r.headers["WWW-Authenticate"]
+    assert bclient.get("/admin/", headers=basic("alice", "wrong-password")).status_code == 401
+    assert bclient.get("/admin/", headers=basic("nobody", "alice-password")).status_code == 401
+    assert bclient.get("/admin/", headers=basic("alice", "alice-password")).status_code == 200
+
+
+def test_basic_roles_and_creator(bclient):
+    a, r = basic("alice", "alice-password"), basic("root", "root-password")
+    post(bclient, "/admin/links", a, target="https://example.com", slug="x")
+    assert bclient.get("/x").status_code == 302                      # short links stay public
+    assert bclient.get("/admin/rules", headers=a).status_code == 403  # users can't manage rules
+    assert bclient.get("/admin/rules", headers=r).status_code == 200
+    assert "alice" in bclient.get("/admin/", headers=r).get_data(as_text=True)
+
+
+def test_basic_csrf_still_enforced(bclient):
+    h = basic("alice", "alice-password")
+    assert bclient.post("/admin/links", headers=h, data={"target": "https://example.com"}).status_code == 400
+
+
+def test_basic_no_users_file_denies_everyone(tmp_path):
+    app = create_app({"DATABASE": str(tmp_path / "n.db"), "SECRET_KEY": "t", "USERS_FILE": str(tmp_path / "none")})
+    assert app.test_client().get("/admin/", headers=basic("a", "b")).status_code == 401
+
+
+def test_passwd_cli(tmp_path, monkeypatch):
+    f = tmp_path / "u.txt"
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("a-long-password\n"))
+    assert passwd_main(["bob", "--role", "admin", "--password-stdin", "--file", str(f)]) == 0
+    name, role, pwhash = f.read_text().strip().split(":", 2)
+    assert (name, role) == ("bob", "admin") and pwhash.startswith("scrypt:")
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("short\n"))
+    assert passwd_main(["bob", "--password-stdin"]) == 1
+
+
+def test_auth_none_everyone_is_admin(tmp_path):
+    app = create_app({"DATABASE": str(tmp_path / "x.db"), "SECRET_KEY": "t", "AUTH_MODE": "none", "NONE_USER": "me"})
+    c = app.test_client()
+    assert c.get("/admin/").status_code == 200 and c.get("/admin/rules").status_code == 200
+    post(c, "/admin/links", {}, target="https://example.com", slug="n")
+    assert c.get("/n").status_code == 302
+    assert "me" in c.get("/admin/").get_data(as_text=True)
+    assert c.post("/admin/links", data={"target": "https://example.com"}).status_code == 400  # CSRF still on
+
+
+def test_unknown_auth_mode_rejected(tmp_path):
+    with pytest.raises(RuntimeError):
+        create_app({"DATABASE": str(tmp_path / "y.db"), "SECRET_KEY": "t", "AUTH_MODE": "magic"})

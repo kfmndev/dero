@@ -1,0 +1,20 @@
+# AUTH_MODE=proxy: only /admin/* goes through Authelia (SSO). Short links stay public.
+s.example.com {
+	@admin path /admin /admin/*
+	handle @admin {
+		forward_auth authelia:9091 {
+			uri /api/authz/forward-auth
+			copy_headers Remote-User Remote-Groups Remote-Name Remote-Email
+		}
+		reverse_proxy dero:8000 {
+			header_up X-Proxy-Secret {$PROXY_SECRET}
+		}
+	}
+	handle {
+		reverse_proxy dero:8000 {
+			# never let clients smuggle identity headers
+			header_up -Remote-User
+			header_up -Remote-Groups
+		}
+	}
+}

@@ -13,42 +13,43 @@
 - Stored per link: slug, target, **creator**, creation date, optional expiry, visit count. **No IPs, referrers or user agents**
 - Lookup order: **exact link** → **pattern rule** (lowest priority number first) → **fallback URL** → `404`
 - Example pattern rule: `gh/*` → `https://github.com/{1}`
-- No passwords: sign-in is delegated to a reverse proxy with [Authelia](https://www.authelia.com) (or any forward-auth identity provider)
+- Admin UI at `/admin`, protected by **HTTP Basic auth** (users file with hashed passwords). SSO via a reverse proxy such as [Authelia](https://www.authelia.com) is available as `AUTH_MODE=proxy`
 
 > [!IMPORTANT]
-> dero **trusts the identity headers** (`Remote-User`, `Remote-Groups`) sent by the reverse proxy. It must only be reachable through that proxy: do not publish its port. `PROXY_SECRET` adds a second lock.
+> Basic auth sends the password with every request: **serve dero over HTTPS only**. dero has no login throttling, so use strong passwords and, if exposed to the internet, rate-limit `/admin` at your reverse proxy.
 
 > [!NOTE]
 > Redirects are `302` and sent with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, so counting and disabling links keep working. Only `http://` and `https://` targets are accepted.
 
 ## 🚀 Quick start
 
-Requirements: Docker, and a reverse proxy (e.g. Caddy) in front of an Authelia instance.
+Requirements: Docker and a reverse proxy with TLS (e.g. Caddy) in front of dero.
 
 ```sh
-cp .env.example .env       # set SECRET_KEY and PROXY_SECRET (openssl rand -hex 32)
+cp .env.example .env       # set SECRET_KEY (openssl rand -hex 32)
 docker compose up -d --build
+
+# create the first admin (prompts for a password, writes /data/users.txt)
+docker compose run --rm dero python -m dero.passwd --file /data/users.txt alice --role admin
 ```
 
-Route only the admin UI through Authelia and keep short links public (full examples in [`deploy/`](deploy)):
+The users file is re-read when it changes, so no restart is needed. Each line is `username:role:hash` with role `admin` (everything, plus rules and fallback) or `user` (own links only); a later line overrides an earlier one for the same user.
 
 ```caddyfile
 s.example.com {
-	@admin path /admin /admin/*
-	handle @admin {
-		forward_auth authelia:9091 {
-			uri /api/authz/forward-auth
-			copy_headers Remote-User Remote-Groups
-		}
-		reverse_proxy dero:8000 { header_up X-Proxy-Secret {$PROXY_SECRET} }
-	}
-	handle {
-		reverse_proxy dero:8000
-	}
+	reverse_proxy dero:8000
 }
 ```
 
-Add users to the groups `dero-users` (manage own links) and `dero-admins` (everything, plus rules and fallback) in Authelia, then open `https://s.example.com/admin/`.
+Then open `https://s.example.com/admin/`. Short links (`/<slug>`) stay public.
+
+### No authentication (`AUTH_MODE=none`)
+
+Everyone who can reach `/admin` is an admin, recorded as `NONE_USER`. Only use this when something else already controls access, for example a private network, a VPN, or a reverse proxy doing its own authentication. dero logs a warning at startup in this mode.
+
+### SSO instead (`AUTH_MODE=proxy`)
+
+dero then trusts the identity headers (`Remote-User`, `Remote-Groups`) set by your proxy and does no password checking itself, so it **must only be reachable through that proxy** (don't publish its port; `PROXY_SECRET` adds a second lock). Examples for Caddy + Authelia are in [`deploy/`](deploy). Members of the group `dero-users` manage their own links, `dero-admins` everything.
 
 ## 🧩 Pattern rules
 
@@ -65,11 +66,14 @@ Captured text is URL-encoded before it is placed into the target.
 
 | Variable | Default | Description |
 | --- | --- | --- |
+| `AUTH_MODE` | `basic` | `basic` (users file), `proxy` (SSO headers from the reverse proxy) or `none` (no authentication) |
+| `NONE_USER` | `admin` | `none` mode: the username recorded as creator of new links |
+| `USERS_FILE` | `users.txt` (`/data/users.txt` in Docker) | Basic-auth users, one `username:role:hash` per line; create with `python -m dero.passwd` |
 | `SECRET_KEY` | random per start | Signs form tokens (CSRF). Set it, or forms break after restarts |
-| `PROXY_SECRET` | *(empty)* | If set, requests must carry a matching `X-Proxy-Secret` header |
+| `PROXY_SECRET` | *(empty)* | `proxy` mode only: if set, requests must carry a matching `X-Proxy-Secret` header |
 | `FALLBACK_URL` | *(empty)* | Initial fallback target; later editable in the UI. Empty means `404` |
-| `USER_GROUP` / `ADMIN_GROUP` | `dero-users` / `dero-admins` | Groups allowed to use / administer dero |
-| `USER_HEADER` / `GROUPS_HEADER` | `Remote-User` / `Remote-Groups` | Identity headers set by the proxy |
+| `USER_GROUP` / `ADMIN_GROUP` | `dero-users` / `dero-admins` | `proxy` mode: groups allowed to use / administer dero |
+| `USER_HEADER` / `GROUPS_HEADER` | `Remote-User` / `Remote-Groups` | `proxy` mode: identity headers set by the proxy |
 | `ADMIN_PATH` | `/admin` | URL prefix of the admin UI (must match the Caddy/Authelia rules). A slug with the same name is reserved |
 | `DATABASE` | `dero.db` (`/data/dero.db` in Docker) | SQLite file |
 

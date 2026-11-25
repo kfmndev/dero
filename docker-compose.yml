@@ -4,7 +4,8 @@ services:
     restart: unless-stopped
     environment:
       SECRET_KEY: "${SECRET_KEY:?generate one with openssl rand -hex 32}"
-      PROXY_SECRET: "${PROXY_SECRET:?generate one with openssl rand -hex 32}"
+      AUTH_MODE: ${AUTH_MODE:-basic}   # basic | proxy (SSO headers) | none
+      PROXY_SECRET: ${PROXY_SECRET:-}  # only used with AUTH_MODE=proxy
       FALLBACK_URL: ${FALLBACK_URL:-}   # e.g. https://kfmn.it/rickroll (editable later in the UI)
     volumes:
       - dero-data:/data
