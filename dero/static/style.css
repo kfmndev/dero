@@ -1,0 +1,20 @@
+:root { color-scheme: light dark; --bd: #8884; --accent: #2563eb; }
+body { font: 15px/1.5 system-ui, sans-serif; margin: 0; }
+header { display: flex; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--bd); }
+header a { text-decoration: none; font-weight: 600; }
+header .who { margin-left: auto; opacity: .7; }
+main { max-width: 70rem; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 1.2rem; margin-top: 1.5rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--bd); vertical-align: middle; }
+.num { text-align: right; }
+.target { max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tr.off { opacity: .5; }
+.row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.row input:not([type=hidden]) { flex: 1 1 12rem; }
+input, select, button { font: inherit; padding: .3rem .5rem; }
+button.danger { color: #b91c1c; }
+.actions { white-space: nowrap; }
+.actions form { display: inline; }
+.flash { padding: .5rem .75rem; border: 1px solid var(--bd); border-radius: 6px; }
+.flash.error { border-color: #b91c1c; color: #b91c1c; }

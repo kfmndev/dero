@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>{% block title %}Shorten{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <a href="{{ url_for('admin.index') }}">Links</a>
+  {% if g.user.is_admin %}<a href="{{ url_for('admin.rules') }}">Rules &amp; fallback</a>{% endif %}
+  <span class="who">{{ g.user.username }}{% if g.user.is_admin %} (admin){% endif %}</span>
+</header>
+<main>
+  {% for category, message in get_flashed_messages(with_categories=true) %}
+    <p class="flash {{ category }}">{{ message }}</p>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

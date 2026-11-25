@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Fallback</h1>
+<p>Used when nothing matches. Leave empty to return a plain 404.</p>
+<form method="post" action="{{ url_for('admin.set_fallback') }}" class="row">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <input name="fallback_url" type="url" value="{{ fallback }}" placeholder="https://example.com/oops">
+  <button>Save</button>
+</form>
+
+<h1>Pattern rules</h1>
+<p>Tried in order of priority (lowest number first) after exact links.
+  Glob: <code>*</code> = anything except <code>/</code>, <code>**</code> = anything, <code>?</code> = one character.
+  Each <code>*</code>/<code>**</code> (or regex group) is available in the target as <code>{1}</code>, <code>{2}</code>, …
+  Example: <code>gh/*</code> → <code>https://github.com/{1}</code>.</p>
+<form method="post" action="{{ url_for('admin.create_rule') }}" class="row">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <input name="pattern" placeholder="gh/*" required>
+  <select name="match_type"><option value="glob">glob</option><option value="regex">regex</option></select>
+  <input name="target" placeholder="https://github.com/{1}" required>
+  <input name="priority" type="number" value="100" title="Priority" style="width:6em">
+  <button>Add rule</button>
+</form>
+<table>
+  <thead><tr><th>Priority</th><th>Pattern</th><th>Type</th><th>Target</th><th class="num">Visits</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rules %}
+    <tr class="{{ '' if r.enabled else 'off' }}">
+      <td><form method="post" action="{{ url_for('admin.rule_priority', rule_id=r.id) }}" class="row">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input name="priority" type="number" value="{{ r.priority }}" style="width:5em"><button>Set</button></form></td>
+      <td><code>{{ r.pattern }}</code></td><td>{{ r.match_type }}</td>
+      <td class="target">{{ r.target }}</td><td class="num">{{ r.visits }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('admin.rule_toggle', rule_id=r.id) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button>{{ 'Disable' if r.enabled else 'Enable' }}</button></form>
+        <form method="post" action="{{ url_for('admin.rule_delete', rule_id=r.id) }}"
+              onsubmit="return confirm('Delete this rule?')">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button class="danger">Delete</button></form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6">No rules.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

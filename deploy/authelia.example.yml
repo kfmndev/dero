@@ -1,0 +1,19 @@
+# Fragments for Authelia's configuration.yml (check against your Authelia version's docs).
+access_control:
+  default_policy: deny
+  rules:
+    - domain: s.example.com
+      resources: ['^/_(/.*)?$']
+      policy: one_factor
+      subject: ['group:dero-users', 'group:dero-admins']
+
+# users_database.yml
+# users:
+#   alice:
+#     displayname: Alice
+#     password: "<argon2 hash from: authelia crypto hash generate argon2>"
+#     email: alice@example.com
+#     groups: [dero-users]
+#   root:
+#     ...
+#     groups: [dero-admins]
