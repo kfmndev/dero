@@ -20,7 +20,7 @@ def client(app):
 
 
 def token(client, headers):
-    html = client.get("/_/", headers=headers).get_data(as_text=True)
+    html = client.get("/admin/", headers=headers).get_data(as_text=True)
     return re.search(r'name="csrf" value="([^"]+)"', html).group(1)
 
 
@@ -29,31 +29,31 @@ def post(client, path, headers, **data):
 
 
 def visits(client, headers):
-    html = client.get("/_/", headers=headers).get_data(as_text=True)
+    html = client.get("/admin/", headers=headers).get_data(as_text=True)
     return html
 
 
 def test_access_control(client):
-    assert client.get("/_/").status_code == 403
-    assert client.get("/_/", headers={"Remote-User": "eve"}).status_code == 403
-    assert client.get("/_/", headers={"Remote-User": "eve", "Remote-Groups": "nope"}).status_code == 403
-    assert client.get("/_/", headers=USER).status_code == 200
+    assert client.get("/admin/").status_code == 403
+    assert client.get("/admin/", headers={"Remote-User": "eve"}).status_code == 403
+    assert client.get("/admin/", headers={"Remote-User": "eve", "Remote-Groups": "nope"}).status_code == 403
+    assert client.get("/admin/", headers=USER).status_code == 200
 
 
 def test_proxy_secret(app):
     app.config["PROXY_SECRET"] = "s3"
     c = app.test_client()
-    assert c.get("/_/", headers=USER).status_code == 403
-    assert c.get("/_/", headers={**USER, "X-Proxy-Secret": "s3"}).status_code == 200
+    assert c.get("/admin/", headers=USER).status_code == 403
+    assert c.get("/admin/", headers={**USER, "X-Proxy-Secret": "s3"}).status_code == 200
 
 
 def test_csrf_required(client):
-    r = client.post("/_/links", headers=USER, data={"target": "https://example.com"})
+    r = client.post("/admin/links", headers=USER, data={"target": "https://example.com"})
     assert r.status_code == 400
 
 
 def test_create_and_redirect_counts_visits(client, app):
-    post(client, "/_/links", USER, target="https://example.com/a", slug="abc")
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="abc")
     r = client.get("/abc")
     assert r.status_code == 302 and r.headers["Location"] == "https://example.com/a"
     assert r.headers["Cache-Control"] == "no-store"
@@ -65,64 +65,64 @@ def test_create_and_redirect_counts_visits(client, app):
 
 
 def test_random_slug_and_duplicate(client):
-    post(client, "/_/links", USER, target="https://example.com")
-    post(client, "/_/links", USER, target="https://example.com/x", slug="dup")
-    r = post(client, "/_/links", USER, target="https://example.com/y", slug="dup")
+    post(client, "/admin/links", USER, target="https://example.com")
+    post(client, "/admin/links", USER, target="https://example.com/x", slug="dup")
+    r = post(client, "/admin/links", USER, target="https://example.com/y", slug="dup")
     assert client.get("/dup").headers["Location"] == "https://example.com/x"
-    assert "already taken" in client.get("/_/", headers=USER).get_data(as_text=True) or r.status_code == 302
+    assert "already taken" in client.get("/admin/", headers=USER).get_data(as_text=True) or r.status_code == 302
 
 
 @pytest.mark.parametrize("bad", ["javascript:alert(1)", "ftp://x.y/z", "notaurl", "https://"])
 def test_rejects_bad_urls(client, bad):
-    post(client, "/_/links", USER, target=bad, slug="bad")
+    post(client, "/admin/links", USER, target=bad, slug="bad")
     assert client.get("/bad").status_code == 404
 
 
 def test_disable_and_expiry(client):
-    post(client, "/_/links", USER, target="https://example.com", slug="gone", expires_at="2000-01-01")
+    post(client, "/admin/links", USER, target="https://example.com", slug="gone", expires_at="2000-01-01")
     assert client.get("/gone").status_code == 404
-    post(client, "/_/links", USER, target="https://example.com", slug="off")
+    post(client, "/admin/links", USER, target="https://example.com", slug="off")
     assert client.get("/off").status_code == 302
-    post(client, "/_/links/2/toggle", USER)
+    post(client, "/admin/links/2/toggle", USER)
     assert client.get("/off").status_code == 404
 
 
 def test_ownership(client):
-    post(client, "/_/links", USER, target="https://example.com", slug="mine")
-    assert post(client, "/_/links/1/delete", USER2).status_code == 404
+    post(client, "/admin/links", USER, target="https://example.com", slug="mine")
+    assert post(client, "/admin/links/1/delete", USER2).status_code == 404
     assert client.get("/mine").status_code == 302
-    assert post(client, "/_/links/1/delete", ADMIN).status_code == 302
+    assert post(client, "/admin/links/1/delete", ADMIN).status_code == 302
     assert client.get("/mine").status_code == 404
 
 
 def test_rules_admin_only(client):
-    assert client.get("/_/rules", headers=USER).status_code == 403
-    assert post(client, "/_/rules", USER, pattern="x", target="https://e.com").status_code == 403
+    assert client.get("/admin/rules", headers=USER).status_code == 403
+    assert post(client, "/admin/rules", USER, pattern="x", target="https://e.com").status_code == 403
 
 
 def test_glob_rules_priority_and_fallback(client):
-    post(client, "/_/rules", ADMIN, pattern="gh/*", target="https://github.com/{1}", priority="50")
-    post(client, "/_/rules", ADMIN, pattern="gh/**", target="https://example.com/all/{1}", priority="10")
+    post(client, "/admin/rules", ADMIN, pattern="gh/*", target="https://github.com/{1}", priority="50")
+    post(client, "/admin/rules", ADMIN, pattern="gh/**", target="https://example.com/all/{1}", priority="10")
     assert client.get("/gh/foo").headers["Location"] == "https://example.com/all/foo"  # lower number wins
-    post(client, "/_/rules/1/priority", ADMIN, priority="1")
+    post(client, "/admin/rules/1/priority", ADMIN, priority="1")
     assert client.get("/gh/foo").headers["Location"] == "https://github.com/foo"
     assert client.get("/gh/foo/bar").headers["Location"] == "https://example.com/all/foo/bar"
     assert client.get("/nothing").status_code == 404
-    post(client, "/_/settings/fallback", ADMIN, fallback_url="https://example.com/rick")
+    post(client, "/admin/settings/fallback", ADMIN, fallback_url="https://example.com/rick")
     assert client.get("/nothing").headers["Location"] == "https://example.com/rick"
     assert client.get("/").headers["Location"] == "https://example.com/rick"
 
 
 def test_exact_link_beats_rule(client):
-    post(client, "/_/rules", ADMIN, pattern="**", target="https://example.com/{1}")
-    post(client, "/_/links", USER, target="https://real.example", slug="abc")
+    post(client, "/admin/rules", ADMIN, pattern="**", target="https://example.com/{1}")
+    post(client, "/admin/links", USER, target="https://real.example", slug="abc")
     assert client.get("/abc").headers["Location"] == "https://real.example"
 
 
 def test_regex_rule_and_timeout(client):
-    post(client, "/_/rules", ADMIN, pattern=r"v(\d+)", match_type="regex", target="https://e.com/ver/{1}")
+    post(client, "/admin/rules", ADMIN, pattern=r"v(\d+)", match_type="regex", target="https://e.com/ver/{1}")
     assert client.get("/v42").headers["Location"] == "https://e.com/ver/42"
-    post(client, "/_/rules", ADMIN, pattern=r"(a+)+$", match_type="regex", target="https://e.com/evil", priority="1")
+    post(client, "/admin/rules", ADMIN, pattern=r"(a+)+$", match_type="regex", target="https://e.com/evil", priority="1")
     import time
     t = time.time()
     assert client.get("/" + "a" * 40 + "!").status_code == 404  # catastrophic pattern is cut off
@@ -130,12 +130,25 @@ def test_regex_rule_and_timeout(client):
 
 
 def test_rule_validation(client):
-    post(client, "/_/rules", ADMIN, pattern="a/*", target="https://e.com/{2}")       # placeholder > groups
-    post(client, "/_/rules", ADMIN, pattern="(", match_type="regex", target="https://e.com")
-    post(client, "/_/rules", ADMIN, pattern="b", target="javascript:alert(1)")
+    post(client, "/admin/rules", ADMIN, pattern="a/*", target="https://e.com/{2}")       # placeholder > groups
+    post(client, "/admin/rules", ADMIN, pattern="(", match_type="regex", target="https://e.com")
+    post(client, "/admin/rules", ADMIN, pattern="b", target="javascript:alert(1)")
     assert client.get("/a/x").status_code == 404 and client.get("/b").status_code == 404
 
 
 def test_target_placeholder_is_escaped(client):
-    post(client, "/_/rules", ADMIN, pattern="q/*", target="https://e.com/s?q={1}")
+    post(client, "/admin/rules", ADMIN, pattern="q/*", target="https://e.com/s?q={1}")
     assert client.get("/q/a b").headers["Location"] == "https://e.com/s?q=a%20b"
+
+
+def test_admin_slug_reserved(client):
+    post(client, "/admin/links", USER, target="https://example.com", slug="admin")
+    assert client.get("/admin").status_code in (301, 308, 404)  # the UI, never a short link
+    assert "reserved" in client.get("/admin/", headers=USER).get_data(as_text=True)
+
+
+def test_custom_admin_path(tmp_path):
+    app = create_app({"DATABASE": str(tmp_path / "c.db"), "SECRET_KEY": "t", "ADMIN_PATH": "manage"})
+    c = app.test_client()
+    assert c.get("/manage/", headers=USER).status_code == 200
+    assert c.get("/admin/", headers=USER).status_code == 404

@@ -34,7 +34,7 @@ Route only the admin UI through Authelia and keep short links public (full examp
 
 ```caddyfile
 s.example.com {
-	@admin path /_ /_/*
+	@admin path /admin /admin/*
 	handle @admin {
 		forward_auth authelia:9091 {
 			uri /api/authz/forward-auth
@@ -48,7 +48,7 @@ s.example.com {
 }
 ```
 
-Add users to the groups `dero-users` (manage own links) and `dero-admins` (everything, plus rules and fallback) in Authelia, then open `https://s.example.com/_/`.
+Add users to the groups `dero-users` (manage own links) and `dero-admins` (everything, plus rules and fallback) in Authelia, then open `https://s.example.com/admin/`.
 
 ## 🧩 Pattern rules
 
@@ -70,6 +70,7 @@ Captured text is URL-encoded before it is placed into the target.
 | `FALLBACK_URL` | *(empty)* | Initial fallback target; later editable in the UI. Empty means `404` |
 | `USER_GROUP` / `ADMIN_GROUP` | `dero-users` / `dero-admins` | Groups allowed to use / administer dero |
 | `USER_HEADER` / `GROUPS_HEADER` | `Remote-User` / `Remote-Groups` | Identity headers set by the proxy |
+| `ADMIN_PATH` | `/admin` | URL prefix of the admin UI (must match the Caddy/Authelia rules). A slug with the same name is reserved |
 | `DATABASE` | `dero.db` (`/data/dero.db` in Docker) | SQLite file |
 
 ## 🛠️ Development

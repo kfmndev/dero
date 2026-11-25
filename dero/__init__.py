@@ -2,7 +2,7 @@ import os
 import secrets
 import sqlite3
 
-from flask import Flask, abort, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
+from flask import Flask, abort, current_app, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
 
 from . import auth, db, resolve
 
@@ -17,6 +17,7 @@ def create_app(test_config=None):
         GROUPS_HEADER=os.environ.get("GROUPS_HEADER", "Remote-Groups"),
         USER_GROUP=os.environ.get("USER_GROUP", "dero-users"),
         ADMIN_GROUP=os.environ.get("ADMIN_GROUP", "dero-admins"),
+        ADMIN_PATH=os.environ.get("ADMIN_PATH", "/admin"),
     )
     if test_config:
         app.config.update(test_config)
@@ -30,7 +31,9 @@ def create_app(test_config=None):
         if env_fallback and not db.get_setting("fallback_url"):
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
-    app.register_blueprint(admin)
+    admin_path = "/" + app.config["ADMIN_PATH"].strip("/")
+    app.config["ADMIN_PATH"] = admin_path
+    app.register_blueprint(admin, url_prefix=admin_path)
     app.jinja_env.globals["csrf_token"] = auth.csrf_token
 
     @app.after_request
@@ -53,7 +56,7 @@ def create_app(test_config=None):
 
 
 # ---------------------------------------------------------------- admin UI
-admin = Blueprint("admin", __name__, url_prefix="/_")
+admin = Blueprint("admin", __name__)
 admin.before_request(auth.load_user)
 
 SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
@@ -97,6 +100,8 @@ def create_link():
                 raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).")
         for _ in range(10):
             candidate = resolve.validate_slug(slug) if slug else _random_slug()
+            if candidate == current_app.config["ADMIN_PATH"].strip("/").split("/")[0]:
+                raise resolve.ValidationError(f"'{candidate}' is reserved for the admin UI.")
             try:
                 conn.execute(
                     "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",

@@ -3,7 +3,7 @@ access_control:
   default_policy: deny
   rules:
     - domain: s.example.com
-      resources: ['^/_(/.*)?$']
+      resources: ['^/admin(/.*)?$']
       policy: one_factor
       subject: ['group:dero-users', 'group:dero-admins']
 

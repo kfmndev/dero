@@ -1,6 +1,6 @@
-# Only /_/* (the admin UI) goes through Authelia. Short links stay public.
+# Only /admin/* (the admin UI) goes through Authelia. Short links stay public.
 s.example.com {
-	@admin path /_ /_/*
+	@admin path /admin /admin/*
 	handle @admin {
 		forward_auth authelia:9091 {
 			uri /api/authz/forward-auth
