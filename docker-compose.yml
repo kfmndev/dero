@@ -3,8 +3,8 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      SECRET_KEY: ${SECRET_KEY:?generate with: openssl rand -hex 32}
-      PROXY_SECRET: ${PROXY_SECRET:?generate with: openssl rand -hex 32}
+      SECRET_KEY: "${SECRET_KEY:?generate one with openssl rand -hex 32}"
+      PROXY_SECRET: "${PROXY_SECRET:?generate one with openssl rand -hex 32}"
       FALLBACK_URL: ${FALLBACK_URL:-}   # e.g. https://kfmn.it/rickroll (editable later in the UI)
     volumes:
       - dero-data:/data
