@@ -10,3 +10,7 @@ select = ["E", "W", "F", "I", "D1"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]            # test names describe the tests
 "dero/admin/__init__.py" = ["E402", "F401"]   # the route modules are imported last, on purpose
+
+[tool.pyrefly]
+# the app is checked; the tests are left out for now
+project-includes = ["dero"]
