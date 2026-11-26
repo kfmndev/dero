@@ -1,3 +1,32 @@
+[project]
+name = "dero"
+description = "A privacy-first, self-hosted URL shortener"
+requires-python = ">=3.13"
+license = "AGPL-3.0-or-later"
+# keep in step with VERSION in dero/version.py (the release workflow checks both against the tag)
+version = "0.1.0"
+# what the app imports itself; the rest (Jinja2, click, blinker) comes along with Flask. uv.lock pins every version.
+dependencies = [
+    "Flask>=3.1.3",
+    "gunicorn>=27.0.1",
+    "itsdangerous>=2.2.0",
+    "MarkupSafe>=3.0.4",
+    "regex>=2026.11.23",
+    "Werkzeug>=3.1.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+    "pyrefly>=1.5.0",
+    "types-regex>=2026.11.19.20261122",
+]
+
+[tool.uv]
+# an application, not a library: nothing gets built or installed, only its dependencies
+package = false
+
 [tool.ruff]
 line-length = 120
 target-version = "py313"

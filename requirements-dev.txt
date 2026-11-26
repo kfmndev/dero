@@ -1,5 +1,0 @@
--r requirements.txt
-pytest==9.2.0
-ruff==0.17.6
-pyrefly==1.5.0
-types-regex==2026.11.19.20261122

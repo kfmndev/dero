@@ -1,8 +1,10 @@
 FROM python:3.13-slim
-ENV PYTHONUNBUFFERED=1 DATABASE=/data/dero.db USERS_FILE=/data/users.txt
+# uv installs exactly what uv.lock says; the digest pins the image, Dependabot updates both
+COPY --from=ghcr.io/astral-sh/uv:0.13.10@sha256:a3ea1357342c1a4bf9a0c53a3deb1b55379aefa037338d8113d5771efa01774f /uv /usr/local/bin/uv
+ENV PYTHONUNBUFFERED=1 DATABASE=/data/dero.db USERS_FILE=/data/users.txt UV_LINK_MODE=copy PATH="/app/.venv/bin:$PATH"
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev
 # Shown in the page footer (no .git folder in the image): --build-arg DERO_COMMIT=$(git rev-parse HEAD)
 ARG DERO_COMMIT=
 ENV DERO_COMMIT=$DERO_COMMIT

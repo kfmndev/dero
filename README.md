@@ -121,9 +121,8 @@ Captured text is URL-encoded before it is placed into the target.
 ## 🛠️ Development
 
 ```sh
-python -m venv .venv
-.venv/bin/pip install -r requirements.txt pytest
-.venv/bin/pytest
+uv sync          # exact versions from uv.lock, dev tools included
+uv run pytest
 ```
 
 ## 📖 Project guidelines

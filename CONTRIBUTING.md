@@ -3,10 +3,12 @@
 ## Setup
 
 ```sh
-python -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt   # the app, pytest, Ruff and Pyrefly
-.venv/bin/pytest
+uv sync            # creates .venv with the exact versions in uv.lock: the app, pytest, Ruff and Pyrefly
+uv run pytest
 ```
+
+[uv](https://docs.astral.sh/uv/) manages the dependencies. They are declared in `pyproject.toml` and pinned in
+`uv.lock`; change them with `uv add <package>` / `uv add --dev <package>` or `uv lock --upgrade`, and commit both files.
 
 ## Commit messages
 
@@ -75,15 +77,15 @@ between inline elements the template uses `{{-` or `{%-` so no stray space appea
 
 **CI**: `.github/workflows/ci.yml` runs the Ruff, Pyrefly and Biome checks and the tests on every push to `main`
 and on pull requests. The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
-request weekly when one has a newer release. It also watches the git-cliff version in
-`.github/requirements-release.txt`.
+request weekly when one has a newer release. It also watches the dependencies (`uv.lock`), the base
+images in the Dockerfile and the git-cliff version in `.github/requirements-release.txt`.
 
 **Docker image**: `.github/workflows/docker.yml` builds the image on every pull request (nothing is pushed) and publishes
 it to `ghcr.io/kfmndev/dero` from `main` (`:edge`) and from release tags (`v1.2.3` becomes `:1.2.3`, `:1.2`, `:latest`).
 The compose files for running it are in `deploy/`.
 
-**Releases**: raise `VERSION` in `dero/version.py`, commit, then push a tag `vX.Y.Z` on that commit.
-`.github/workflows/release.yml` fails if the tag and `VERSION` differ, and otherwise creates the GitHub release with notes
+**Releases**: raise `VERSION` in `dero/version.py` and `version` in `pyproject.toml`, commit, then push a tag `vX.Y.Z` on that commit.
+`.github/workflows/release.yml` fails if the tag and the two versions differ, and otherwise creates the GitHub release with notes
 grouped by commit type (`cliff.toml`; preview them with `git cliff --unreleased`). A tag with a hyphen (`v0.2.0-rc1`)
 is marked as a pre-release.
 
