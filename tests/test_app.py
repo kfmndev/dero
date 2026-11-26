@@ -697,7 +697,7 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert f"abc updated · expires {day}" in link_note(client, link_id, html) and 'class="form-ok"' in notice_box(
+    assert f"slug abc updated · expires {day}" in link_note(client, link_id, html) and 'class="form-ok"' in notice_box(
         html, f"link-{link_id}"
     )
     assert 'id="flashes"' not in html and 'class="flash' not in html
@@ -1091,13 +1091,13 @@ def test_update_messages_name_the_short_link_and_what_changed(client, app):
         return link_note(client, lid)
 
     edit(client, app, "abc", target="https://example.com/new")
-    assert note() == "abc updated · new target https://example.com/new"
+    assert note() == "slug abc updated · new target https://example.com/new"
     edit(client, app, "abc", expires_at="2099-01-01")
-    assert note() == "abc updated · expires 2099-01-01"
+    assert note() == "slug abc updated · expires 2099-01-01"
     edit(client, app, "abc", expires_at="")
-    assert note() == "abc updated · no expiry"
+    assert note() == "slug abc updated · no expiry"
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
-    assert note() == "xyz updated · new slug · new target https://example.com/x · expires 2098-02-02"
+    assert note() == "slug xyz updated · new slug · new target https://example.com/x · expires 2098-02-02"
     edit(client, app, "xyz")
     assert note() == "xyz is up to date"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
@@ -1970,7 +1970,7 @@ def test_enabling_and_disabling_a_link_is_announced(client):
         assert r.status_code == 302
         html = client.get("/admin/", headers=USER).get_data(as_text=True)
         notice = html[html.index('id="links-notices"') :]
-        assert f"</code> {word}</span>" in notice[: notice.index("</div>")] and 'class="form-ok"' in notice
+        assert f"slug <code class=\"slug\">abc</code> {word}</span>" in notice[: notice.index("</div>")] and 'class="form-ok"' in notice
     assert 'class="form-ok"' not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".form-ok")["color"] == "var(--q-status)"

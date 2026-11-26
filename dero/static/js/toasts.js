@@ -24,7 +24,7 @@
     toast.classList.add("leaving");
     const gone = () => toast.remove();
     toast.addEventListener("animationend", gone, { once: true });
-    setTimeout(gone, 400); // in case the animation does not run (reduced motion)
+    setTimeout(gone, 250); // in case the animation does not run (reduced motion)
   }
 
   function show(notice) {
