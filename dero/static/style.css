@@ -1142,8 +1142,9 @@ option {
 }
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
+/* the text of a slug is centred in its box by the box (flex), not by a line height */
 code.slug {
-  display: inline-flex; /* the text is centred in its box by the box, not by a line height */
+  display: inline-flex;
   align-items: center;
   line-height: normal;
   font-size: var(--slug-size);
