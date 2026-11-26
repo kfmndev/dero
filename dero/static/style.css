@@ -1437,8 +1437,8 @@ time.localtime {
 /* and / or / && / || are outlined like a chip, without its background, with the same padding as the terms,
    so the space is the same on both sides */
 .q-op {
-  padding: 1px 12px 1px 5px;
-  margin: 0 -12px 0 -5px;
+  padding: 1px 10px 1px 3px;
+  margin: 0 -10px 0 -3px;
   border-radius: 4px;
   background: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
@@ -1696,11 +1696,12 @@ th.col-target {
   --q-slug: #fb923c;
   --q-target: #22d3ee;
 }
-/* the x lives in the right padding; the negative margins keep the text where the input has it */
+/* the x lives in the right padding; the negative margins are exactly the paddings, so the text of the chip stays where
+   the (transparent) text of the input has it: any other margin shifts every following term a little more */
 .q-term {
   --c: var(--accent-ink);
-  padding: 1px 12px 1px 5px;
-  margin: 0 -12px 0 -5px;
+  padding: 1px 10px 1px 3px;
+  margin: 0 -10px 0 -3px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--c) 13%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);

@@ -68,7 +68,7 @@
     highlight.querySelectorAll(".q-term, .q-group, .q-op").forEach((el) => {
       if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
       if (!el.classList.contains("q-group") && el.closest(".q-group")) return; // a group is removed as a whole
-      const x = el.getBoundingClientRect().right - base.left;
+      const x = el.getBoundingClientRect().right - base.left - field.clientLeft; // (the layer starts inside the border)
       if (x < 6 || x > base.width - 6) return; // scrolled out of view
       const label = input.value.slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
       const button = document.createElement("button");
@@ -80,7 +80,10 @@
       button.dataset.from = el.dataset.from;
       button.dataset.to = el.dataset.to;
       if (el.classList.contains("q-op")) button.dataset.kind = "operator";
-      button.style.left = `${x - 11}px`; // inside the chip's right padding, a little after the text
+      // a chip's x sits in the middle of its right padding (the space after the text, still inside the chip); a group
+      // has no padding: its x stays just before the closing parenthesis
+      const padding = el.classList.contains("q-group") ? 0 : Number.parseFloat(getComputedStyle(el).paddingRight);
+      button.style.left = `${padding ? x - padding / 2 - 5 : x - 10}px`; // (the x is 10px wide)
       button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`; // an icon sits exactly in the middle
       removers.append(button);
     });
