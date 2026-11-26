@@ -775,7 +775,8 @@ def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(
 # ---------------------------------------------------------------- slug generator
 import string
 
-from dero import ALPHABETS, highlight_slug
+from dero.display import highlight_slug
+from dero.forms import ALPHABETS
 
 
 def created_slug(client, headers=USER, **data):
@@ -1129,8 +1130,8 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
 
 # ---------------------------------------------------------------- generator: repeats are weights, URL-safe characters only
 def test_a_repeated_character_is_more_likely():
-    from dero import _random_slug
-    sample = "".join(_random_slug("aaab", 20) for _ in range(300))                    # 6000 characters, "a" three times as likely as "b"
+    from dero.forms import random_slug
+    sample = "".join(random_slug("aaab", 20) for _ in range(300))                    # 6000 characters, "a" three times as likely as "b"
     share = sample.count("a") / len(sample)
     assert 0.70 < share < 0.80, share
 
