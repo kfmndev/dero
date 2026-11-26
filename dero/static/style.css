@@ -2239,10 +2239,11 @@ td > .cell:has(> .badge) {
   align-items: center;
   gap: 0.375rem;
   font-size: 0.8125rem;
+  line-height: 1.3;
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
-  padding: 0.3125rem 0.375rem 0.3125rem 0.6875rem;
+  padding: 0.5rem 0.625rem; /* the same room on every side of the content (the x has less around it, see below) */
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 0.5rem;
   background: var(--card);
@@ -2257,7 +2258,13 @@ td > .cell:has(> .badge) {
 }
 .toast-close {
   flex: 0 0 auto;
-  margin-left: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin: 0;
+} /* just the x itself: no padding of its own, so the edge of the toast is as far from it as from the text */
+.toast-close .icon {
+  width: 0.75rem;
+  height: 0.75rem;
 }
 @keyframes toast-in {
   from {

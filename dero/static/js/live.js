@@ -55,7 +55,10 @@
     word.className = "live-word";
     word.textContent = "Live";
     const rest = document.createElement("span");
-    setRich(rest, `‹${names[0]}›${names.length > 1 ? ` and ${names.length - 1} more` : ""} visited`);
+    setRich(
+      rest,
+      `· ${names.length > 1 ? "Links" : "Link"} ‹${names[0]}›${names.length > 1 ? ` and ${names.length - 1} more` : ""} visited`,
+    );
     message.append(word, rest);
     toast("live", message, { key: "live" });
   }
