@@ -31,13 +31,14 @@ Examples: `feat(rules): add regex match type`, `fix: reject javascript: targets`
 
 ## Code style
 
-Python is formatted with [black](https://black.readthedocs.io/) at 120 columns (the setting lives in
-`pyproject.toml`) and checked with flake8 (`.flake8`). Before committing:
+Python is formatted and checked with [Ruff](https://docs.astral.sh/ruff/) at 120 columns (settings in
+`pyproject.toml`; it formats like black and also sorts imports). Before committing:
 
 ```bash
-pip install black flake8
-black dero tests
-flake8 dero tests
+pip install -r requirements-dev.txt
+ruff format dero tests
+ruff check dero tests
+pytest
 ```
 
 Blank lines structure a function: one before an `if`, `for`, `try` or `with` that follows other statements, and

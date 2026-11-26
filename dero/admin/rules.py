@@ -31,7 +31,7 @@ def create_rule():
             raise resolve.ValidationError("Priority must be a number.")
         conn = db.get_db()
         conn.execute(
-            "INSERT INTO rules(pattern, match_type, target, priority, created_by, created_at) " "VALUES(?,?,?,?,?,?)",
+            "INSERT INTO rules(pattern, match_type, target, priority, created_by, created_at) VALUES(?,?,?,?,?,?)",
             (pattern, mtype, target, priority, g.user["username"], db.now_iso()),
         )
         conn.commit()

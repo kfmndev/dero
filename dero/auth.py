@@ -11,7 +11,6 @@ from functools import wraps
 
 from flask import Response, abort, current_app, g, request
 from itsdangerous import BadData, URLSafeTimedSerializer
-
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .db import get_db, now_iso

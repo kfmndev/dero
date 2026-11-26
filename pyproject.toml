@@ -1,3 +1,12 @@
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ["py313"]
+target-version = "py313"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import order
+select = ["E", "W", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]            # test names describe the tests
+"dero/admin/__init__.py" = ["E402", "F401"]   # the route modules are imported last, on purpose

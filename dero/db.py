@@ -42,7 +42,7 @@ def get_setting(key: str, default: str = "") -> str:
 def set_setting(key: str, value: str):
     db = get_db()
     db.execute(
-        "INSERT INTO settings(key, value) VALUES(?, ?) " "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        "INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
     db.commit()

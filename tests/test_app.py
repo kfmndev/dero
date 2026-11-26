@@ -10,7 +10,8 @@ from dero import create_app
 from dero.db import get_db
 from dero.display import highlight_slug
 from dero.forms import ALPHABETS, random_slug
-from dero.passwd import main as passwd_main, make_line
+from dero.passwd import main as passwd_main
+from dero.passwd import make_line
 
 USER = {"Remote-User": "alice", "Remote-Groups": "dero-users"}
 USER2 = {"Remote-User": "bob", "Remote-Groups": "dero-users"}
@@ -86,7 +87,6 @@ def test_create_and_redirect_counts_visits(client, app):
     client.get("/abc")
     client.get("/abc/")
     with app.app_context():
-
         row = get_db().execute("SELECT visits, created_by FROM links WHERE slug='abc'").fetchone()
         assert (row["visits"], row["created_by"]) == (3, "alice")
 
@@ -1256,9 +1256,9 @@ def test_slugs_may_use_any_character_a_url_does_not_need_to_escape(client, app):
         assert r.status_code == 400, bad
     for dots in (".", "..", "....."):
         r = post(client, "/admin/links", USER, target="https://example.com/t", slug_source="slug", slug=dots)
-        assert r.status_code == 400 and "can&#39;t be just dots" in r.get_data(
-            as_text=True
-        ), dots  # browsers fold "/." and "/.." away
+        assert r.status_code == 400 and "can&#39;t be just dots" in r.get_data(as_text=True), (
+            dots
+        )  # browsers fold "/." and "/.." away
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert (
         html.count('pattern="[A-Za-z0-9._~\\-]{1,64}"') == html.count('name="slug"') >= 2

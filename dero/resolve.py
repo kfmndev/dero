@@ -86,7 +86,7 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
 
     if any(n < 1 or n > compiled.groups for n in indices):
         raise ValidationError(
-            f"Target uses a placeholder the pattern doesn't capture " f"(pattern has {compiled.groups} group(s))."
+            f"Target uses a placeholder the pattern doesn't capture (pattern has {compiled.groups} group(s))."
         )
     validate_url(PLACEHOLDER_RE.sub("x", target))
 
@@ -114,7 +114,7 @@ def resolve(path: str):
     path = path.strip("/")
 
     link = db.execute(
-        "SELECT id, target FROM links WHERE slug = ? AND enabled = 1 " "AND (expires_at IS NULL OR expires_at > ?)",
+        "SELECT id, target FROM links WHERE slug = ? AND enabled = 1 AND (expires_at IS NULL OR expires_at > ?)",
         (path, now_iso()),
     ).fetchone()
 
