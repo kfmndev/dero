@@ -49,6 +49,8 @@
           <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom</option>
         </select>
       </div>
+      <button type="button" class="btn" id="new-link-generate" data-when-source="default letters chars"
+        title="Draw a slug of this kind now, then create it or edit it">{{ icon('refresh') }}Generate</button>
       <label class="nl-chars" data-when-source="chars">Characters
         <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}"
           placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
@@ -59,8 +61,6 @@
           min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
           autofocus{% endif %}>
       </label>
-      <button type="button" class="btn" id="new-link-generate" data-when-source="default letters chars"
-        title="Draw a slug of this kind now, then create it or edit it">{{ icon('refresh') }}Generate</button>
     </div>
     <div class="nl-row nl-slug">
       <div class="field grow">
