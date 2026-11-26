@@ -80,6 +80,7 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | `!status=expired` · `status!=expired` | negation |
 | `a and b` · `a && b` · `a or b` · `a \|\| b` · `( )` | explicit operators and grouping (*and* binds tighter than *or*) |
 | `created_by="Anna Maria"` | quotes for values with spaces |
+| a link that would clear the search or replace it | asks first ("Discard this search?"): the plain **Links** tab, or any link to the list with another query. Reset, the sort headers and links to other pages do not ask; the search stays in the browser's history, so Back brings it back. The setting **Ask before a link discards the search** turns it off |
 | `status=` · `slug>` | a key and operator with no value yet filter nothing (the list updates while you type); the term is drawn dashed |
 
 The key names are the dropdowns' names in snake case: `status`, `created_by`, `sort_by`. The older spellings `creator`, `owner`, `by`, `sortby`, `sort` and `order` still work.

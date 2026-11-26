@@ -250,6 +250,49 @@
     }
   }
 
+  // ---- a link that would discard the search asks first (the setting "Ask before a link discards the search")
+  // Only links to this list count: one with another query, or the plain list. Reset and the sort headers handle their
+  // own click, links to other pages leave the search in the browser's history (Back brings it back).
+  const leave = document.getElementById("leave-query");
+  const asksBeforeLeaving = () => {
+    try {
+      return localStorage.getItem("dero.leave") !== "0";
+    } catch {
+      return true;
+    }
+  };
+  function askToLeave(now, next) {
+    leave.querySelector("#leave-now").textContent = now;
+    leave.querySelector("#leave-effect").textContent = next ? "will be replaced by" : "will be cleared.";
+    const replacement = leave.querySelector("#leave-next");
+    replacement.hidden = !next;
+    replacement.textContent = next;
+    return new Promise((resolve) => {
+      leave.addEventListener("close", () => resolve(leave.returnValue === "discard"), { once: true });
+      leave.returnValue = "keep";
+      leave.showModal();
+    });
+  }
+  if (leave && typeof leave.showModal === "function") {
+    leave.addEventListener("click", (event) => {
+      if (event.target === leave) leave.close("keep");
+    }); // a click outside keeps the search
+    document.addEventListener("click", (event) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      const link = event.target.closest("a[href]");
+      const now = input.value.trim();
+      if (!link || !now || link.target === "_blank" || link.hasAttribute("download") || !asksBeforeLeaving()) return;
+      const to = new URL(link.href, location.href);
+      if (to.origin !== location.origin || to.pathname !== new URL(form.action).pathname) return;
+      const next = (to.searchParams.get("q") || "").trim();
+      if (next === now) return;
+      event.preventDefault();
+      askToLeave(now, next).then((discard) => {
+        if (discard) location.href = link.href;
+      });
+    });
+  }
+
   // A parenthesis (or an operator next to one) typed against a term gets a space on each side, so the chips and
   // their x never run into it. Only while typing or pasting: deleting a space must stay possible.
   function spaceOut() {

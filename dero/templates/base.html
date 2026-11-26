@@ -95,6 +95,17 @@
               (status=active,disabled,expired, sort_by=-created). Off: terms that change nothing are left out.</span>
       </div>
     </div>
+    <div class="setting">
+      <label class="switch small">
+        <input type="checkbox" role="switch" id="leave-switch" aria-labelledby="leave-name" checked>
+        <span class="track"></span>
+      </label>
+      <div>
+        <strong id="leave-name">Ask before a link discards the search</strong>
+        <span>A link that would clear the search or replace it with another asks first.
+              (Leaving for another page keeps it: the browser's Back button brings it back.)</span>
+      </div>
+    </div>
     <p class="setting-note">Saved in this browser.</p>
   </form>
 </dialog>

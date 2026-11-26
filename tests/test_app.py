@@ -1516,6 +1516,7 @@ def test_generate_button_and_settings_dialog(client):
         and "Explicit search terms" in dialog
         and "checked" not in dialog.split('id="explicit-switch"')[1].split("</label>")[0]
     )  # off by default: terms that change nothing are left out
+    assert 'id="leave-switch"' in dialog and re.search(r'id="leave-switch"[^>]*checked', dialog)  # on by default
     js = js_source(client)
     assert "function randomSlug" in js and "settings-open" in js
 
@@ -1556,6 +1557,9 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    # a link that would clear the search or replace it asks first (a setting, on by default)
+    assert 'localStorage.getItem("dero.leave") !== "0"' in js and "askToLeave(now, next)" in js
+    assert "to.pathname !== new URL(form.action).pathname" in js and "if (next === now) return;" in js
     # a reload keeps the query: the address is set before the request (not after the answer), and what was typed in
     # the last moments is kept in the browser for a reload
     assert "const syncAddress = (q) =>" in js and "syncAddress(q);" in js and "history.replaceState(null" in js
@@ -1600,6 +1604,20 @@ def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
     assert not warned("/admin/?q=sort_by%3D%2Bvisits")  # an encoded plus is fine
     assert not warned("/admin/?q=a+b") and not warned("/admin/?q=status%3Dactive+slug%3Dabc")  # plus as a space
     assert not warned("/admin/") and not warned("/admin/?other=sort_by=+visits")
+
+
+def test_the_leave_dialog_is_on_the_list_page(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    dialog = html[
+        html.index('<dialog id="leave-query"') : html.index("</dialog>", html.index('<dialog id="leave-query"'))
+    ]
+    assert (
+        "Discard this search?" in dialog
+        and 'value="discard"' in dialog
+        and 'value="keep" class="btn" autofocus' in dialog
+    )
+    assert 'id="leave-now"' in dialog and 'id="leave-next"' in dialog and 'id="leave-effect"' in dialog
+    assert "leave-query" not in client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)  # no list, no search
 
 
 def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):

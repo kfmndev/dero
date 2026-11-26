@@ -996,6 +996,15 @@ dialog p {
   gap: 10px;
   justify-content: flex-start;
 }
+#leave-query {
+  min-width: min(24rem, 92vw);
+  max-width: min(36rem, 92vw);
+}
+#leave-text {
+  margin: 0 0 16px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
 .btn.solid-danger {
   background: var(--err);
   border-color: var(--err);

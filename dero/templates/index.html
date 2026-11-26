@@ -320,4 +320,17 @@
   </p>
   </div>
 </section>
+<dialog id="leave-query" aria-labelledby="leave-title" aria-describedby="leave-text">
+  <form method="dialog">
+    <h2 id="leave-title">Discard this search?</h2>
+    <p id="leave-text">
+      <code class="url mono" id="leave-now"></code> <span id="leave-effect"></span>
+      <code class="url mono" id="leave-next" hidden></code>
+    </p>
+    <div class="dialog-actions">
+      <button type="submit" value="discard" class="btn primary">{{ icon('x') }}Discard</button>
+      <button type="submit" value="keep" class="btn" autofocus>{{ icon('check') }}Keep</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
