@@ -1,14 +1,16 @@
 import json
+import re
 import os
 import secrets
 import sqlite3
+import time
 from datetime import datetime
 from itertools import groupby
 from urllib.parse import urlsplit
 
 from markupsafe import Markup, escape
 
-from flask import Flask, abort, current_app, jsonify, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
+from flask import Flask, abort, current_app, jsonify, flash, g, make_response, redirect, render_template, request, url_for, Blueprint, Response
 
 from . import auth, db, query, resolve
 from .version import build_info
@@ -43,12 +45,23 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
     return Markup("").join(out)
 
 
+def slug_box(slug: str) -> Markup:
+    """A slug as it is shown everywhere: in its code box, coloured, cut after SLUG_SHOWN characters (full slug on hover)."""
+    title = Markup(f' title="{escape(slug)}"') if len(slug) > SLUG_SHOWN else Markup("")
+    return Markup('<code class="slug"') + title + Markup(">") + highlight_slug(slug, SLUG_SHOWN) + Markup("</code>")
+
+
 def highlight_url(url: str) -> Markup:
-    """A short link with only its slug coloured (the base address stays plain)."""
+    """A short link: the base address in the normal font, the slug in its box."""
     base = _base_url()
     if url.startswith(base) and len(url) > len(base):
-        return escape(base) + highlight_slug(url[len(base):], SLUG_SHOWN)
+        return Markup('<span class="base">') + escape(base) + Markup("</span>") + slug_box(url[len(base):])
     return escape(url)
+
+
+def rich(text: str) -> Markup:
+    """A message with ‹slugs› marked: those parts are shown as slugs (a slug can't contain these marks)."""
+    return Markup(re.sub(r"‹([^›]*)›", lambda m: str(slug_box(m.group(1))), str(escape(text))))
 
 
 def _normalise_base_url(value: str) -> str:
@@ -113,6 +126,8 @@ def create_app(test_config=None):
     app.add_template_filter(highlight_slug, "hl_slug")
     app.jinja_env.globals["SLUG_SHOWN"] = SLUG_SHOWN
     app.add_template_filter(highlight_url, "hl_url")
+    app.add_template_filter(slug_box, "slug_box")
+    app.add_template_filter(rich, "rich")
     app.add_template_filter(json.loads, "fromjson")
 
     @app.after_request
@@ -176,7 +191,7 @@ def _slug_plan(f):
             raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
         _validated("slug", resolve.validate_slug, slug)
         if slug in _reserved_slugs():
-            raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
         return "custom", slug
 
     if source == "chars":
@@ -239,7 +254,7 @@ def _visible_columns() -> list:
     if raw is None:
         return list(DEFAULT_COLUMNS)
     wanted = set(raw.split(","))
-    return [key for key, _ in COLUMNS if key in wanted]
+    return [key for key, _ in COLUMNS if key in wanted] or list(DEFAULT_COLUMNS)     # never an empty table
 
 
 def _effective_query(args, is_admin: bool) -> str:
@@ -379,7 +394,7 @@ def create_link():
                 return redirect(url_for("admin.index"))
             except sqlite3.IntegrityError:
                 if kind == "custom":
-                    raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
+                    raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
         raise resolve.ValidationError("No free slug found. Use a longer length or a bigger alphabet.", "length")
     except resolve.ValidationError as exc:
         # Show the form again with everything the user typed, and the error inside it.
@@ -419,6 +434,55 @@ def lookup_target():
     return resp
 
 
+@admin.get("/links/visits/stream")
+def visit_stream():
+    """Server-sent events for "Live visits": `visit` when a counter of a link the user may see went up, `refresh` when
+    links were created or deleted. Only counters are read, no visit is recorded. Every open stream holds one worker
+    thread (gunicorn runs threaded workers) and checks the database itself, so visits handled by any worker show up."""
+    own = None if g.user["is_admin"] else g.user["username"]
+    path = current_app.config["DATABASE"]
+    tick = float(current_app.config.get("LIVE_TICK", 1.0))
+    max_ticks = current_app.config.get("LIVE_MAX_TICKS")          # tests end the stream; normally it runs until the page leaves
+    where, args = ("", ()) if own is None else (" WHERE created_by = ?", (own,))
+
+    def events():
+        conn = sqlite3.connect(path, timeout=10)
+        try:
+            def fingerprint():                                     # one cheap aggregate: how many links, how many visits
+                return tuple(conn.execute(f"SELECT COUNT(*), COALESCE(SUM(visits), 0) FROM links{where}", args).fetchone())
+
+            def snapshot():
+                return {r[0]: (r[1], r[2]) for r in conn.execute(f"SELECT id, slug, visits FROM links{where}", args)}
+
+            seen, known = fingerprint(), snapshot()
+            yield "retry: 3000\n: ready\n\n"
+            ticks = quiet = 0
+            while max_ticks is None or ticks < max_ticks:
+                time.sleep(tick)
+                ticks += 1
+                now = fingerprint()
+                if now == seen:
+                    quiet += 1
+                    if quiet >= 10:                                # a comment now and then: proxies keep the stream open,
+                        quiet = 0                                  # and a page that left is noticed by the failing write
+                        yield ": keepalive\n\n"
+                    continue
+                quiet, seen = 0, now
+                latest = snapshot()
+                if set(latest) != set(known):
+                    yield "event: refresh\ndata: {}\n\n"
+                changed = [{"id": i, "slug": slug, "visits": visits, "delta": visits - known[i][1]}
+                           for i, (slug, visits) in latest.items() if i in known and visits > known[i][1]]
+                if changed:
+                    yield f"event: visit\ndata: {json.dumps(changed)}\n\n"
+                known = latest
+        finally:
+            conn.close()
+
+    return Response(events(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
 @admin.post("/links/<int:link_id>/update")
 def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
@@ -429,7 +493,7 @@ def update_link(link_id):
         slug = f.get("slug", "").strip()
         _validated("slug", resolve.validate_slug, slug)
         if slug != row["slug"] and slug in _reserved_slugs():
-            raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
         expires = _parse_expiry(f.get("expires_at", ""))
         conn = db.get_db()
         try:
@@ -437,7 +501,7 @@ def update_link(link_id):
                          (target, slug, expires, link_id))
             conn.commit()
         except sqlite3.IntegrityError:
-            raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
+            raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
     except resolve.ValidationError as exc:
         flash(str(exc), f"link:{link_id}:error")        # shown in that link's details, next to the fields
         return _back()

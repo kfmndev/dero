@@ -103,7 +103,7 @@ function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = fal
     const slug = form.elements.slug, s = slug.value.trim();
     if (!s && slugRequired) return [slug, "Enter a slug."];
     if (s && slugProblem(s)) return [slug, slugProblem(s)];
-    if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+    if (s && s !== savedSlug && reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
   }
   if (dateWhenOn && !expires.disabled && !expires.value) return [expires, "Pick the last day the link should work, or switch the expiry off."];
   return null;
@@ -115,7 +115,7 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
     const slug = form.elements.slug, s = slug.value.trim();
     if (!s) return [slug, "Enter a slug, or pick a random one."];
     if (slugProblem(s)) return [slug, slugProblem(s)];
-    if (reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+    if (reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
     return null;
   }
   if (source === "chars") {
@@ -135,6 +135,21 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
   return null;
 }
 
+// A slug as it is shown everywhere: in its box, coloured, cut after 20 characters.
+function slugBox(slug) {
+  const code = document.createElement("code");
+  code.className = "slug";
+  code.append(coloredSlug(slug.length > 20 ? slug.slice(0, 20) : slug));
+  if (slug.length > 20) { code.append("…"); code.title = slug; }
+  return code;
+}
+
+// Text in which ‹slugs› are marked becomes text with slug boxes.
+function setRich(element, text) {
+  element.replaceChildren();
+  text.split(/‹([^›]*)›/).forEach((part, i) => element.append(i % 2 ? slugBox(part) : part));
+}
+
 // Put a message into a card's .notices container (same markup the server renders).
 function showNotice(id, message, kind = "error") {          // kind: "error", "warn" or "ok"
   const box = document.getElementById(id);
@@ -145,7 +160,7 @@ function showNotice(id, message, kind = "error") {          // kind: "error", "w
   p.setAttribute("role", kind === "ok" ? "status" : "alert");
   p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${kind === "ok" ? "check" : "alert"}"/></svg>`;
   const span = document.createElement("span");
-  span.textContent = message;
+  setRich(span, message);
   p.append(span);
   box.replaceChildren(p);
 }
@@ -179,7 +194,7 @@ const joinList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(", ")
 function alreadyShortened(slugs, count) {
   if (!slugs.length) return "Target already shortened by someone else.";
   const shown = slugs.slice(0, 3), more = count - shown.length;
-  return `Target already shortened: ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
+  return `Target already shortened: ${shown.map((s) => `‹${s}›`).join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
 }
 
 function needsLookup(form) {
@@ -272,7 +287,7 @@ function forgetWarning(form) {
     const sprite = icon ? icon.getAttribute("href").split("#")[0] : "";
     box.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#alert"/></svg>`;
     const span = document.createElement("span");
-    span.textContent = message;
+    setRich(span, message);
     box.append(span);
   }
 
@@ -717,8 +732,17 @@ function removePart(text, from, to) {
   });
 
   // Columns are a view setting, not part of the query: remembered in a cookie so the server draws them.
+  // At least one column stays: the last one that is on can't be switched off (it is disabled until another is on).
+  const lockLastColumn = () => {
+    if (!columnsMenu) return;
+    const on = [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")];
+    columnsMenu.querySelectorAll("input[type=checkbox]").forEach((box) => (box.disabled = on.length === 1 && box.checked));
+  };
+  lockLastColumn();
   if (columnsMenu) {
-    columnsMenu.addEventListener("change", () => {
+    columnsMenu.addEventListener("change", (event) => {
+      if (!columnsMenu.querySelector("input[type=checkbox]:checked")) { event.target.checked = true; lockLastColumn(); return; }   // (keyboard or script)
+      lockLastColumn();
       const all = JSON.parse(columnsMenu.dataset.all || "[]");
       const chosen = [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value);
       const ordered = all.filter((key) => chosen.includes(key));
@@ -777,6 +801,7 @@ function removePart(text, from, to) {
     if (columnsMenu) {
       const all = JSON.parse(columnsMenu.dataset.all || "[]"), wanted = defaultColumns();
       columnsMenu.querySelectorAll("input[type=checkbox]").forEach((box) => (box.checked = wanted.includes(box.value)));
+      lockLastColumn();
       columnsMenu.querySelector(".multi-label").textContent = `${wanted.length} of ${all.length}`;
       document.cookie = `${columnsMenu.dataset.cookie}=${wanted.join(",")}; path=${columnsMenu.dataset.cookiePath || "/"}; max-age=31536000; SameSite=Lax`;
     }
@@ -790,6 +815,75 @@ function removePart(text, from, to) {
   });
 
   setQuery(input.value, { fetch: false });    // draw the first time
+
+  // ---- Live visits (an option in the settings): the server pushes a message when a counter goes up (server-sent
+  // events). The row of a visited slug lights up and its count is changed in place; the table is only fetched again
+  // when the order depends on the visits or links were created or deleted.
+  const LIVE_KEY = "dero.live";
+  let source = null, hiddenTimer = null, dropped = false;
+  const liveOn = () => { try { return localStorage.getItem(LIVE_KEY) === "1"; } catch { return false; } };
+  const sortsByVisits = () => /visits$/.test(deriveSort(parseQuery(input.value), lists.sortKeys) || "");
+
+  function flash(row) {
+    row.classList.remove("visited");
+    void row.offsetWidth;                                            // restart the animation
+    row.classList.add("visited");
+    setTimeout(() => row.classList.remove("visited"), 2600);
+  }
+
+  async function visited(changed) {
+    const names = changed.map((c) => c.slug);
+    if (sortsByVisits()) await update();
+    else {
+      let added = 0;
+      for (const c of changed) {
+        const row = document.querySelector(`#links-results tr.item[data-id="${c.id}"]`);
+        if (!row) continue;
+        row.dataset.visits = String(c.visits);
+        const cell = row.querySelector("td.col-visits");
+        if (cell) cell.textContent = String(c.visits);
+        added += c.delta;
+      }
+      const total = document.querySelector("#links-results tfoot td.num");
+      if (total && added) total.textContent = String(Number(total.textContent) + added);
+    }
+    for (const c of changed) {
+      const row = document.querySelector(`#links-results tr.item[data-id="${c.id}"]`);
+      if (row) flash(row);
+    }
+    indicator("done", `${names.length > 1 ? names.length + " slugs" : names[0]} visited`);
+  }
+
+  function openStream() {
+    if (source || typeof EventSource === "undefined") return;
+    source = new EventSource(form.dataset.liveUrl);
+    source.addEventListener("visit", (event) => visited(JSON.parse(event.data)));
+    source.addEventListener("refresh", () => update());
+    source.addEventListener("open", () => { if (dropped) { dropped = false; update(); } });   // after a gap: catch up
+    source.addEventListener("error", () => { dropped = true; });                              // the browser reconnects itself
+  }
+
+  function closeStream() {
+    if (source) source.close();
+    source = null;
+  }
+
+  function setLive(on) {
+    closeStream();
+    live.classList.toggle("is-live", on);
+    if (on) openStream();
+  }
+
+  // a tab nobody looks at gives its connection (a worker thread) back after a while
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(hiddenTimer);
+    if (!liveOn()) return;
+    if (document.visibilityState === "hidden") hiddenTimer = setTimeout(closeStream, 30000);
+    else if (!source) { openStream(); dropped = true; }
+  });
+
+  document.addEventListener("dero:live", () => setLive(liveOn()));
+  setLive(liveOn());
 })();
 
 // ---- Slug colouring: a stored user option (cookie dero_hl, read by the server; CSS reacts to html[data-hl]) ----
@@ -811,6 +905,14 @@ function coloredSlug(slug) {
   if (dialog && open && typeof dialog.showModal === "function") {
     open.addEventListener("click", () => dialog.showModal());
     dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });   // a click outside closes it
+  }
+  const liveSwitch = document.getElementById("live-switch");
+  if (liveSwitch) {
+    try { liveSwitch.checked = localStorage.getItem("dero.live") === "1"; } catch {}
+    liveSwitch.addEventListener("change", () => {
+      try { localStorage.setItem("dero.live", liveSwitch.checked ? "1" : "0"); } catch {}
+      document.dispatchEvent(new Event("dero:live"));
+    });
   }
   const toggle = document.getElementById("hl-switch");
   if (!toggle) return;

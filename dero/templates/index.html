@@ -2,7 +2,7 @@
 {% from "_macros.html" import icon, link_actions, notices, link_notices %}
 {% block content %}
 {% set slug_error = error_field in ('slug', 'slug_source', 'alphabet', 'alphabet_custom', 'length') %}
-{% set err_box %}<p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error }}</span>{% endif %}</p>{% endset %}
+{% set err_box %}<p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error|rich }}</span>{% endif %}</p>{% endset %}
 {% set host = base | replace("https://", "") | replace("http://", "") %}
 <section>
   <h2>New link</h2>
@@ -60,7 +60,7 @@
   </form>
   <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span>Created <span class="url mono">{{ message|hl_url }}</span>{{ link_actions(message, 'slug') }}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}<span>Created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
   {% endfor %}
   </div>
 </section>
@@ -69,7 +69,7 @@
   <h2>{{ 'All links' if g.user.is_admin else 'Your links' }}</h2>
   <p class="hint">Slugs are served from <code>{{ host.rstrip('/') }}</code>. Click a row for details.</p>
 
-  <form method="get" action="{{ url_for('admin.index') }}" class="filters" id="filters" role="search"
+  <form method="get" action="{{ url_for('admin.index') }}" class="filters" id="filters" role="search" data-live-url="{{ url_for('admin.visit_stream') }}"
         data-statuses="{{ statuses|map(attribute=0)|list|tojson|forceescape }}"
         data-sort-keys="{{ sort_keys|tojson|forceescape }}"
         data-sort-default-desc="{{ {'created': true, 'visits': true, 'slug': false, 'target': false, 'creator': false, 'expires': false}|tojson|forceescape }}">
@@ -118,7 +118,7 @@
       <details class="multi" id="filter-columns" data-default="{{ default_cols|join(',') }}" data-cookie="dero_cols" data-cookie-path="{{ admin_path }}" data-all="{{ column_choices|map(attribute=0)|list|tojson|forceescape }}">
         <summary aria-labelledby="columns-label"><span class="multi-label">{{ cols|length }} of {{ column_choices|length }}</span></summary>
         <div class="multi-panel multi-right" role="group" aria-labelledby="columns-label">
-          {% for value, label in column_choices %}<label><input type="checkbox" value="{{ value }}"{% if value in cols %} checked{% endif %}><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
+          {% for value, label in column_choices %}<label><input type="checkbox" value="{{ value }}"{% if value in cols %} checked{% endif %}{% if cols|length == 1 and value in cols %} disabled{% endif %}><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
         </div>
       </details>
     </div>
@@ -154,7 +154,7 @@
     <tbody>
     {% for l in links %}
       {% set expired = l.expires_at and l.expires_at <= now %}
-      <tr class="item {{ '' if l.enabled and not expired else 'off' }}">
+      <tr class="item {{ '' if l.enabled and not expired else 'off' }}" data-id="{{ l.id }}" data-visits="{{ l.visits }}">
         <td class="narrow lead">
           <button type="button" class="mini expand" aria-expanded="false" aria-controls="d{{ l.id }}" title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
         </td>
@@ -172,7 +172,7 @@
         {% for c in cols %}
         {% if c == 'slug' %}
         <td class="col-slug nowrap">
-          <code class="slug"{% if l.slug|length > SLUG_SHOWN %} title="{{ l.slug }}"{% endif %}>{{ l.slug|hl_slug(SLUG_SHOWN) }}</code>{{ link_actions(base ~ l.slug, 'slug') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}
+          {{ l.slug|slug_box }}{{ link_actions(base ~ l.slug, 'slug') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}
         </td>
         {% elif c == 'target' %}
         <td class="col-target target">

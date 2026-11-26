@@ -12,5 +12,6 @@ USER app
 VOLUME /data
 EXPOSE 8000
 # --preload: create the app (and the database) once in the master, not racing in every worker.
+# -k gthread --threads: every open "Live visits" stream (server-sent events) holds one thread, so workers need threads.
 # --no-control-socket: gunicorn 27 otherwise writes a socket to ~/.gunicorn, and the app user has no home dir.
-CMD ["gunicorn", "--preload", "--no-control-socket", "-w", "2", "-b", "0.0.0.0:8000", "dero:create_app()"]
+CMD ["gunicorn", "--preload", "--no-control-socket", "-k", "gthread", "-w", "2", "--threads", "16", "-b", "0.0.0.0:8000", "dero:create_app()"]

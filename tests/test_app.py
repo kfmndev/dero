@@ -156,7 +156,7 @@ def test_target_placeholder_is_escaped(client):
 
 def test_admin_slug_reserved(client):
     r = post(client, "/admin/links", USER, target="https://example.com", slug="admin")
-    assert r.status_code == 400 and "&#39;admin&#39; is reserved." in r.get_data(as_text=True)
+    assert r.status_code == 400 and '<code class="slug">admin</code> is reserved.' in r.get_data(as_text=True)
     assert client.get("/admin").status_code in (301, 308, 404)  # the UI, never a short link
 
 
@@ -312,7 +312,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     assert 'value="2031-05-06"' in html
     # the message is inside the "New link" card (before the "links" card), next to the offending field
     card = html[html.index("New link"):html.index("Slugs are served from")]
-    assert "Slug &#39;taken&#39; is already taken." in card and 'role="alert"' in card
+    assert 'Slug <code class="slug">taken</code> is already taken.' in card and 'role="alert"' in card
     assert re.search(r'name="slug"[^>]*aria-invalid="true"', html) and 'name="target"' in html
     assert not re.search(r'name="target"[^>]*aria-invalid', html)
     # ... and not in the page-level flash area
@@ -356,7 +356,7 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     r = post(c, "/admin/links", USER, target="https://example.com", slug="abc")
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
-    assert "<code>s.example.com</code>" in html and "Created <span class=\"url mono\">https://s.example.com/abc</span>" in html
+    assert "<code>s.example.com</code>" in html and "Created <span class=\"base\">https://s.example.com/</span><code class=\"slug\">abc</code>" in html
     assert "localhost" not in html
 
 
@@ -435,7 +435,7 @@ def test_every_link_has_open_then_copy(tmp_path):
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     # the "created" notification, the row, and the details panel
     notice = html[html.index('class="form-ok"'):html.index("</p>", html.index('class="form-ok"'))]
-    assert '<span class="url mono">https://s.example.com/abc</span>' in notice
+    assert '<span class="base">https://s.example.com/</span><code class="slug">abc</code>' in notice
     sections = {"notice": notice, "row": html[html.index('<tr class="item'):html.index('<tr class="detail"')],
                 "details": html[html.index('<tr class="detail"'):html.index("</tbody>")]}
     for name, part in sections.items():
@@ -650,7 +650,7 @@ def test_details_layout_buttons_and_edit_form(client):
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
     assert re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css   # no fixed grid
-    assert re.search(r"tr\.detail td \{[^}]*padding: 18px 24px 20px", css)                                                   # margins around the details
+    assert re.search(r"tr\.detail td \{[^}]*padding: 14px 24px 16px", css)                                                   # margins around the details
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function syncEdit" in js and "data-discard" in js and "function linkProblem" in js
 
@@ -894,7 +894,7 @@ def test_update_messages_name_the_short_link_and_what_changed(client, app):
     assert note() == "xyz is up to date"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
     edit(client, app, "xyz", slug="other")
-    assert note() == "Slug 'other' is already taken."                                                    # inline, so no link name needed
+    assert note() == "Slug other is already taken."                                                    # inline, so no link name needed
 
 
 # ---------------------------------------------------------------- "target already shortened" lookup
@@ -1074,10 +1074,6 @@ def test_columns_can_be_reduced_and_the_footer_follows(client):
     client.set_cookie("dero_cols", "target")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert table_columns(html) == ["col-target"] and "<tfoot>" not in html                      # no visits column, no total row
-    client.set_cookie("dero_cols", "")                                                          # "none" is allowed too
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert table_columns(html) == [] and '<span class="multi-label">0 of 6</span>' in html
-    assert 'colspan="2"' in html and 'class="slug"' not in html
     client.set_cookie("dero_cols", "creator,visits")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(r'<tfoot><tr><td colspan="3">Total visits</td><td class="num">0</td></tr></tfoot>', html)   # the total sits under Visits
@@ -1218,9 +1214,9 @@ def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
     assert f'value="{slug}"' in html                                          # the edit field holds all of it
     post(client, "/admin/links", USER, target="https://example.com/long2", slug="z" * 40)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    start = html.index('<span class="url mono">', html.index('id="new-link-notices"'))
-    created = html[start:html.index("</span>", start)]
-    assert "z" * 20 + "…" in created and "z" * 21 not in created             # the message after creating cuts it as well
+    start = html.index('<span class="base">', html.index('id="new-link-notices"'))
+    created = html[start:html.index("</code>", start)].rsplit(">", 1)[1]                  # the shown text (the full slug is in the title)
+    assert created == "z" * 20 + "…"             # the message after creating cuts it as well
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "code.style.transform" in js                                       # only the coloured box scrolls, the clip stays put
 
@@ -1245,3 +1241,78 @@ def test_custom_characters_errors_name_the_problem(client):
     assert "Characters: use at least 2 different ones." in error("aaaa")
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "can't be used. Allowed are letters, digits and - _ . ~" in js and "use at least 2 different ones." in js
+
+
+def test_slugs_look_the_same_in_every_message(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="a1-b")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    cell = html[html.index('<td class="col-slug'):html.index("</td>", html.index('<td class="col-slug'))]
+    assert '<code class="slug">a<span class="hl-digit">1</span><span class="hl-symbol">-</span>b</code>' in cell
+    r = post(client, "/admin/links", USER, target="https://example.com/b", slug="a1-b")                       # error text
+    assert '<code class="slug">a<span class="hl-digit">1</span><span class="hl-symbol">-</span>b</code> is already taken.' in r.get_data(as_text=True)
+    created = post(client, "/admin/links", USER, target="https://example.com/c", slug="c2.d")                 # created message
+    page = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'Created <span class="base">http://localhost/</span><code class="slug">c<span class="hl-digit">2</span><span class="hl-symbol">.</span>d</code>' in page
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function slugBox" in js and "function setRich" in js
+
+
+def stream_events(client, headers, trigger=None, ticks=4):
+    """Run the live stream for a few ticks; `trigger` runs after the first message and may cause visits."""
+    client.application.config.update(LIVE_TICK=0.02, LIVE_MAX_TICKS=ticks)
+    r = client.get("/admin/links/visits/stream", headers=headers, buffered=False)
+    assert r.mimetype == "text/event-stream" and r.headers["Cache-Control"] == "no-store" and r.headers["X-Accel-Buffering"] == "no"
+    chunks = []
+    for i, chunk in enumerate(r.response):
+        chunks.append(chunk.decode() if isinstance(chunk, bytes) else chunk)
+        if i == 0 and trigger:
+            trigger()
+    return "".join(chunks)
+
+
+def test_live_stream_pushes_visits_scoped_to_the_user(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="mine")
+    post(client, "/admin/links", USER2, target="https://example.com/b", slug="theirs")
+    body = stream_events(client, USER, lambda: [client.get("/mine"), client.get("/mine"), client.get("/theirs")])
+    assert body.startswith("retry: 3000") and "event: visit" in body
+    assert '"slug": "mine"' in body and '"visits": 2' in body and '"delta": 2' in body
+    assert "theirs" not in body                                                        # another user's links are not announced
+    admin_body = stream_events(client, ADMIN, lambda: client.get("/theirs"))
+    assert '"slug": "theirs"' in admin_body
+    quiet = stream_events(client, USER)
+    assert "event:" not in quiet                                                        # nothing happened, nothing is sent
+
+
+def test_live_stream_tells_the_page_when_links_come_or_go(client, app):
+    body = stream_events(client, USER, lambda: post(client, "/admin/links", USER, target="https://example.com/n", slug="new"))
+    assert "event: refresh" in body
+
+
+def test_live_option_markup(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'id="live-switch"' in html and "Live visits" in html and 'data-live-url="/admin/links/visits/stream"' in html
+    assert re.search(r'<tr class="item " data-id="\d+" data-visits="\d+">', html) if 'class="item' in html else True
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "new EventSource" in js and "dero:live" in js and "function poll" not in js
+    assert "tr.item.visited td" in client.get("/static/style.css").get_data(as_text=True)
+
+
+
+def test_at_least_one_column_stays(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    client.set_cookie("dero_cols", "")                                            # an empty choice falls back to the defaults
+    assert table_columns(client.get("/admin/", headers=USER).get_data(as_text=True)) == ["col-slug", "col-target", "col-visits"]
+    client.set_cookie("dero_cols", "target")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    menu = html[html.index('id="filter-columns"'):html.index('id="reset-filters"')]
+    assert re.search(r'value="target" checked disabled>', menu) and menu.count(" disabled>") == 1       # the only one on can't be turned off
+    assert "lockLastColumn" in client.get("/static/app.js").get_data(as_text=True)
+
+
+def test_detail_buttons_are_the_last_thing_in_the_details(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    detail = html[html.index('<tr class="detail"'):html.index("</tr>", html.index('<tr class="detail"'))]
+    assert detail.rindex("<dl") < detail.index('id="link-1-notices"') < detail.index('class="detail-actions"')   # fields, messages, then the buttons
+    assert detail.index("Update</button>") > detail.index('class="detail-actions"') and detail.count("<dt>") == 5
+    assert "details-top" not in detail

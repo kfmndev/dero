@@ -378,12 +378,12 @@ tr.off td:last-child { opacity: 1; }
 .hint + form { margin-top: 12px; }
 
 /* ---- dero: switch (enable/disable) ---- */
-.switch { position: relative; display: inline-block; width: 38px; height: 22px; margin: 0; vertical-align: middle; cursor: pointer; }
+.switch { position: relative; display: inline-block; width: 30px; height: 18px; margin: 0; vertical-align: middle; cursor: pointer; }
 .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
 .switch .track { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--field); transition: background-color .15s, border-color .15s; }
-.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .15s, background-color .15s; }
+.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s, background-color .15s; }
 .switch input:checked + .track { background: var(--accent-2); border-color: var(--accent-2); }
-.switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent-2); }
+.switch input:checked + .track::after { transform: translateX(12px); background: var(--on-accent-2); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .switch:hover .track { border-color: var(--accent-2-ink); }
 
@@ -429,9 +429,9 @@ td.narrow form { margin: 0; }
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
-tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: 18px 24px 20px; }
+tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: 14px 24px 16px; }
 tr.detail[hidden] { display: none; }
-.details { display: flex; flex-direction: column; gap: 16px; }
+.details { display: flex; flex-direction: column; gap: 12px; }
 .details-row { display: flex; flex-wrap: wrap; gap: 14px 36px; margin: 0; }
 .details-row > div { min-width: 0; }
 .details-row .grow-2 { flex: 2 1 22rem; }
@@ -450,7 +450,7 @@ input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var
 
 .target .cell { display: flex; align-items: center; }
 .target .truncate { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }   /* always the last thing in the details */
 .detail-actions form { margin: 0; }
 tr.detail .btn:not(.primary) { background: var(--card); }
 
@@ -549,10 +549,7 @@ code.slug { font-size: 13px; color: var(--text); }   /* the compact short link k
 .link-actions .mini { width: 18px; height: 18px; color: var(--muted); }
 .link-actions .mini:hover, .link-actions .mini.done { color: var(--accent-2-ink); }
 
-/* ---- dero: smaller switch ---- */
-.switch.small { width: 30px; height: 18px; }
-.switch.small .track::after { width: 12px; height: 12px; }
-.switch.small input:checked + .track::after { transform: translateX(12px); }
+/* ---- dero: there is one switch size, the small one ---- */
 input:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---- dero: brand ---- */
@@ -754,7 +751,7 @@ tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notice
 .slug-edit.hl-ready input.url-input::selection { color: var(--text); background: color-mix(in srgb, var(--accent) 30%, transparent); }
 
 /* ---- dero: settings dialog (opens from the user name) ---- */
-.setting { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 8px; }
+.setting { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
 .setting .switch { margin-top: 2px; flex: none; }
 .setting > div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .setting > div span { color: var(--muted); }
@@ -778,3 +775,14 @@ dialog p.setting-note { margin: 0; font-size: 12px; }
 .slug-hl { right: 0; }
 .slug-hl code.slug { flex: none; }
 .slug-edit { overflow: hidden; }
+
+.details .notices:empty { display: none; }
+.details .notices .form-ok, .details .notices .form-error, .details .notices .form-warn { margin: 0; }
+
+/* ---- dero: live visits: a visited row lights up for a moment ---- */
+@keyframes visited { from { background-color: color-mix(in srgb, var(--accent-2) 30%, transparent); } to { background-color: transparent; } }
+tr.item.visited td { animation: visited 2.4s ease-out; }
+tr.item.visited td.col-visits { font-weight: 700; color: var(--accent-2-ink); }
+@media (prefers-reduced-motion: reduce) { tr.item.visited td { animation: none; background-color: color-mix(in srgb, var(--accent-2) 14%, transparent); } }
+.live.is-live::before { content: ""; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent-2); align-self: center; }   /* a dot while Live visits is on */
+.multi-panel label:has(input:disabled) { opacity: .6; cursor: not-allowed; }   /* the last column that is on */
