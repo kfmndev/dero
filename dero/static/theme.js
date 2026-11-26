@@ -1,5 +1,5 @@
 // Theme: follows the browser's light/dark preference until the toggle is
-// clicked. The toggle switches to the other theme and remembers it; switching
+// clicked. The toggle (sun left, moon right) switches to the other theme and remembers it; switching
 // back to what the browser prefers forgets the override again.
 // Loaded in <head> so a saved choice applies before the page is drawn.
 (function () {
@@ -27,15 +27,9 @@
 
     const button = document.getElementById("theme-toggle");
     if (button) {
-      const next = current() === "dark" ? "light" : "dark";
-      // Show the icon of the theme a click switches to.
-      const use = button.querySelector("use");
-      if (use) {
-        const sprite = use.getAttribute("href").split("#")[0];
-        use.setAttribute("href", `${sprite}#${current() === "dark" ? "sun" : "moon"}`);
-      }
-      button.title = `Switch to ${next} mode`;
-      button.setAttribute("aria-label", button.title);
+      const dark = current() === "dark";
+      button.setAttribute("aria-checked", String(dark)); // the knob sits on the moon in dark mode
+      button.title = `Switch to ${dark ? "light" : "dark"} mode`;
     }
   }
 

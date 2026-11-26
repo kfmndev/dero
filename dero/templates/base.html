@@ -26,7 +26,8 @@
 <main>
   <header>
     <div class="brand"><h1>dero<span class="dot">.</span></h1><span class="tagline">URL Shortener</span></div>
-    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch theme">{{ icon('moon') }}</button>
+    <button type="button" class="theme-toggle" id="theme-toggle" role="switch" aria-checked="false"
+            aria-label="Dark mode">{{ icon('sun') }}{{ icon('moon') }}</button>
   </header>
 
   <nav class="topnav">
@@ -37,8 +38,7 @@
        {%- if request.endpoint == 'admin.rules' %} aria-current="page"{% endif %}>Rules &amp; fallback</a>
     {% endif %}
     <button type="button" class="who" id="settings-open" aria-haspopup="dialog" title="Settings">
-      {{ icon('sliders') }}<span>{{ g.user.username }}</span>
-      <span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span>{{ icon('chevron') }}
+      {{- g.user.username -}}
     </button>
   </nav>
 
@@ -61,6 +61,7 @@
   <form method="dialog">
     <button type="submit" class="mini dialog-close" aria-label="Close" title="Close">{{ icon('x') }}</button>
     <h2 id="settings-title">Settings</h2>
+    <p class="signed-in">Signed in as <strong>{{ g.user.username }}</strong> ({{ 'admin' if g.user.is_admin else 'user' }})</p>
     <div class="setting">
       <label class="switch small">
         <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %}

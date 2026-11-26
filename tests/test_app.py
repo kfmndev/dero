@@ -1511,6 +1511,16 @@ def test_generate_button_and_settings_dialog(client):
     assert "function randomSlug" in js and "settings-open" in js
 
 
+def test_header_has_a_plain_user_name_and_a_sun_moon_switch(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    who = re.search(r'<button type="button" class="who".*?</button>', html, re.S).group(0)
+    assert re.sub(r"<[^>]+>", "", who).strip() == "alice" and "<svg" not in who and "badge" not in who
+    toggle = re.search(r'<button[^>]*id="theme-toggle".*?</button>', html, re.S).group(0)
+    assert 'role="switch"' in toggle and 'aria-checked="false"' in toggle
+    assert toggle.index("#sun") < toggle.index("#moon")  # the sun on the left, the moon on the right
+    assert "Signed in as <strong>alice</strong> (user)" in html  # the role moved into the settings dialog
+
+
 def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
     slug = "abcdefghij-klmnopqrst-uvwxyz"  # 28 characters
     post(client, "/admin/links", USER, target="https://example.com/long", slug=slug)

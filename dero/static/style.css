@@ -229,33 +229,63 @@ h1 .dot {
   color: var(--accent);
 }
 
+/* A switch with the sun on the left and the moon on the right; the knob sits on the active one. */
 .theme-toggle {
+  position: relative;
   flex: none;
-  width: 36px;
-  height: 36px;
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
-  justify-content: center;
+  justify-items: center;
+  width: 64px;
+  height: 32px;
   padding: 0;
   line-height: 0;
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--card);
-  color: var(--text);
+  color: var(--muted);
   cursor: pointer;
 }
 
-/* A block-level icon with no baseline offset, so every browser centers it. */
+.theme-toggle::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3.5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: left 0.15s;
+}
+
+.theme-toggle[aria-checked="true"]::before {
+  left: calc(100% - 27.5px);
+}
+
+/* A block-level icon with no baseline offset, so every browser centers it; above the knob. */
 .theme-toggle .icon {
+  position: relative;
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   vertical-align: 0;
 }
 
-.theme-toggle:hover {
-  border-color: var(--accent-2-ink);
-  color: var(--accent-2-ink);
+.theme-toggle:not([aria-checked="true"]) .icon:first-child,
+.theme-toggle[aria-checked="true"] .icon:last-child {
+  color: var(--on-accent);
+}
+
+.theme-toggle:hover:not(:focus-visible) {
+  border-color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle::before {
+    transition: none;
+  }
 }
 
 /* ---- Forms ---- */
@@ -408,32 +438,16 @@ input[type="checkbox"] {
 }
 .topnav .who {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  padding: 4px 0;
+  border: 0;
   background: none;
   color: var(--muted);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
-.topnav .who:hover,
-.topnav .who:focus-visible {
-  border-color: var(--border);
+.topnav .who:hover {
   color: var(--text);
-}
-.topnav .who .icon {
-  width: 14px;
-  height: 14px;
-  vertical-align: 0;
-}
-.topnav .who .role {
-  margin-left: 4px;
-  font-family: var(--font-mono);
-  font-size: 12px;
 }
 
 /* ---- dero: cards, headings, forms ---- */
@@ -1885,6 +1899,11 @@ dialog p.setting-note {
 }
 #settings h2 {
   padding-right: 28px;
+}
+#settings .signed-in {
+  margin: -4px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
 }
 #settings {
   min-width: min(24rem, 92vw);
