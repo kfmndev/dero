@@ -788,33 +788,25 @@ th[aria-sort="ascending"] .arrow .icon {
   color: var(--accent-2-ink);
 }
 
-/* ---- dero: live filter indicator (like podutils) ---- */
-.live {
-  flex: 0 0 100%;
-  display: flex;
+/* ---- dero: the live visits switch, beside the Reset button ---- */
+.live-toggle {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  min-height: 18px;
-  margin: -4px 0 0;
+  gap: 8px;
+  padding: 0 4px;
   color: var(--muted);
-  font-size: 12px;
-  transition: color 0.15s;
+  font-size: 13px;
 }
-.live.updated {
+.live-toggle label[for] {
+  margin: 0;
+  cursor: pointer;
+}
+.live-toggle.is-live {
   color: var(--accent-2-ink);
-}
-.live.busy .icon {
-  animation: spin 0.8s linear infinite;
 }
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .live.busy .icon {
-    animation: none;
   }
 }
 
@@ -2131,15 +2123,7 @@ tr.item.visited td.col-visits {
     background-color: color-mix(in srgb, var(--accent-2) 14%, transparent);
   }
 }
-.live.is-live::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background: var(--accent-2);
-  align-self: center;
-} /* a dot while Live visits is on */
+
 .multi-panel label:has(input:disabled) {
   opacity: 0.6;
   cursor: not-allowed;
@@ -2253,5 +2237,26 @@ td > .cell:has(> .badge) {
   .toasts .toast,
   .toasts .toast.leaving {
     animation-duration: 0.01s;
+  }
+}
+
+/* the toast kinds: an error, a warning, and the pinned live toast in blue */
+.toasts .toast.form-live {
+  color: var(--accent-2-ink);
+}
+.toasts .toast.form-live .icon {
+  animation: spin 2.4s linear infinite;
+}
+.toasts .toast.bump {
+  animation: toast-bump 0.25s ease-out;
+}
+@keyframes toast-bump {
+  50% {
+    transform: scale(1.025);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toasts .toast.form-live .icon {
+    animation: none;
   }
 }

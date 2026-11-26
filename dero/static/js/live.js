@@ -1,8 +1,9 @@
 // ---- Live visits ----
 // Uses the search bar's pieces that filters.js hands over (window.deroFilters).
 (() => {
-  const { form, input, lists, live, update, indicator } = window.deroFilters || {};
+  const { form, input, lists, update } = window.deroFilters || {};
   if (!form) return;
+  const live = document.getElementById("live-toggle");
 
   // An option in the settings: the server pushes a message when a counter goes up (server-sent
   // events). The row of a visited slug lights up and its count is changed in place; the table is only fetched again
@@ -48,7 +49,11 @@
       const row = document.querySelector(`#links-results tr.item[data-id="${c.id}"]`);
       if (row) flash(row);
     }
-    indicator("done", `${names.length > 1 ? `${names.length} slugs` : names[0]} visited`);
+    // one pinned toast, always about the latest visit; it stays until its x is clicked
+    const first = names[0];
+    toast("live", `Live · ‹${first}›${names.length > 1 ? ` and ${names.length - 1} more` : ""} visited`, {
+      key: "live",
+    });
   }
 
   function openStream() {
@@ -76,6 +81,7 @@
     closeStream();
     live.classList.toggle("is-live", on);
     if (on) openStream();
+    else dismissToast("live", true);
   }
 
   // a tab nobody looks at gives its connection (a worker thread) back after a while

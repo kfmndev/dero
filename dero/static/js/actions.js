@@ -53,14 +53,10 @@ document.addEventListener("change", (event) => {
 
       if (isCreate) {
         // keep the typed values on an error, clear them on success
-        const box = document.getElementById("new-link-error"),
-          theirs = doc.getElementById("new-link-error");
-        if (box && theirs) {
-          box.innerHTML = theirs.innerHTML;
-          const rows = form.querySelectorAll(".nl-row"),
-            at = [...doc.querySelectorAll("#new-link .nl-row")].findIndex((r) => r.contains(theirs));
-          if (at >= 0 && rows[at] && box.parentElement !== rows[at]) rows[at].append(box);
-        }
+        const theirs = doc.getElementById("new-link-error");
+        if (theirs?.textContent.trim())
+          toast("error", theirs.querySelector("span")?.cloneNode(true) || theirs.textContent, { key: "new-link" });
+        else dismissToast("new-link");
         form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
         if (res.ok) {
           form.reset();
@@ -77,6 +73,7 @@ document.addEventListener("change", (event) => {
       }
 
       if (doc.querySelector(".notices .form-error")) return; // rejected: keep the form exactly as the user left it
+      if (form.classList.contains("edit-form")) dismissToast(`link-${form.id.slice(1)}-notices`, true); // fixed
 
       // refresh the list the user is looking at
       let view = doc;

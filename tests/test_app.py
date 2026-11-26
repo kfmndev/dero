@@ -451,7 +451,7 @@ def test_row_layout_copy_beside_link_delete_in_details(client):
         assert row.count(f'aria-label="Open {what}"') == 1 and row.count(f'aria-label="Copy {what}"') == 1
         assert row.index(f'aria-label="Open {what}"') < row.index(f'aria-label="Copy {what}"')
     assert "/delete" in detail and "</svg>Delete</button>" in detail
-    assert 'id="links-results"' in html and 'id="filter-live"' in html
+    assert 'id="links-results"' in html and 'id="live-toggle"' in html and 'id="filter-live"' not in html
 
 
 def test_an_already_expired_link_can_be_created(client):
@@ -1951,14 +1951,25 @@ def test_search_help_sits_below_the_search_bar_and_draws_its_examples_like_the_b
     assert css_rule(css, ".qhelp h4")["font-family"] == "var(--font-head)"
 
 
-def test_success_notices_become_toasts_and_errors_stay_by_their_field(client):
+def test_every_notice_is_a_toast(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert 'src="/static/js/toasts.js"' in html and html.index("toasts.js") < html.index("actions.js")
+    assert 'src="/static/js/toasts.js"' in html and html.index("toasts.js") < html.index("new-link.js")
     js = flat_js(js_source(client))
-    assert 'main.querySelectorAll(".notices .form-ok").forEach(show)' in js  # only successes move; errors stay
+    assert 'main.querySelectorAll(".notices > p").forEach' in js  # successes, warnings and errors all move
     assert "new MutationObserver(collect).observe(main" in js  # also those that arrive later (fetch, edit)
+    assert 'toast("warn", now, { key: "query" })' in js  # the search's problems follow the results
+    assert 'data-problems="' in html and 'id="filter-live"' not in html  # and there is no search status line
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "20px"
+    assert css_rule(css, ".toasts .toast.form-live")["color"] == "var(--accent-2-ink)"  # the live toast is blue
+
+
+def test_the_live_toast_is_pinned_and_follows_the_latest_visit(client):
+    js = flat_js(js_source(client))
+    assert 'toast("live"' in js and "Live · ‹${first}›" in js and 'key: "live"' in js
+    assert 'if (kind === "live") toastHost().prepend(el)' in js  # above the others
+    assert 'if (kind === "ok") {' in js and "const arm = " in js  # only a success fades by itself
+    assert 'else dismissToast("live", true)' in js  # switching Live off removes it
 
 
 def test_enabling_and_disabling_a_link_is_announced(client):

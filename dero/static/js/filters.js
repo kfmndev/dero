@@ -1,14 +1,13 @@
 // ---- Filters, search and sorting apply by themselves ----
 // The search box holds the whole state as one query. The dropdowns show it (and edit it); changing
 // either one fetches the list again and swaps only the table, so the page doesn't jump and the
-// search box keeps focus. The indicator confirms that something happened.
+// search box keeps focus.
 (() => {
   const form = document.getElementById("filters");
   if (!form) return;
   const input = document.getElementById("q");
   const highlight = form.querySelector(".qhl");
   const sortSelect = document.getElementById("filter-sort");
-  const live = document.getElementById("filter-live");
   const clear = document.getElementById("reset-filters");
   const multis = [...form.querySelectorAll("details.multi")];
   const queryMultis = multis.filter((details) => details.dataset.key); // status, created by
@@ -26,24 +25,11 @@
       return false;
     }
   };
-  const SPRITE = live.querySelector("use").getAttribute("href").split("#")[0];
-  const IDLE = live.querySelector("span").textContent;
+  const SPRITE = (document.querySelector("svg.icon use") || { getAttribute: () => "" })
+    .getAttribute("href")
+    .split("#")[0];
   let seq = 0,
-    typing,
-    resetTimer;
-
-  function indicator(state, text) {
-    const use = live.querySelector("use");
-    live.classList.toggle("busy", state === "busy");
-    live.classList.toggle("updated", state === "done");
-    use.setAttribute("href", `${SPRITE}#${state === "done" ? "check" : "refresh"}`);
-    live.querySelector("span").textContent = text;
-    clearTimeout(resetTimer);
-    if (state === "done") resetTimer = setTimeout(() => indicator("idle", IDLE), 1400);
-  }
-
-  // a term with a key and an operator but no value yet (status=) filters nothing
-  const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby" && !t.empty);
+    typing;
 
   const defaultColumns = () => (columnsMenu?.dataset.default ? columnsMenu.dataset.default.split(",") : []);
   const chosenColumns = () =>
@@ -301,17 +287,12 @@
     const url = addressFor(q);
     syncAddress(q);
     const mine = ++seq;
-    indicator("busy", "Updating…");
     try {
       const res = await fetch(url, { credentials: "same-origin" });
       if (!res.ok) throw new Error(res.status);
       const doc = new DOMParser().parseFromString(await res.text(), "text/html");
       if (mine !== seq) return; // a newer change already replaced this one
       if (!swapRegion("links-results", doc)) throw new Error("unexpected page");
-      const fresh = document.getElementById("links-results");
-      const n = Number(fresh.dataset.count),
-        total = Number(fresh.dataset.overall);
-      indicator("done", hasFilter(parseQuery(q)) ? `Updated · ${n} of ${total}` : "Updated");
     } catch {
       location.href = url; // fall back to a normal page load
     }
@@ -499,5 +480,5 @@
   else setQuery(input.value, { fetch: false }); // draw the first time; the draft is now what this page shows
 
   // what the live-visits script (live.js) needs from this one
-  window.deroFilters = { form, input, lists, live, update, indicator };
+  window.deroFilters = { form, input, lists, update };
 })();

@@ -12,19 +12,15 @@
   const sourceOf = () => form.elements.slug_source.value;
   const lengthField = () => form.elements.namedItem("length");
 
-  function show(message, kind = "error", field = null) {
-    const row = field?.closest(".nl-row") || form.querySelector(".nl-row"); // the message sits in the row of the field it is about
-    if (message && box.parentElement !== row) row.append(box);
+  // The message is a toast; the field it is about is marked (aria-invalid or data-warn) and focused by the caller.
+  function show(message, kind = "error") {
+    if (message) toast(kind, message, { key: "new-link" });
+    else dismissToast("new-link");
+  }
+  // an error the server rendered into the form (a post without the script) is shown the same way
+  if (box?.textContent.trim()) {
+    toast("error", box.querySelector("span")?.cloneNode(true) || box.textContent.trim(), { key: "new-link" });
     box.replaceChildren();
-    box.className = kind === "warn" ? "form-warn" : "form-error";
-    if (!message) return;
-    document.getElementById("new-link-notices")?.replaceChildren(); // an old "Created ..." would read as part of this message
-    const icon = document.querySelector("svg.icon use");
-    const sprite = icon ? icon.getAttribute("href").split("#")[0] : "";
-    box.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#alert"/></svg>`;
-    const span = document.createElement("span");
-    setRich(span, message);
-    box.append(span);
   }
 
   // Random or typed: only the fields that belong to the chosen option are shown, and a line below says what it draws from.
@@ -65,7 +61,7 @@
     const found = generatorProblem(form, reserved, kind);
     if (found) {
       found[0].setAttribute("aria-invalid", "true");
-      show(found[1], "error", found[0]);
+      show(found[1], "error");
       found[0].focus();
       return;
     }
@@ -121,13 +117,13 @@
         lookupThenResubmit(form);
         return;
       }
-      if (warnFirst(form, event, "Create", (message, field) => show(message, "warn", field))) return;
+      if (warnFirst(form, event, "Create", (message) => show(message, "warn"))) return;
       return show(""); // let the browser send it
     }
     event.preventDefault(); // invalid: nothing is sent, nothing is cleared
     const [field, message] = found;
     field.setAttribute("aria-invalid", "true");
-    show(message, "error", field);
+    show(message, "error");
     field.focus();
   });
 

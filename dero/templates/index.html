@@ -203,7 +203,13 @@
        aria-disabled="{{ 'false' if can_reset else 'true' }}"{% if not can_reset %} tabindex="-1"{% endif %}>
       {{- icon('rotate') }}Reset</a>
     <noscript><button class="btn">{{ icon('check') }}Apply</button></noscript>
-    <span class="live" id="filter-live">{{ icon('refresh') }}<span>Applies as you change it</span></span>
+    <span class="live-toggle" id="live-toggle" title="Live visits: a visited slug is marked in the table and the counts stay current. Only the counter changes: no visit is recorded.">
+      <label class="switch small">
+        <input type="checkbox" role="switch" id="live-switch" aria-labelledby="live-name">
+        <span class="track"></span>
+      </label>
+      <label for="live-switch" id="live-name">Live</label>
+    </span>
   </form>
 
   {{ notices('links') }}
@@ -218,7 +224,8 @@
 
   <noscript><style>tr.detail[hidden] { display: table-row !important; }</style></noscript>
 
-  <div id="links-results" data-count="{{ links|length }}" data-overall="{{ overall }}">
+  <div id="links-results" data-count="{{ links|length }}" data-overall="{{ overall }}"
+       data-problems="{{ problems|join(' ') }}">
   {% if problems %}
   <p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|join(' · ') }}</span></p>
   {% endif %}
