@@ -52,9 +52,28 @@ Everyone who can reach `/admin` is an admin, recorded as `NONE_USER`. Only use t
 
 dero then trusts the identity headers (`Remote-User`, `Remote-Groups`) set by your proxy and does no password checking itself, so it **must only be reachable through that proxy** (don't publish its port; `PROXY_SECRET` adds a second lock). Examples for Caddy + Authelia are in [`deploy/`](deploy). Members of the group `dero-users` manage their own links, `dero-admins` everything.
 
+## 🔎 Search
+
+The search box is a small query language; the dropdowns (status, created by, sort) show it and edit it, and the other way round. Everything updates as you type, and the query lives in the URL (`?q=…`).
+
+| Query | Meaning |
+| --- | --- |
+| `github "exact phrase"` | free text: searches slug, target and creator; terms are joined with *and* |
+| `status=expired,disabled` | status (`active`, `disabled`, `expired`); a comma means *or* |
+| `creator=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
+| `sortby=visits` · `sortby=-visits` | sort by `created`, `visits`, `slug`, `target`, `creator` or `expires`; a minus reverses the usual order |
+| `!status=expired` · `status!=expired` | negation |
+| `a and b` · `a && b` · `a or b` · `a \|\| b` · `( )` | explicit operators and grouping (*and* binds tighter than *or*) |
+| `creator="Anna Maria"` | quotes for values with spaces |
+
+Unknown keys are plain text, so a pasted URL just searches for that text. Terms, groups and negations are shown as chips in the search bar, and invalid values are underlined. People only ever see their own links, whatever the query says.
+
+**Columns:** the *Columns* dropdown shows or hides any of Short link, Target, Created by, Created, Expires and Visits (the default is Short link, Target and Visits). The choice is remembered in a cookie, so the server draws exactly those columns.
+
 ## 🔤 Slugs and warnings
 
 - **Generate or provide:** the New link form toggles between *Generate* and *Custom*. Generated slugs use the **Default** alphabet (letters and digits without look-alikes: `abcdefghjkmnpqrstuvwxyz23456789`), **Letters only** (`a–z`) or your own **Custom** characters, with a length of 3 to 32 (default 5). The choice is remembered in the browser.
+- **Slugs** may use letters, digits, `-` and `_` in any order (so `---` is fine), up to 64 characters.
 - **Readable slugs:** in the table, digits are blue and symbols red (like Bitwarden shows passwords), letters stay plain.
 - **Warnings, not walls:** an unusual address (http, no domain ending, IP address, port, login, spaces), an address that already has a short link, or an expiry date in the past gets a short warning; press Create (or Update) again to go ahead. Clearly invalid input is still refused.
 

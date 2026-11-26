@@ -10,7 +10,7 @@ import regex  # third-party: supports match timeouts, so a bad pattern can't han
 
 from .db import get_db, get_setting, now_iso
 
-SLUG_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+SLUG_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 REGEX_TIMEOUT = 0.05  # seconds
 

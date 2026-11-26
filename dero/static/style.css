@@ -47,7 +47,7 @@
   color-scheme: light;
   --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-head: "Hubot Sans", "Geist", system-ui, sans-serif;
-  --control-h: 36px; /* one height for every input, dropdown and button */
+  --control-h: 30px; /* one height for every input, dropdown and button */
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --bg: #f4f5f7;
@@ -604,3 +604,101 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 /* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain */
 .hl-digit { color: var(--accent-ink); }
 .hl-symbol { color: var(--err); }
+
+/* ---- dero: search bar with a highlighted query, checkbox dropdowns ---- */
+.filters .field { margin: 0; }
+.filters .field-label { display: flex; align-items: center; gap: 4px; margin: 0 0 4px; font-weight: 600; font-size: 13px; line-height: 1.5; }
+.filters .field-label label { margin: 0; font: inherit; }
+.filters select { margin-top: 0; }
+
+.qfield { position: relative; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
+.qfield:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
+/* the coloured copy sits behind the real input, whose own text is invisible; both use the same font so they line up */
+.qhighlight { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 11px; overflow: hidden; pointer-events: none; white-space: pre; font: 400 13px/1 var(--font-text); letter-spacing: normal; color: var(--text); }
+.qhl { display: inline-block; white-space: pre; }
+.qfield input.qinput, .qfield input.qinput:focus {
+  position: relative; display: block; width: 100%; height: 100%; margin: 0; padding: 0 11px;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none;
+  color: transparent; caret-color: var(--text); font: 400 13px/1 var(--font-text); letter-spacing: normal; white-space: pre;
+}
+.qfield input.qinput::placeholder { color: var(--muted); }
+.qfield input.qinput::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); color: transparent; }
+
+/* pieces of the query */
+.q-eq, .q-op, .q-paren { color: var(--muted); }
+.q-not { color: var(--err); }
+.q-invalid { text-decoration: underline wavy var(--err); text-underline-offset: 3px; }
+.q-group { border-radius: 6px; background: color-mix(in srgb, var(--muted) 12%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--muted) 12%, transparent); }
+.q-group .q-group { background: color-mix(in srgb, var(--muted) 22%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--muted) 22%, transparent); }
+
+/* checkbox dropdown (status, created by): looks like the selects */
+details.multi { position: relative; }
+details.multi > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 9.5rem; height: var(--control-h); padding: 0 8px 0 10px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--field); cursor: pointer; list-style: none; font: 400 13px var(--font-text); user-select: none;
+}
+details.multi > summary::-webkit-details-marker { display: none; }
+details.multi > summary::after {
+  content: ""; flex: none; width: 14px; height: 14px; background: var(--muted); transition: rotate .15s;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+details.multi[open] > summary { border-color: var(--accent-2); }
+details.multi[open] > summary::after { rotate: 180deg; }
+details.multi.custom .multi-label { color: var(--muted); font-style: italic; }
+.multi-panel {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 100%; padding: 4px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card); box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+}
+.multi-panel label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 10px; border-radius: 6px; font-weight: 400; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.multi-panel label:hover { background: var(--field); }
+.multi-panel input[type="checkbox"] { margin: 0; }
+
+.qhelp { flex: 1 0 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); font-size: 13px; color: var(--muted); }
+.qhelp p { margin: 3px 0; }
+.query-problems { margin: 0 0 10px; }
+
+/* code-like text must show exactly what to type: no ligatures (JetBrains Mono turns != into a single "≠") */
+code, .url, .mono, .slug-prefix, .url-input, .alphabet-preview { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+
+/* ---- dero: compact rows and shrink-to-fit columns ---- */
+td { padding: 6px 8px; }
+th { padding: 7px 8px; }
+.col-slug, .col-creator, .col-created, .col-expires, .col-visits { width: 1%; white-space: nowrap; }   /* as narrow as their content */
+td.col-target { width: 100%; max-width: 0; }              /* the target takes what is left and is cut with an ellipsis */
+th.col-target { width: 100%; }
+.multi-panel.multi-right { left: auto; right: 0; min-width: 11rem; }
+
+/* ---- dero: the upgraded <select>s share the look of the checkbox dropdowns ---- */
+select.native-hidden { position: absolute !important; width: 1px !important; min-width: 0 !important; height: 1px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; opacity: 0; overflow: hidden; clip-path: inset(50%); pointer-events: none; }
+.nl-row label details.multi, .form-grid details.multi { margin-top: 4px; }
+.form-grid details.multi { width: 100%; }
+.form-grid details.multi > summary { min-width: 0; }
+.single-panel { max-height: 22rem; overflow-y: auto; }
+.multi-panel .option {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 5px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--text); font: 400 13px var(--font-text); text-align: left; white-space: nowrap; cursor: pointer;
+}
+.multi-panel .option:hover, .multi-panel .option:focus-visible { background: var(--field); outline: none; }
+.multi-panel .option .icon { flex: none; visibility: hidden; }
+.multi-panel .option[aria-selected="true"] { color: var(--accent-ink); }
+.multi-panel .option[aria-selected="true"] .icon { visibility: visible; }
+
+/* ---- dero: search bar -- every kind of term has its own colour, and the terms get some air ---- */
+.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 6px; }    /* in both layers, so the text stays aligned */
+:root { --q-text: var(--muted); --q-status: #0b7a4b; --q-creator: #6d28d9; --q-slug: #b45309; --q-target: #0e7490; --q-sortby: var(--accent-2-ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; } }
+:root[data-theme="dark"] { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; }
+.q-term { --c: var(--accent-ink); border-radius: 4px; background: color-mix(in srgb, var(--c) 13%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent); }
+.q-term .q-key { color: var(--c); }
+.q-k-text { --c: var(--q-text); }
+.q-k-status { --c: var(--q-status); }
+.q-k-creator { --c: var(--q-creator); }
+.q-k-slug { --c: var(--q-slug); }
+.q-k-target { --c: var(--q-target); }
+.q-k-sortby { --c: var(--q-sortby); }
+.q-neg .q-eq { color: var(--err); }                       /* != */
+.q-group { box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 12%, transparent); }
+.q-group .q-group { box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 22%, transparent); }
+
+/* the search bar has a row to itself (queries get long); the dropdowns sit below it */
+.filters > .field.grow { flex: 1 1 100%; }

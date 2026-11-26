@@ -9,7 +9,7 @@ from markupsafe import Markup, escape
 
 from flask import Flask, abort, current_app, jsonify, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
 
-from . import auth, db, resolve
+from . import auth, db, query, resolve
 from .version import build_info
 
 
@@ -118,9 +118,7 @@ MIN_LENGTH, MAX_LENGTH, DEFAULT_LENGTH = 3, 32, 5
 
 
 def _random_slug(alphabet: str, length: int) -> str:
-    """The first character is always a letter or digit (slugs may not start with - or _)."""
-    first = [c for c in alphabet if c.isalnum()]
-    return secrets.choice(first) + "".join(secrets.choice(alphabet) for _ in range(length - 1))
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def _slug_plan(f):
@@ -141,7 +139,7 @@ def _slug_plan(f):
     name = f.get("alphabet", "default") or "default"
     if name == "custom":
         chars = "".join(dict.fromkeys(f.get("alphabet_custom", "")))        # drop duplicates, keep the order
-        if len(chars) < 2 or not set(chars) <= SLUG_CHARS or not any(c.isalnum() for c in chars):
+        if len(chars) < 2 or not set(chars) <= SLUG_CHARS:
             raise resolve.ValidationError("Custom alphabet: at least 2 different letters, digits, - or _.", "alphabet_custom")
         alphabet = chars
     elif name in ALPHABETS:
@@ -173,7 +171,7 @@ SORTS = {
     "expires": "expires_at IS NULL, expires_at",
     "visits": "visits",
 }
-STATUSES = ("active", "disabled", "expired")
+STATUS_LABELS = {"active": "Active", "disabled": "Disabled", "expired": "Expired"}
 # (sort key, direction) -> label for the "Sort by" dropdown
 ORDER_LABELS = {
     ("created", "desc"): "Newest first", ("created", "asc"): "Oldest first",
@@ -185,66 +183,84 @@ ORDER_LABELS = {
 }
 
 
-def _like(term: str) -> str:
-    return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+COLUMNS = [("slug", "Short link"), ("target", "Target"), ("creator", "Created by"),
+           ("created", "Created"), ("expires", "Expires"), ("visits", "Visits")]
+DEFAULT_COLUMNS = ["slug", "target", "visits"]
+
+
+def _visible_columns() -> list:
+    """The data columns to show, in table order. Chosen in the browser, remembered in the dero_cols cookie."""
+    raw = request.cookies.get("dero_cols")
+    if raw is None:
+        return list(DEFAULT_COLUMNS)
+    wanted = set(raw.split(","))
+    return [key for key, _ in COLUMNS if key in wanted]
+
+
+def _effective_query(args, is_admin: bool) -> str:
+    """The query text: `q`, plus the older separate parameters (status, owner, order, sort, dir) if a URL still has them."""
+    text = args.get("q", "").strip()[:500]
+    status = args.get("status", "")
+    if status in query.STATUSES:
+        text = query.add_term(text, f"status={status}")
+    owner = args.get("owner", "").strip()
+    if owner and is_admin:
+        text = query.add_term(text, "creator=" + query.quote_value(owner))
+    key, _, direction = args.get("order", "").partition(":")
+    if not (key in query.SORT_KEYS and direction in ("asc", "desc")):
+        key, direction = args.get("sort", ""), "asc" if args.get("dir") == "asc" else "desc"
+    if key in query.SORT_KEYS and (args.get("order") or args.get("sort")):
+        text = query.with_sort(text, key, (direction == "desc") != query.DESC_BY_DEFAULT[key])
+    return text
 
 
 def _render_index(form=None, error=None, error_field=None):
     conn = db.get_db()
-    q = request.args.get("q", "").strip()[:200]
-    status = request.args.get("status", "")
-    status = status if status in STATUSES else ""
-    owner = request.args.get("owner", "").strip() if g.user["is_admin"] else ""
-    sort = request.args.get("sort", "created")
-    sort = sort if sort in SORTS else "created"
-    direction = "asc" if request.args.get("dir") == "asc" else "desc"
-    key, _, d = request.args.get("order", "").partition(":")  # the dropdown sends "key:dir"
-    if key in SORTS and d in ("asc", "desc"):
-        sort, direction = key, d
+    is_admin = g.user["is_admin"]
+    text = _effective_query(request.args, is_admin)
+    now = db.now_iso()
+    parsed = query.parse(text, now)
+    sort_key, reverse = parsed.sort or ("created", False)
+    direction = "desc" if query.DESC_BY_DEFAULT[sort_key] != reverse else "asc"
 
     where, args = [], []
-    if not g.user["is_admin"]:
+    if not is_admin:                                  # whatever the query says, people only ever see their own links
         where.append("created_by = ?")
         args.append(g.user["username"])
-    elif owner:
-        where.append("created_by = ?")
-        args.append(owner)
-    if q:
-        where.append("(slug LIKE ? ESCAPE '\\' OR target LIKE ? ESCAPE '\\' OR created_by LIKE ? ESCAPE '\\')")
-        args += [_like(q)] * 3
-    now = db.now_iso()
-    if status == "active":
-        where.append("enabled = 1 AND (expires_at IS NULL OR expires_at > ?)")
-        args.append(now)
-    elif status == "disabled":
-        where.append("enabled = 0")
-    elif status == "expired":
-        where.append("expires_at IS NOT NULL AND expires_at <= ?")
-        args.append(now)
-
+    if parsed.where:
+        where.append(parsed.where)
+        args += parsed.params
     clause = (" WHERE " + " AND ".join(where)) if where else ""
-    order = f"{SORTS[sort]} {direction.upper()}, id DESC"
+    order = f"{SORTS[sort_key]} {direction.upper()}, id DESC"
     links = conn.execute(f"SELECT * FROM links{clause} ORDER BY {order}", args).fetchall()
 
-    scope = "" if g.user["is_admin"] else " WHERE created_by = ?"
-    overall = conn.execute(f"SELECT COUNT(*) FROM links{scope}",
-                           () if g.user["is_admin"] else (g.user["username"],)).fetchone()[0]
+    scope = "" if is_admin else " WHERE created_by = ?"
+    overall = conn.execute(f"SELECT COUNT(*) FROM links{scope}", () if is_admin else (g.user["username"],)).fetchone()[0]
     owners = ([r[0] for r in conn.execute("SELECT DISTINCT created_by FROM links ORDER BY created_by COLLATE NOCASE")]
-              if g.user["is_admin"] else [])
+              if is_admin else [])
 
     def sort_url(key):
-        nxt = "asc" if (sort == key and direction == "desc") else "desc" if sort == key else (
-            "asc" if key in ("slug", "target", "creator", "expires") else "desc")
-        params = {"q": q, "status": status, "owner": owner, "sort": key, "dir": nxt}
-        return url_for("admin.index", **{k: v for k, v in params.items() if v})
+        nxt_reverse = (not reverse) if key == sort_key else False
+        q = query.with_sort(text, key, nxt_reverse)
+        return url_for("admin.index", q=q) if q else url_for("admin.index")
+
+    sort_options = []
+    for key, desc_by_default in query.DESC_BY_DEFAULT.items():
+        if key == "creator" and not is_admin:
+            continue
+        for rev in (False, True):
+            label = ORDER_LABELS[(key, "desc" if desc_by_default != rev else "asc")]
+            sort_options.append((query.sort_value(key, rev), label))
 
     return render_template(
         "index.html", links=links, total=sum(l["visits"] for l in links), overall=overall,
-        base=_base_url(), q=q, status=status, owner=owner, owners=owners,
-        sort=sort, direction=direction, sort_url=sort_url, now=now,
-        order_options=[(f"{k}:{d}", label) for (k, d), label in ORDER_LABELS.items()
-                       if g.user["is_admin"] or k != "creator"],
-        filtered=bool(q or status or owner),
+        base=_base_url(), query=text, problems=parsed.problems, owners=owners,
+        statuses=[(v, STATUS_LABELS[v]) for v in query.STATUSES], sort_options=sort_options,
+        sort_value=query.sort_value(sort_key, reverse), sort_keys=list(query.SORT_KEYS),
+        sort=sort_key, direction=direction, sort_url=sort_url, now=now,
+        cols=_visible_columns(), column_choices=COLUMNS, column_labels=dict(COLUMNS),
+        admin_path=current_app.config["ADMIN_PATH"],
+        filtered=bool(parsed.where), query_sort_only=query.sort_term(sort_key, reverse) if parsed.sort else "",
         back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
         form=form or {}, error=error, error_field=error_field,
         alphabets=ALPHABETS, default_length=DEFAULT_LENGTH, length_range=(MIN_LENGTH, MAX_LENGTH),
@@ -354,6 +370,7 @@ def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
     row = _own_or_admin(link_id)
     f = request.form
+    old_url = f"{_base_url()}{row['slug']}"
     try:
         target = _validated("target", resolve.validate_url, f.get("target", ""))
         slug = f.get("slug", "").strip()
@@ -369,7 +386,7 @@ def update_link(link_id):
         except sqlite3.IntegrityError:
             raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
     except resolve.ValidationError as exc:
-        flash(str(exc), "links:error")
+        flash(f"{old_url}: {exc}", "links:error")
         return _back()
 
     changes = []
@@ -378,8 +395,9 @@ def update_link(link_id):
     if target != row["target"]:
         changes.append("target")
     if expires != row["expires_at"]:
-        changes.append(f"expiry {expires[:10]}" if expires else "no expiry")
-    flash("Updated · " + ", ".join(changes) if changes else "Nothing to update.", "links")
+        changes.append(f"expiry {expires[:10]}" if expires else "expiry removed")
+    url = f"{_base_url()}{slug}"
+    flash(f"{url} updated · " + ", ".join(changes) if changes else f"{url} · nothing to update", "links")
     return _back()
 
 

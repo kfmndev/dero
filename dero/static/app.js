@@ -38,10 +38,12 @@ const LOCAL_TIME = new Intl.DateTimeFormat(undefined, {
   hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short",
 });
 
+const LOCAL_DATE = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" });
+
 function localizeTimes(root = document) {
   root.querySelectorAll("time.localtime[datetime]").forEach((el) => {
     const date = new Date(el.getAttribute("datetime"));
-    if (!Number.isNaN(date.getTime())) el.textContent = LOCAL_TIME.format(date);
+    if (!Number.isNaN(date.getTime())) el.textContent = (el.classList.contains("short") ? LOCAL_DATE : LOCAL_TIME).format(date);
   });
 }
 
@@ -72,7 +74,7 @@ document.addEventListener("click", (event) => {
 });
 
 // ---- Checks shared by the "New link" form and the edit form in a link's details ----
-const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const SLUG_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const BAD_URL = "Target must be a valid http:// or https:// URL.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
@@ -108,7 +110,7 @@ function generatorProblem(form, reserved) {
   }
   if (form.elements.alphabet.value === "custom") {
     const field = form.elements.alphabet_custom, chars = [...new Set(field.value)];
-    if (chars.length < 2 || !chars.every((c) => /[A-Za-z0-9_-]/.test(c)) || !chars.some((c) => /[A-Za-z0-9]/.test(c)))
+    if (chars.length < 2 || !chars.every((c) => /[A-Za-z0-9_-]/.test(c)))
       return [field, "Custom alphabet: at least 2 different letters, digits, - or _."];
   }
   const length = form.elements.namedItem("length"), n = Number(length.value);       // (elements.length is the collection's size)
@@ -281,7 +283,7 @@ function forgetWarning(form) {
       if (!saved) return;
       const radio = form.querySelector(`input[name=slug_mode][value="${saved.mode}"]`);
       if (radio) radio.checked = true;
-      if ([...form.elements.alphabet.options].some((o) => o.value === saved.alphabet)) form.elements.alphabet.value = saved.alphabet;
+      if ([...form.elements.alphabet.options].some((o) => o.value === saved.alphabet)) { form.elements.alphabet.value = saved.alphabet; refreshSelect(form.elements.alphabet); }
       form.elements.alphabet_custom.value = saved.custom || "";
       if (saved.length) lengthField().value = saved.length;
     } catch {}
@@ -321,15 +323,217 @@ function forgetWarning(form) {
   });
 })();
 
-// ---- Filters apply by themselves ----
-// Changing a dropdown (or pausing while typing in the search box) fetches the
-// list again and swaps only the table, so the page doesn't jump and the search
-// box keeps focus. The indicator confirms that something happened.
+// ---- The search language ----
+// The server filters (dero/query.py). This is the same tokenizer, used to highlight the search bar and to
+// keep the dropdowns and the query text in sync.
+const QUERY_KEYS = {
+  status: "status", creator: "creator", owner: "creator", by: "creator",
+  slug: "slug", target: "target", sortby: "sortby", sort: "sortby", order: "sortby",
+};
+
+function unquote(text) {
+  if (text.length >= 2 && text[0] === '"' && text.endsWith('"')) return text.slice(1, -1);
+  return text.startsWith('"') ? text.slice(1) : text;
+}
+
+// "a,b,\"c d\"" -> raw pieces; commas inside quotes stay
+function splitRaw(rest) {
+  const pieces = [];
+  let buf = "", quoted = false;
+  for (const ch of rest) {
+    if (ch === '"') { quoted = !quoted; buf += ch; }
+    else if (ch === "," && !quoted) { pieces.push(buf); buf = ""; }
+    else buf += ch;
+  }
+  pieces.push(buf);
+  return pieces;
+}
+
+function quoteValue(value) {
+  return value === "" || /[\s()"]/.test(value) ? `"${value.replace(/"/g, "")}"` : value;
+}
+
+function parseQuery(text) {
+  const toks = [];
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    const ch = text[i];
+    if (/\s/.test(ch)) {
+      let j = i;
+      while (j < n && /\s/.test(text[j])) j++;
+      toks.push({ kind: "ws", start: i, end: j });
+      i = j;
+    } else if (ch === "(" || ch === ")") {
+      toks.push({ kind: ch === "(" ? "lpar" : "rpar", start: i, end: i + 1 });
+      i++;
+    } else if (text.startsWith("&&", i)) {
+      toks.push({ kind: "and", start: i, end: i + 2 });
+      i += 2;
+    } else if (text.startsWith("||", i)) {
+      toks.push({ kind: "or", start: i, end: i + 2 });
+      i += 2;
+    } else if (ch === "!") {
+      toks.push({ kind: "not", start: i, end: i + 1 });
+      i++;
+    } else {
+      let j = i;
+      while (j < n && !/\s/.test(text[j]) && text[j] !== "(" && text[j] !== ")") {
+        if (text[j] === '"') { const k = text.indexOf('"', j + 1); j = k === -1 ? n : k + 1; }
+        else j++;
+      }
+      const word = text.slice(i, j), lower = word.toLowerCase();
+      if (lower === "and" || lower === "or") {
+        toks.push({ kind: lower, start: i, end: j });
+      } else {
+        const m = /^([A-Za-z]+)(!?=)([\s\S]*)$/.exec(word);
+        const key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
+        if (key) {
+          toks.push({ kind: "term", start: i, end: j, key, rawKey: m[1], op: m[2], rest: m[3],
+                      negated: m[2] === "!=", values: splitRaw(m[3]).map(unquote).filter((v) => v !== "") });
+        } else {
+          toks.push({ kind: "term", start: i, end: j, key: null, negated: false, values: [unquote(word)] });
+        }
+      }
+      i = j;
+    }
+  }
+  // structure: nesting depth, a top-level "or", and which terms a "!" in front negates
+  let depth = 0, topLevelOr = false, nots = [];
+  const terms = [];
+  for (const t of toks) {
+    if (t.kind === "ws") continue;
+    if (t.kind === "lpar") { t.depth = depth++; nots = []; }
+    else if (t.kind === "rpar") { depth = Math.max(0, depth - 1); t.depth = depth; nots = []; }
+    else if (t.kind === "or" || t.kind === "and") { t.depth = depth; if (t.kind === "or" && depth === 0) topLevelOr = true; nots = []; }
+    else if (t.kind === "not") nots.push(t);
+    else if (t.kind === "term") {
+      t.depth = depth;
+      t.negated = t.negated !== (nots.length % 2 === 1);
+      t.removeStart = nots.length ? nots[0].start : t.start;      // a "!" in front goes with the term
+      nots = [];
+      if (t.key) terms.push(t);
+    }
+  }
+  return { toks, terms, topLevelOr };
+}
+
+// Remove / replace parts of a query text. Each edit: { start, end, text }. Spaces around removed parts are tidied.
+function applyEdits(text, edits) {
+  for (const e of [...edits].sort((a, b) => b.start - a.start)) {
+    let { start, end } = e;
+    if (e.text === "") {
+      while (end < text.length && /\s/.test(text[end])) end++;
+      if (end === text.length) while (start > 0 && /\s/.test(text[start - 1])) start--;
+    }
+    text = text.slice(0, start) + e.text + text.slice(end);
+  }
+  return text.trim();
+}
+
+const appendTerm = (text, term) => (text.trim() ? `${text.trimEnd()} ${term}` : term);
+
+// Set (values = array) or remove (values = null) the key=... term of a query.
+function editQuery(text, key, values) {
+  const parsed = parseQuery(text);
+  const term = values && values.length ? `${key}=${values.map(quoteValue).join(",")}` : "";
+  if (key === "sortby") {                                          // a directive: replaced wherever it stands
+    const edits = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby").map((t) => ({ start: t.removeStart, end: t.end, text: "" }));
+    return appendTerm(applyEdits(text, edits), term).trim();
+  }
+  if (parsed.topLevelOr) return term ? `(${text.trim()}) ${term}` : text;   // can't edit inside an "or": add on top instead
+  const mine = parsed.terms.filter((t) => t.key === key && t.depth === 0);
+  if (!mine.length) return term ? appendTerm(text, term) : text;
+  const edits = mine.map((t, i) => ({ start: t.removeStart, end: t.end, text: i === 0 ? term : "" }));
+  return applyEdits(text, edits);
+}
+
+// What a dropdown should show for one key: { set: [...] } = those boxes are checked, { custom: true } = too complex for a dropdown
+function deriveSet(parsed, key, all) {
+  if (!parsed.terms.some((t) => t.key === key)) return { set: all };                          // this key isn't used at all
+  if (parsed.topLevelOr) return { custom: true };                                             // used, but inside an "or"
+  if (parsed.terms.some((t) => t.key === key && t.depth > 0)) return { custom: true };      // inside a group: too complex
+  const mine = parsed.terms.filter((t) => t.key === key && t.depth === 0);
+  if (mine.length === 0) return { set: all };
+  if (mine.length > 1) return { custom: true };
+  const wanted = mine[0].values.map((v) => v.toLowerCase());
+  const hit = all.filter((v) => wanted.includes(v.toLowerCase()));
+  const set = mine[0].negated ? all.filter((v) => !hit.includes(v)) : hit;
+  return set.length ? { set } : { custom: true };
+}
+
+// The sort the query asks for, as the value of the "Sort by" dropdown ("" = the default, newest first)
+function deriveSort(parsed, sortKeys) {
+  const mine = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby" && t.values.length);
+  if (!mine.length) return "";
+  const raw = mine[mine.length - 1].values[0], name = raw.replace(/^[+-]/, "").toLowerCase();
+  if (!sortKeys.includes(name)) return "";
+  const value = `${raw.startsWith("-") ? "-" : ""}${name}`;
+  return value === "created" ? "" : value;
+}
+
+// Draw the query with its structure: terms as chips, groups tinted, operators and negations coloured.
+// The text of the result is exactly the query text (the highlight sits behind the real input).
+function renderQuery(parsed, text, container, { statuses, sortKeys }) {
+  container.replaceChildren();
+  const stack = [container];
+  const top = () => stack[stack.length - 1];
+  const span = (cls, str) => {
+    const el = document.createElement("span");
+    if (cls) el.className = cls;
+    el.textContent = str;
+    return el;
+  };
+  parsed.toks.forEach((t, idx) => {
+    const raw = text.slice(t.start, t.end);
+    if (t.kind === "ws") top().append(document.createTextNode(raw));
+    else if (t.kind === "lpar") {
+      const group = span("q-group", "");
+      top().append(group);
+      stack.push(group);
+      group.append(span("q-paren", "("));
+    } else if (t.kind === "rpar") {
+      top().append(span("q-paren", ")"));
+      if (stack.length > 1) stack.pop();
+    } else if (t.kind === "and" || t.kind === "or") top().append(span("q-op", raw));
+    else if (t.kind === "not") top().append(span("q-not", "!"));
+    else if (!t.key) top().append(span("q-term q-k-text", raw));
+    else {
+      const pill = span(`q-term q-k-${t.key}${t.negated ? " q-neg" : ""}`, "");
+      const before = parsed.toks[idx - 1], last = top().lastChild;
+      if (before && before.kind === "not" && last && last.classList && last.classList.contains("q-not")) pill.append(last);
+      pill.append(span("q-key", t.rawKey), span("q-eq", t.op));
+      splitRaw(t.rest).forEach((piece, i) => {
+        if (i) pill.append(span("q-eq", ","));
+        const value = unquote(piece);
+        const bad = (t.key === "status" && value && !statuses.includes(value.toLowerCase()))
+          || (t.key === "sortby" && value && !sortKeys.includes(value.replace(/^[+-]/, "").toLowerCase()));
+        pill.append(span(bad ? "q-val q-invalid" : "q-val", piece));
+      });
+      top().append(pill);
+    }
+  });
+}
+
+// ---- Filters, search and sorting apply by themselves ----
+// The search box holds the whole state as one query. The dropdowns show it (and edit it); changing
+// either one fetches the list again and swaps only the table, so the page doesn't jump and the
+// search box keeps focus. The indicator confirms that something happened.
 (function () {
   const form = document.getElementById("filters");
   if (!form) return;
+  const input = document.getElementById("q");
+  const highlight = form.querySelector(".qhl");
+  const sortSelect = document.getElementById("filter-sort");
   const live = document.getElementById("filter-live");
   const clear = document.getElementById("clear-filters");
+  const multis = [...form.querySelectorAll("details.multi")];
+  const queryMultis = multis.filter((details) => details.dataset.key);          // status, created by
+  const columnsMenu = document.getElementById("filter-columns");
+  const lists = {
+    statuses: JSON.parse(form.dataset.statuses || "[]"),
+    sortKeys: JSON.parse(form.dataset.sortKeys || "[]"),
+  };
   const SPRITE = live.querySelector("use").getAttribute("href").split("#")[0];
   const IDLE = live.querySelector("span").textContent;
   let seq = 0, typing, resetTimer;
@@ -344,19 +548,90 @@ function forgetWarning(form) {
     if (state === "done") resetTimer = setTimeout(() => indicator("idle", IDLE), 1400);
   }
 
+  const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby");
+
   function setClear(active) {            // disabled, never hidden: nothing may move
     clear.setAttribute("aria-disabled", String(!active));
     if (active) clear.removeAttribute("tabindex"); else clear.tabIndex = -1;
   }
 
-  function filtered(params) {
-    return ["q", "status", "owner"].some((k) => params.get(k));
+  // ---- the highlighted search bar
+  function syncScroll() { highlight.style.transform = `translateX(${-input.scrollLeft}px)`; }
+
+  function draw() {
+    renderQuery(parseQuery(input.value), input.value, highlight, lists);
+    syncScroll();
+    requestAnimationFrame(syncScroll);   // the caret may have moved the text after the event
   }
 
+  // ---- query -> dropdowns
+  function showMulti(details, derived) {
+    const boxes = [...details.querySelectorAll("input[type=checkbox]")];
+    const label = details.querySelector(".multi-label");
+    if (!details.dataset.allLabel) details.dataset.allLabel = label.textContent;
+    details.classList.toggle("custom", Boolean(derived.custom));
+    const on = new Set(derived.custom ? [] : derived.set.map((v) => v.toLowerCase()));
+    boxes.forEach((box) => (box.checked = on.has(box.value.toLowerCase())));
+    const names = boxes.filter((box) => box.checked).map((box) => box.nextElementSibling.textContent);
+    if (derived.custom) label.textContent = "Custom";
+    else if (derived.set.length === boxes.length) label.textContent = details.dataset.allLabel;
+    else if (names.length <= 2) label.textContent = names.join(", ");
+    else label.textContent = `${names.length} selected`;
+  }
+
+  function syncControls() {
+    const parsed = parseQuery(input.value);
+    queryMultis.forEach((details) => showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))));
+    const wanted = deriveSort(parsed, lists.sortKeys);
+    sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : "";
+    refreshSelect(sortSelect);
+    setClear(hasFilter(parsed));
+  }
+
+  // ---- dropdowns -> query
+  function setQuery(text, { fetch = true } = {}) {
+    input.value = text;
+    draw();
+    syncControls();
+    if (fetch) update();
+  }
+
+  queryMultis.forEach((details) => {
+    details.addEventListener("change", () => {
+      const all = JSON.parse(details.dataset.all || "[]");
+      const checked = [...details.querySelectorAll("input[type=checkbox]:checked")].map((b) => b.value);
+      const everything = checked.length === 0 || checked.length === all.length;      // none or all = no filter
+      setQuery(editQuery(input.value, details.dataset.key, everything ? null : all.filter((v) => checked.includes(v))));
+    });
+  });
+
+  // Columns are a view setting, not part of the query: remembered in a cookie so the server draws them.
+  if (columnsMenu) {
+    columnsMenu.addEventListener("change", () => {
+      const all = JSON.parse(columnsMenu.dataset.all || "[]");
+      const chosen = [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value);
+      const ordered = all.filter((key) => chosen.includes(key));
+      document.cookie = `${columnsMenu.dataset.cookie}=${ordered.join(",")}; path=${columnsMenu.dataset.cookiePath || "/"}; max-age=31536000; SameSite=Lax`;
+      columnsMenu.querySelector(".multi-label").textContent = `${ordered.length} of ${all.length}`;
+      update();
+    });
+  }
+
+  sortSelect.addEventListener("change", () => setQuery(editQuery(input.value, "sortby", sortSelect.value ? [sortSelect.value] : null)));
+
+  document.addEventListener("click", (event) => {          // sortable column headers set the sort in the query
+    const link = event.target.closest("#links-results th a");
+    if (link) {
+      event.preventDefault();
+      setQuery(new URL(link.href).searchParams.get("q") || "");
+      return;
+    }
+  });
+
+  // ---- query -> results
   async function update() {
-    const params = new URLSearchParams(new FormData(form));
-    for (const [key, value] of [...params]) if (!value) params.delete(key);
-    const url = form.getAttribute("action") + (params.size ? "?" + params : "");
+    const q = input.value.trim();
+    const url = form.getAttribute("action") + (q ? "?" + new URLSearchParams({ q }) : "");
     const mine = ++seq;
     indicator("busy", "Updating…");
     try {
@@ -367,41 +642,37 @@ function forgetWarning(form) {
       if (!swapRegion("links-results", doc)) throw new Error("unexpected page");
       const fresh = document.getElementById("links-results");
       history.replaceState(null, "", url);
-      setClear(filtered(params));
       const n = Number(fresh.dataset.count), total = Number(fresh.dataset.overall);
-      indicator("done", filtered(params) ? `Updated · ${n} of ${total}` : "Updated");
+      indicator("done", hasFilter(parseQuery(q)) ? `Updated · ${n} of ${total}` : "Updated");
     } catch {
       location.href = url;                 // fall back to a normal page load
     }
   }
 
-  document.addEventListener("click", (event) => {          // sortable column headers
-    const link = event.target.closest("#links-results th a");
-    if (!link) return;
-    const params = new URL(link.href).searchParams;
-    const wanted = `${params.get("sort")}:${params.get("dir")}`;
-    const order = form.elements.order;
-    if (![...order.options].some((o) => o.value === wanted)) return;   // unknown: let the link work normally
-    event.preventDefault();
-    order.value = wanted;
-    update();
-  });
-
-  form.addEventListener("change", update);
-  form.addEventListener("input", (event) => {
-    if (event.target.name !== "q") return;
+  input.addEventListener("input", () => {
+    draw();
+    syncControls();
     clearTimeout(typing);
     typing = setTimeout(update, 250);
   });
+  ["keyup", "click", "focus", "select", "scroll"].forEach((name) => input.addEventListener(name, syncScroll));
+  document.addEventListener("selectionchange", () => { if (document.activeElement === input) syncScroll(); });
   form.addEventListener("submit", (event) => { event.preventDefault(); clearTimeout(typing); update(); });
-  clear.addEventListener("click", (event) => {
+
+  clear.addEventListener("click", (event) => {              // clears every filter; the sort stays
     event.preventDefault();
     if (clear.getAttribute("aria-disabled") === "true") return;
-    form.elements.q.value = "";
-    form.elements.status.value = "";
-    if (form.elements.owner) form.elements.owner.value = "";
-    update();
+    const edits = parseQuery(input.value).toks.filter((t) => t.kind === "term" && t.key === "sortby").map((t) => t.text || input.value.slice(t.start, t.end));
+    setQuery(edits.join(" "));
   });
+
+  const helpToggle = document.getElementById("q-help-toggle"), help = document.getElementById("q-help");
+  helpToggle.addEventListener("click", () => {
+    help.hidden = !help.hidden;
+    helpToggle.setAttribute("aria-expanded", String(!help.hidden));
+  });
+
+  setQuery(input.value, { fetch: false });    // draw the first time
 })();
 
 // ---- Confirmation dialog (replaces window.confirm) ----
@@ -615,3 +886,93 @@ document.addEventListener("change", (event) => {
     submit(form);
   });
 })();
+
+// ---- Dropdowns ----
+// Every <select> is upgraded to the same dropdown as the checkbox lists (details/summary + a panel). The
+// <select> stays in the page, hidden: it still holds the value, is submitted with its form and fires the
+// same change events, so nothing else needs to know. Without JavaScript the plain <select> works.
+function refreshSelect(select) {
+  select.dispatchEvent(new Event("dero:refresh"));
+}
+
+function upgradeSelect(select) {
+  if (select.dataset.upgraded) return;
+  select.dataset.upgraded = "1";
+  select.classList.add("native-hidden");
+  select.tabIndex = -1;
+  select.setAttribute("aria-hidden", "true");
+
+  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" }).getAttribute("href").split("#")[0];
+  const owner = select.closest("label") || (select.id && document.querySelector(`label[for="${select.id}"]`));
+  const name = owner ? [...owner.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim() : "";
+
+  const details = document.createElement("details");
+  details.className = "multi single";
+  const summary = document.createElement("summary");
+  if (name) summary.setAttribute("aria-label", name);
+  const label = document.createElement("span");
+  label.className = "multi-label";
+  summary.append(label);
+  const panel = document.createElement("div");
+  panel.className = "multi-panel single-panel";
+  panel.setAttribute("role", "listbox");
+  const buttons = [...select.options].map((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option";
+    button.setAttribute("role", "option");
+    button.dataset.value = option.value;
+    button.innerHTML = `<span></span><svg class="icon" aria-hidden="true"><use href="${sprite}#check"/></svg>`;
+    button.firstChild.textContent = option.textContent;
+    panel.append(button);
+    return button;
+  });
+  details.append(summary, panel);
+  select.after(details);
+
+  const sync = () => {
+    const current = select.options[select.selectedIndex];
+    label.textContent = current ? current.textContent : "";
+    buttons.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.value === select.value)));
+  };
+  sync();
+  select.addEventListener("dero:refresh", sync);
+  select.addEventListener("change", sync);
+  if (select.form) select.form.addEventListener("reset", () => setTimeout(sync, 0));
+
+  panel.addEventListener("click", (event) => {
+    const button = event.target.closest(".option");
+    if (!button) return;
+    details.open = false;
+    summary.focus();
+    if (select.value !== button.dataset.value) {
+      select.value = button.dataset.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    sync();
+  });
+
+  details.addEventListener("toggle", () => {
+    if (details.open) (panel.querySelector('[aria-selected="true"]') || buttons[0]).focus();
+  });
+
+  details.addEventListener("keydown", (event) => {            // arrow keys move through the options
+    const at = buttons.indexOf(document.activeElement);
+    const to = { ArrowDown: at + 1, ArrowUp: at < 0 ? buttons.length - 1 : at - 1, Home: 0, End: buttons.length - 1 }[event.key];
+    if (to === undefined) return;
+    event.preventDefault();
+    if (!details.open) { details.open = true; return; }
+    buttons[(to + buttons.length) % buttons.length].focus();
+  });
+}
+
+document.querySelectorAll("select").forEach(upgradeSelect);
+
+// One handler for every dropdown (checkbox lists and the upgraded selects): a click outside or Escape closes it.
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("details.multi[open]").forEach((d) => { if (!d.contains(event.target)) d.open = false; });
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  document.querySelectorAll("details.multi[open]").forEach((d) => { d.open = false; d.querySelector("summary").focus(); });
+});

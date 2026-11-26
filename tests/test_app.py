@@ -550,7 +550,7 @@ def test_row_columns_chevron_switch_slug(client):
     assert re.match(r"<thead><tr>\s*<th></th><th></th>\s*<th", head)                      # two empty headers, then "Short link"
     assert len(re.findall(r"<th[ >]", head)) == 5
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    assert re.findall(r"<td class=\"([^\"]*)\">", row) == ["narrow lead", "narrow", "nowrap", "target", "num"]
+    assert re.findall(r"<td class=\"([^\"]*)\">", row) == ["narrow lead", "narrow", "col-slug nowrap", "col-target target", "col-visits num"]
     cells = row.split("</td>")
     assert 'class="mini expand"' in cells[0] and 'class="slug"' not in cells[0]              # chevron alone, first
     assert 'class="row-switch"' in cells[1] and "toggle" in cells[1]                         # enable switch second
@@ -584,9 +584,9 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert f"Updated · expiry {day}" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
+    assert f"updated · expiry {day}" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
     assert 'id="flashes"' not in html and 'class="flash' not in html
-    assert "Updated" not in notice_box(html, "new-link")
+    assert "updated" not in notice_box(html, "new-link")
 
     edit(client, app, "abc", expires_at="31/12/2030")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
@@ -702,7 +702,7 @@ def test_edit_target_and_slug(client, app):
     assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     note = notice_box(page, "links")
-    assert "Updated · short link, target" in note and "localhost" not in note and "was" not in note         # brief: no URLs, no history
+    assert "http://localhost/renamed updated · short link, target" in note and "was" not in note              # the (new) short link, then what changed
 
 
 def test_edit_rejections_keep_the_link_unchanged(client, app):
@@ -785,17 +785,19 @@ def test_generate_letters_only_and_custom_alphabets(client):
     assert len(slug) == 12 and slug.isalpha() and slug.islower()
     slug = created_slug(client, slug_mode="generate", alphabet="custom", alphabet_custom="xyz789", length="10")
     assert len(slug) == 10 and set(slug) <= set("xyz789")
-    # symbols are allowed in the alphabet, but never as the first character
-    for _ in range(15):
+    # symbols are fine in the alphabet and anywhere in the slug, including the first position
+    firsts = set()
+    for _ in range(30):
         slug = created_slug(client, slug_mode="generate", alphabet="custom", alphabet_custom="-_a", length="6")
-        assert slug[0] == "a" and set(slug) <= set("-_a")
+        assert set(slug) <= set("-_a")
+        firsts.add(slug[0])
+    assert firsts - {"a"}                                                           # a symbol did come first at least once
 
 
 def test_generator_validation(client):
     bad = [({"alphabet": "custom", "alphabet_custom": "a"}, "alphabet_custom"),            # needs two different characters
            ({"alphabet": "custom", "alphabet_custom": "aaaa"}, "alphabet_custom"),
            ({"alphabet": "custom", "alphabet_custom": "ab c"}, "alphabet_custom"),         # space isn't allowed in a slug
-           ({"alphabet": "custom", "alphabet_custom": "-_"}, "alphabet_custom"),           # nothing a slug can start with
            ({"alphabet": "klingon"}, "alphabet"), ({"length": "2"}, "length"), ({"length": "33"}, "length"), ({"length": "x"}, "length")]
     for extra, field in bad:
         r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", **{"alphabet": "default", **extra})
@@ -859,23 +861,23 @@ def test_warning_texts_are_brief(client):
         assert reason in js
 
 
-def test_update_messages_are_brief(client, app):
+def test_update_messages_name_the_short_link_and_what_changed(client, app):
     post(client, "/admin/links", USER, target="https://example.com/old", slug="abc")
     def note():
         return notice_box(client.get("/admin/", headers=USER).get_data(as_text=True), "links")
     edit(client, app, "abc", target="https://example.com/new")
-    assert "Updated · target" in note() and "abc" not in note()
+    assert "http://localhost/abc updated · target" in note() and "was" not in note()
     edit(client, app, "abc", expires_at="2099-01-01")
-    assert "Updated · expiry 2099-01-01" in note()
+    assert "http://localhost/abc updated · expiry 2099-01-01" in note()
     edit(client, app, "abc", expires_at="")
-    assert "Updated · no expiry" in note()
+    assert "http://localhost/abc updated · expiry removed" in note()
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
-    assert "Updated · short link, target, expiry 2098-02-02" in note()
+    assert "http://localhost/xyz updated · short link, target, expiry 2098-02-02" in note()
     edit(client, app, "xyz")
-    assert "Nothing to update." in note()
+    assert "http://localhost/xyz · nothing to update" in note()
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
     edit(client, app, "xyz", slug="other")
-    assert note().count("Slug &#39;other&#39; is already taken.") == 1 and "http" not in note()    # errors carry no URL prefix either
+    assert "http://localhost/xyz: Slug &#39;other&#39; is already taken." in note()                      # errors say which link, too
 
 
 # ---------------------------------------------------------------- "target already shortened" lookup
@@ -918,3 +920,184 @@ def test_forms_know_where_to_look_up_and_the_warning_is_brief(client):
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function alreadyShortened" in js and "Target already shortened" in js and "by someone else" in js
     assert "function lookupThenResubmit" in js and "needsLookup(form)" in js
+
+
+# ---------------------------------------------------------------- search language on the page
+def seed_query_links(client, app):
+    post(client, "/admin/links", USER, target="https://github.com/dero", slug="aaa")
+    post(client, "/admin/links", USER, target="https://example.com/blog", slug="bbb")
+    post(client, "/admin/links", USER, target="https://example.com/shop", slug="ccc")
+    post(client, "/admin/links", USER2, target="https://github.com/other", slug="ddd")
+    post(client, "/admin/links", USER2, target="https://news.example.org/", slug="eee")
+    for _ in range(4):
+        client.get("/aaa")
+    client.get("/bbb")                                                                    # one visit, then it expires
+    expire(app, "bbb")
+    post(client, f"/admin/links/{link_row(app, 'ccc')['id']}/toggle", USER)               # ccc: disabled
+
+
+def shown(client, headers, q):
+    return slugs(client, headers, "?" + "&".join(f"q={__import__('urllib.parse').parse.quote(q)}" for _ in [0]))
+
+
+def test_query_param_filters_and_sorts(client, app):
+    seed_query_links(client, app)
+    assert sorted(shown(client, ADMIN, "status=expired")) == ["bbb"]
+    assert sorted(shown(client, ADMIN, "status=disabled,expired")) == ["bbb", "ccc"]
+    assert sorted(shown(client, ADMIN, "creator=bob")) == ["ddd", "eee"]
+    assert sorted(shown(client, ADMIN, "github !creator=bob")) == ["aaa"]
+    assert sorted(shown(client, ADMIN, "(creator=bob or status=expired) github")) == ["ddd"]
+    assert shown(client, ADMIN, "creator=alice sortby=visits")[:2] == ["aaa", "bbb"]            # most visits first
+    assert shown(client, ADMIN, "creator=alice sortby=-visits")[-1] == "aaa"                    # a minus reverses it
+    assert shown(client, ADMIN, "sortby=slug")[:2] == ["aaa", "bbb"] and shown(client, ADMIN, "sortby=-slug")[:2] == ["eee", "ddd"]
+    assert sorted(shown(client, ADMIN, "status=nonsense")) == []
+
+
+def test_a_query_can_never_widen_what_a_user_sees(client, app):
+    seed_query_links(client, app)
+    for q in ("creator=bob", "creator=bob or creator=alice", "!creator=alice", "(creator=bob)", "ddd", "status=active or creator=bob", "github"):
+        assert not {"ddd", "eee"} & set(shown(client, USER, q)), q                              # alice never sees bob's links
+        assert not {"aaa", "bbb", "ccc"} & set(shown(client, USER2, q)), q
+    assert sorted(shown(client, USER, "github")) == ["aaa"]
+
+
+def test_old_style_parameters_still_work_and_show_up_as_a_query(client, app):
+    seed_query_links(client, app)
+    html = client.get("/admin/?status=expired&owner=alice&order=visits:asc", headers=ADMIN).get_data(as_text=True)
+    assert 'value="status=expired creator=alice sortby=-visits"' in html
+    assert re.findall(r'class="slug">([a-z]+)</code>', html) == ["bbb"]
+
+
+def test_problems_are_shown_briefly_above_the_table(client, app):
+    seed_query_links(client, app)
+    html = client.get("/admin/", headers=ADMIN, query_string={"q": "status=nonsense (sortby=colour"}).get_data(as_text=True)
+    line = html[html.index('class="form-warn query-problems"'):html.index("</p>", html.index('class="form-warn query-problems"'))]
+    assert "Unknown status: nonsense" in line and "Unknown sort: colour" in line and "Missing )" in line
+    assert "query-problems" not in client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired"}).get_data(as_text=True)
+
+
+def test_filter_bar_markup(client, app):
+    seed_query_links(client, app)
+    html = client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired sortby=-visits"}).get_data(as_text=True)
+    assert 'value="status=expired sortby=-visits"' in html and 'class="qhighlight"' in html and 'id="q-help"' in html
+    assert re.search(r'<details class="multi" id="filter-status" data-key="status"', html)
+    assert re.findall(r'<input type="checkbox" value="(\w+)" checked><span>(\w+)</span>', html[html.index('id="filter-status"'):html.index('id="filter-creator"')]) == [
+        ("active", "Active"), ("disabled", "Disabled"), ("expired", "Expired")]
+    creators = html[html.index('id="filter-creator"'):html.index('<label class="field-label" for="filter-sort">')]
+    assert re.findall(r'<input type="checkbox" value="([^"]+)"', creators) == ["alice", "bob"]
+    # the sort dropdown holds sortby values; the current one is selected
+    assert '<option value="-visits" selected>Fewest visits</option>' in html and '<option value="">Newest first</option>' in html
+    # sortable headers carry the new query; Clear keeps only the sort
+    assert 'href="/admin/?q=status%3Dexpired+sortby%3Dvisits"' in html or 'href="/admin/?q=status%3Dexpired%20sortby%3Dvisits"' in html
+    assert re.search(r'id="clear-filters" href="/admin/\?q=sortby%3D-visits"', html) and 'aria-disabled="false"' in html
+    # people who can't see others have no "created by" dropdown
+    assert 'id="filter-creator"' not in client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert "sortby" not in html.split('<tbody>')[0].split('data-sort-keys')[0]                    # (the attribute names, not values, carry the keys)
+
+
+def test_toggle_and_delete_return_to_the_query_view(client, app):
+    seed_query_links(client, app)
+    back = "/admin/?q=status%3Dactive+sortby%3Dvisits"
+    html = client.get(back, headers=ADMIN).get_data(as_text=True)
+    assert f'name="back" value="{back}"' in html
+    r = post(client, f"/admin/links/{link_row(app, 'aaa')['id']}/toggle", ADMIN, back=back)
+    assert r.headers["Location"] == back
+
+
+# ---------------------------------------------------------------- slugs may start with - or _
+def test_slugs_may_be_made_of_dashes_and_underscores(client, app):
+    for slug in ("---", "_", "-a", "__init__", "a-b_c", "-" * 64):
+        assert post(client, "/admin/links", USER, target="https://example.com/t", slug=slug).status_code == 302, slug
+        assert client.get(f"/{slug}").status_code == 302, slug
+    row = link_row(app, "---")
+    assert edit(client, app, "---", slug="-_-").status_code == 302 and client.get("/-_-").status_code == 302   # renaming to one works too
+    for bad in ("", "a b", "a.b", "a/b", "ä", "x" * 65):
+        assert post(client, "/admin/links", USER, target="https://example.com/t", slug_mode="custom", slug=bad).status_code == 400, bad
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert html.count('pattern="[A-Za-z0-9_\\-]{1,64}"') == html.count('name="slug"')                          # the browser pattern agrees
+    assert "[A-Za-z0-9][" not in html and "[A-Za-z0-9][" not in client.get("/static/app.js").get_data(as_text=True)
+
+
+# ---------------------------------------------------------------- columns the user can switch on and off
+def table_columns(html):
+    head = html[html.index("<thead>"):html.index("</thead>")]
+    return re.findall(r'<th class="(col-\w+)', head)
+
+
+def test_default_columns_are_the_current_ones(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert table_columns(html) == ["col-slug", "col-target", "col-visits"]
+    assert 'id="filter-columns"' in html and '<span class="multi-label">3 of 6</span>' in html
+    assert re.findall(r'<input type="checkbox" value="(\w+)"( checked)?><span>([^<]+)</span>', html[html.index('id="filter-columns"'):html.index('id="clear-filters"')]) == [
+        ("slug", " checked", "Short link"), ("target", " checked", "Target"), ("creator", "", "Created by"),
+        ("created", "", "Created"), ("expires", "", "Expires"), ("visits", " checked", "Visits")]
+
+
+def test_the_cookie_chooses_the_columns(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc", expires_at="2099-05-06")
+    client.set_cookie("dero_cols", "slug,creator,created,expires,visits,bogus,target")          # order in the cookie doesn't matter, junk is ignored
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert table_columns(html) == ["col-slug", "col-target", "col-creator", "col-created", "col-expires", "col-visits"]
+    row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
+    assert '<td class="col-creator nowrap">alice</td>' in row and '<td class="col-expires nowrap mono">2099-05-06</td>' in row
+    assert re.search(r'<td class="col-created nowrap mono"><time class="localtime short" datetime="[^"]+" title="[^"]+ UTC">\d{4}-\d\d-\d\d</time></td>', row)
+    assert '<span class="multi-label">6 of 6</span>' in html
+    # what is a column is not repeated in the details; the editable expiry always stays there
+    detail = html[html.index('<tr class="detail"'):html.index("</tbody>")]
+    assert "<dt>Created by</dt>" not in detail and "<dt>Created</dt>" not in detail and "<dt>Expires</dt>" in detail
+    assert 'colspan="8"' in detail                                                                # 2 fixed + 6 columns
+
+
+def test_columns_can_be_reduced_and_the_footer_follows(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    client.set_cookie("dero_cols", "target")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert table_columns(html) == ["col-target"] and "<tfoot>" not in html                      # no visits column, no total row
+    client.set_cookie("dero_cols", "")                                                          # "none" is allowed too
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert table_columns(html) == [] and '<span class="multi-label">0 of 6</span>' in html
+    assert 'colspan="2"' in html and 'class="slug"' not in html
+    client.set_cookie("dero_cols", "creator,visits")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert re.search(r'<tfoot><tr><td colspan="3">Total visits</td><td class="num">0</td></tr></tfoot>', html)   # the total sits under Visits
+    client.delete_cookie("dero_cols")
+    assert table_columns(client.get("/admin/", headers=USER).get_data(as_text=True)) == ["col-slug", "col-target", "col-visits"]
+
+
+def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    expire(app, "abc")
+    client.set_cookie("dero_cols", "slug,expires,created,creator")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert "sortby%3Dexpires" in html and "sortby%3Dcreator" in html                              # new sort links for the new columns
+    assert "sortby%3D-created" in html                                                           # (created is the current sort, so its link reverses it)
+    row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
+    assert row.index("link-actions") < row.index('class="badge">expired</span>')                  # badge after the open/copy icons
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert "--control-h: 30px" in css and re.search(r"td\.col-target \{ width: 100%; max-width: 0; \}", css)
+
+
+# ---------------------------------------------------------------- one dropdown style, coloured search terms
+def test_selects_are_plain_in_the_html_and_upgraded_by_the_script(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    rules = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    assert '<select id="filter-sort">' in html and '<select name="alphabet"' in html and '<select name="match_type">' in rules   # work without JavaScript
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'document.querySelectorAll("select").forEach(upgradeSelect)' in js and "function refreshSelect" in js
+    assert 'className = "multi single"' in js and 'role", "listbox"' in js                      # same details/summary component as the checkbox lists
+    assert js.count('querySelectorAll("details.multi[open]")') == 2                              # one outside-click and one Escape handler for all
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert "select.native-hidden" in css and ".multi-panel .option" in css and ".single-panel" in css
+
+
+def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'q-term q-k-${t.key}' in js and 'q-term q-k-text' in js                               # every term kind gets its own class
+    css = client.get("/static/style.css").get_data(as_text=True)
+    for kind in ("text", "status", "creator", "slug", "target", "sortby"):
+        assert re.search(rf"\.q-k-{kind} \{{ --c: var\(--q-{kind}\); \}}", css), kind
+    colours = re.search(r":root \{ --q-text: var\(--muted\); --q-status: (#\w+); --q-creator: (#\w+); --q-slug: (#\w+); --q-target: (#\w+);", css).groups()
+    assert len(set(colours)) == 4                                                                # four different hues (plus muted and the secondary colour)
+    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 6px; \}", css)   # same spacing in both layers
+    assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)                    # the search bar has its own row
