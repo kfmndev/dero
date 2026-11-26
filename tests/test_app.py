@@ -1536,6 +1536,17 @@ def test_theme_switch_is_drawn_from_tokens_and_dropdown_rows_have_a_visible_hove
     assert "transition" in css_rule(css, ".multi-panel label") and "transition" in css_rule(css, ".multi-panel .option")
 
 
+def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
+    js = flat_js(js_source(client))
+    assert 'visits: ["visits"]' in js and 'sortby: ["="]' in js and 'SORT_ALIASES = { created_by: "creator" }' in js
+    assert 'slug: ["=", "=="]' in js and 'created: ["=", "==", ...COMPARISONS]' in js
+    assert "(!=|==|<=|>=|=|<|>)" in js.replace("\\", "")  # the same operators as _KEYED in query.py
+    assert 'span("q-star", "*")' in js  # a wildcard of a value is drawn on its own, to be coloured
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--err)"
+    assert "--c: var(--q-visits)" in css
+
+
 def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
     slug = "abcdefghij-klmnopqrst-uvwxyz"  # 28 characters
     post(client, "/admin/links", USER, target="https://example.com/long", slug=slug)

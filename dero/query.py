@@ -1,12 +1,18 @@
 """The search language of the links table.
 
-    foo "exact phrase"        free text: searches slug, target and creator
+    foo "exact phrase"        free text: searches slug, target and creator (anywhere in them)
     status=expired,disabled   created_by=julian   slug=abc   target=github
-                              (a comma means "or" within one key; creator and status match exactly,
+                              (a comma means "or" within one key; status and created_by match exactly,
                                slug and target match parts)
+    slug=abc*  target=*.pdf   a * stands for any text; with a * the whole value must match, so abc* is "starts with"
+                              and *.pdf is "ends with" (also created_by=ann*)
+    slug==abc                 exactly this (no parts, no wildcards)
     created=2026-11           expires<2027-01-01    dates: a year, month or day; < <= > >= compare; dates are UTC
+                              created>-7d  expires<30d   relative to today: today, yesterday, tomorrow, or a number of
+                              days, weeks, months or years (d w m y), - for the past: -7d, 2w, -1y
     expires                   links that expire at all (short for expires!=never)
                               expires=never         links that never expire (also: expires=none, !expires)
+    visits>100  visits=0      the visit counter: a number, with < <= > >= and = !=
     sort_by=visits            sort; a leading minus reverses the key's usual order (sort_by=-visits)
     !term   key!=value        negate
     and  &&   or  ||   ( )    combine and group
@@ -14,8 +20,8 @@
 
 Terms next to each other are joined with "and"; "and" binds tighter than "or".
 The names are the dropdowns' names in snake case (status, created_by, sort_by); creator, owner, by, sortby, sort and
-order are older spellings that still work. Unknown keys are plain text
-(so `a=b` or a pasted URL just searches for that text).
+order are older spellings that still work. Unknown keys are plain text (so `a=b` or a pasted URL just searches for
+that text); a known key with an operator it does not have (`slug>abc`) matches nothing and is reported.
 
 The browser has a tokenizer with the same rules (static/js/search-language.js, parseQuery) for highlighting
 and for keeping the dropdowns in sync; this module is the authority that actually filters.
@@ -23,9 +29,10 @@ and for keeping the dropdowns in sync; this module is the authority that actuall
 
 from __future__ import annotations
 
+import calendar
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 # each key (the name used in the code) with every spelling that is accepted for it; the first spelling is the
@@ -37,20 +44,38 @@ KEY_ALIASES = {
     "target": ("target",),
     "created": ("created",),
     "expires": ("expires",),
+    "visits": ("visits",),
     "sortby": ("sort_by", "sortby", "sort", "order"),
 }
 KEYS = {alias: key for key, aliases in KEY_ALIASES.items() for alias in aliases}  # spelling -> key
 STATUSES = ("active", "disabled", "expired")
 SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
+SORT_ALIASES = {"created_by": "creator"}  # sort_by=created_by, like the key and the dropdown
 # keys whose usual order is newest/most first; the others start at A (or soonest)
 DESC_BY_DEFAULT = {"created": True, "visits": True, "slug": False, "target": False, "creator": False, "expires": False}
 
 DATE_COLUMNS = {"created": "created_at", "expires": "expires_at"}
 # keys that can be unset (a NULL column): the bare key means "is set", and a date comparison never matches an unset one
 OPTIONAL_KEYS = {"expires"}
-COMPARISONS = ("<=", ">=", "<", ">")  # only for the date keys, written without "=": expires<2027, created>=2026-11
+COMPARISONS = ("<=", ">=", "<", ">")  # for dates and visits, written without "=": expires<2027, visits>=100
 _DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
-_KEYED = re.compile(r"^([A-Za-z_]+)(!=|<=|>=|=|<|>)(.*)$", re.S)
+_RELATIVE = re.compile(r"^([+-]?)(\d{1,4})([dwmy])$")  # -7d, 2w, +1y (no sign = ahead)
+_RELATIVE_WORDS = {"yesterday": -1, "today": 0, "tomorrow": 1}
+_NUMBER = re.compile(r"^\d{1,12}$", re.ASCII)
+_KEYED = re.compile(r"^([A-Za-z_]+)(!=|==|<=|>=|=|<|>)(.*)$", re.S)
+
+# the operators each key understands ("!=" is "=" negated, so it is listed as "="); "==" is the exact match
+_EQUALITY = ("=", "==")
+ALLOWED_OPS = {
+    "status": _EQUALITY,
+    "creator": _EQUALITY,
+    "slug": _EQUALITY,
+    "target": _EQUALITY,
+    "created": _EQUALITY + COMPARISONS,
+    "expires": _EQUALITY + COMPARISONS,
+    "visits": _EQUALITY + COMPARISONS,
+    "sortby": ("=",),
+}
 
 
 @dataclass
@@ -63,7 +88,9 @@ class Tok:
     key: str | None = None  # canonical key of a keyed term, else None (free text)
     negated: bool = False  # key!=value
     values: tuple[str, ...] = ()
-    op: str = "="  # "=", one of COMPARISONS, or "set" for an optional key written alone (expires)
+    op: str = (
+        "="  # "=" ("!=" is this with negated), "==", one of COMPARISONS, or "set" for a bare optional key (expires)
+    )
 
 
 @dataclass
@@ -135,8 +162,7 @@ def _word_token(text: str, i: int, j: int) -> Tok:
     if m and (key := KEYS.get(m.group(1).lower())):
         op = m.group(2)
 
-        if op not in COMPARISONS or key in DATE_COLUMNS:
-            return Tok("term", i, j, key, op == "!=", _split_values(m.group(3)), "=" if op == "!=" else op)
+        return Tok("term", i, j, key, op == "!=", _split_values(m.group(3)), "=" if op == "!=" else op)
 
     return Tok("term", i, j, None, False, (_unquote(word),))
 
@@ -256,8 +282,11 @@ class _Parser:
             return
         raw = tok.values[0]
         name = raw.lstrip("+-").lower()
+        name = SORT_ALIASES.get(name, name)
 
-        if name in SORT_KEYS:
+        if tok.op not in ALLOWED_OPS["sortby"]:
+            self.problems.append(f"sort_by does not support {tok.op}")
+        elif name in SORT_KEYS:
             self.sort = (name, raw.startswith("-"))
         else:
             self.problems.append(f"Unknown sort: {raw}")
@@ -302,22 +331,58 @@ _STATUS_SQL = {
 }
 
 
-def _date_condition(key: str, op: str, value: str, params: list[Any], problems: list[str]) -> str:
-    """created=2026 / created>=2026-11 / expires<2027-01-01 / expires=never. Dates are UTC.
+def _add_months(day: date, months: int) -> date:
+    """The day this many months later (earlier if negative); the 31st becomes the last day of a shorter month."""
+    year, month = divmod(day.year * 12 + day.month - 1 + months, 12)
+    month += 1
+
+    return day.replace(year=year, month=month, day=min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def _relative_day(value: str, today: date) -> str | None:
+    """today / yesterday / tomorrow / -7d / 2w / 3m / -1y as an ISO day, or None if the value is not of that form."""
+    word = value.lower()
+
+    if word in _RELATIVE_WORDS:
+        return (today + timedelta(days=_RELATIVE_WORDS[word])).isoformat()
+    m = _RELATIVE.match(word)
+
+    if not m:
+        return None
+    amount, unit = int(m.group(2)) * (-1 if m.group(1) == "-" else 1), m.group(3)
+
+    try:
+        if unit == "d":
+            day = today + timedelta(days=amount)
+        elif unit == "w":
+            day = today + timedelta(weeks=amount)
+        else:
+            day = _add_months(today, amount * (12 if unit == "y" else 1))
+    except (OverflowError, ValueError):
+        return None
+
+    return day.isoformat()
+
+
+def _date_condition(key: str, op: str, value: str, today: date, params: list[Any], problems: list[str]) -> str:
+    """created=2026 / created>=2026-11 / expires<2027-01-01 / created>-7d / expires=never. Dates are UTC.
     The stored times are ISO strings, so comparing their first 4, 7 or 10 characters compares years, months or days.
     A link without an expiry matches no date, so `!expires<2027` (not expiring before 2027) still includes it."""
     column = DATE_COLUMNS[key]
     value = value.strip()
+    op = "=" if op == "==" else op
 
     if key in OPTIONAL_KEYS and op == "=" and value.lower() in ("none", "never"):
         return f"{column} IS NULL"
-    m = _DATE.match(value)
 
-    if not m or not _real_date(m):
+    if text := _relative_day(value, today):
+        pass
+    elif (m := _DATE.match(value)) and _real_date(m):
+        year, month, day = m.groups()
+        text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
+    else:
         problems.append(f"Unknown date: {value}")
         return "0"
-    year, month, day = m.groups()
-    text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
     params.append(text)
     compare = f"substr({column}, 1, {len(text)}) {op} ?"
 
@@ -334,9 +399,19 @@ def _real_date(m: re.Match[str]) -> bool:
     return True
 
 
+def _escaped(text: str) -> str:
+    """The text with LIKE's own characters (% _ and the escape) made literal."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def like(term: str) -> str:
     """A LIKE pattern that finds the term anywhere (its own % and _ are matched literally)."""
-    return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    return "%" + _escaped(term) + "%"
+
+
+def glob_like(value: str) -> str:
+    """A LIKE pattern for a value with * in it: each * is any text, the rest is literal, and all of it must match."""
+    return "%".join(_escaped(part) for part in value.split("*"))
 
 
 def _compile_status(values: tuple[str, ...], now: str, params: list[Any], problems: list[str]) -> str:
@@ -358,8 +433,37 @@ def _compile_status(values: tuple[str, ...], now: str, params: list[Any], proble
     return "(" + " OR ".join(parts) + ")"
 
 
+def _number_condition(column: str, op: str, value: str, params: list[Any], problems: list[str]) -> str:
+    """visits=0 / visits>100: a whole number compared with the column."""
+
+    if not _NUMBER.match(value):
+        problems.append(f"Unknown number: {value}")
+        return "0"
+    params.append(int(value))
+
+    return f"{column} {'=' if op == '==' else op} ?"
+
+
+def _text_condition(column: str, op: str, value: str, exact: bool, params: list[Any]) -> str:
+    """slug=abc (contains) / slug=abc* (a * is any text, the whole value must match) / slug==abc (exactly).
+    `exact` is for columns whose plain = is an exact match already (created_by); all of it ignores upper/lower case."""
+
+    if op == "==" or (exact and "*" not in value):
+        params.append(value.lower())
+
+        return f"lower({column}) = ?"
+    params.append(glob_like(value) if "*" in value else like(value))
+
+    return f"{column} LIKE ? ESCAPE '\\'"
+
+
 def _compile_term(key: str, values: tuple[str, ...], op: str, now: str, params: list[Any], problems: list[str]) -> str:
     """One key=value term (values are alternatives)."""
+
+    if op != "set" and op not in ALLOWED_OPS[key]:
+        problems.append(f"{key} does not support {op}")
+
+        return "0"
 
     if op == "set":
         return f"({DATE_COLUMNS[key]} IS NOT NULL)"
@@ -368,16 +472,16 @@ def _compile_term(key: str, values: tuple[str, ...], op: str, now: str, params: 
         return _compile_status(values, now, params, problems)
 
     if key in DATE_COLUMNS:
-        return "(" + " OR ".join(_date_condition(key, op, v, params, problems) for v in values) + ")"
+        today = date.fromisoformat(now[:10])
 
-    if key == "creator":
-        params += [v.lower() for v in values]
+        return "(" + " OR ".join(_date_condition(key, op, v, today, params, problems) for v in values) + ")"
 
-        return "(lower(created_by) IN (" + ",".join("?" * len(values)) + "))"
-    column = key  # slug or target
-    params += [like(v) for v in values]
+    if key == "visits":
+        return "(" + " OR ".join(_number_condition("visits", op, v, params, problems) for v in values) + ")"
+    column = {"creator": "created_by"}.get(key, key)  # slug or target, or the creator
+    exact = key == "creator"
 
-    return "(" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for _ in values) + ")"
+    return "(" + " OR ".join(_text_condition(column, op, v, exact, params) for v in values) + ")"
 
 
 def _compile(node: Node, now: str, params: list[Any], problems: list[str]) -> str:

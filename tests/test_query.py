@@ -1,6 +1,7 @@
 """The search language: tokenizer, parser and the SQL it produces."""
 
 import sqlite3
+from datetime import date
 
 import pytest
 
@@ -259,7 +260,7 @@ def test_comparisons_are_written_without_the_equals_sign():
         ("2027",),
     )
     assert kinds["created>2026"].key == "created" and kinds["created>2026"].op == ">"
-    assert kinds["slug<abc"].key is None  # comparisons exist for dates only; elsewhere it is plain text
+    assert kinds["slug<abc"].key == "slug" and kinds["slug<abc"].op == "<"  # a known key: flagged when it filters
     # an operator after the equals sign is not a date
     for text in ("expires=<2027", "expires=>=2027", "created=>2026", "expires=<=2027-01-01"):
         rows, parsed = find(text)
@@ -279,3 +280,102 @@ def test_bad_dates_match_nothing_and_are_reported():
         assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
     assert find("created=2026-02-28")[1].problems == [] and find("created=2024-02-29")[1].problems == []
     assert find("created=none")[1].problems  # none is only for expires
+
+
+# ------------------------------------------------------------------ wildcards and exact matches
+def test_a_star_is_any_text_and_the_whole_value_must_match():
+    assert slugs("slug=a*") == ["aaa"] and slugs("slug=*c") == ["ccc"] and slugs("slug=a*a") == ["aaa"]
+    assert slugs("slug=*") == slugs("")
+    assert slugs("target=https://github.com/*") == ["aaa", "ddd"]
+    assert slugs("target=*.org/") == ["eee"]
+    assert slugs("target=*example*") == ["bbb", "ccc", "eee"]
+    assert slugs("target=example") == ["bbb", "ccc", "eee"]  # without a star it is still "contains"
+    assert slugs("SLUG=A*") == ["aaa"]  # upper and lower case do not matter
+    assert slugs("slug!=a*") == ["bbb", "ccc", "ddd", "eee"] and slugs("!slug=a*") == slugs("slug!=a*")
+    assert slugs("slug=aaa,c*") == ["aaa", "ccc"]  # each alternative has its own rules
+    assert slugs("slug=a_a") == [] and slugs("slug=a%") == []  # LIKE's own characters stay literal
+
+
+def test_the_creator_is_exact_unless_there_is_a_star():
+    assert slugs("created_by=anna") == ["ccc", "ddd"]  # not "Anna Maria"
+    assert slugs("created_by=ann*") == ["ccc", "ddd", "eee"] and slugs("created_by=*maria") == ["eee"]
+    assert slugs("created_by==anna") == slugs("created_by=anna")
+
+
+def test_double_equals_is_an_exact_match_without_wildcards():
+    assert slugs("slug==aaa") == ["aaa"] and slugs("slug==aa") == [] and slugs("slug=aa") == ["aaa"]
+    assert slugs("target==https://github.com/dero") == ["aaa"] and slugs("TARGET==HTTPS://GITHUB.COM/DERO") == ["aaa"]
+    assert slugs("target==https://github.com/*") == []  # a star is just a star here
+    tok = [t for t in query.tokenize("slug==abc") if t.kind == "term"][0]
+    assert (tok.key, tok.op, tok.negated, tok.values) == ("slug", "==", False, ("abc",))
+    tok = [t for t in query.tokenize("slug!=abc") if t.kind == "term"][0]
+    assert (tok.op, tok.negated) == ("=", True)
+
+
+def test_an_operator_a_key_does_not_have_is_reported_and_matches_nothing():
+    for text, key, op in (
+        ("slug>abc", "slug", ">"),
+        ("target<=x", "target", "<="),
+        ("status>active", "status", ">"),
+        ("created_by>=a", "creator", ">="),
+        ("!slug<abc", "slug", "<"),
+    ):
+        rows, parsed = find(text)
+        assert parsed.problems == [f"{key} does not support {op}"], text
+        assert rows == (slugs("") if text.startswith("!") else []), text
+    rows, parsed = find("sort_by>visits status=active")
+    assert parsed.problems == ["sort_by does not support >"] and parsed.sort is None and rows == slugs("status=active")
+    assert find("slug=abc visits>1")[1].problems == []  # what exists is fine
+
+
+# ------------------------------------------------------------------ visits
+def test_visits_filter():
+    assert slugs("visits=10") == slugs("visits==10") == ["aaa"]
+    assert slugs("visits!=10") == ["bbb", "ccc", "ddd", "eee"]
+    assert slugs("visits>5") == ["aaa", "ccc"] and slugs("visits>=5") == ["aaa", "bbb", "ccc"]
+    assert slugs("visits<3") == ["ddd"] and slugs("visits<=3") == ["ddd", "eee"]
+    assert slugs("visits=5,7") == ["bbb", "ccc"] and slugs("visits>2 visits<8") == ["bbb", "ccc", "eee"]
+    assert slugs("visits=") == slugs("")  # nothing typed yet: no filter
+    assert slugs("visits") == []  # the bare word is free text again (no slug, target or creator holds it)
+
+
+@pytest.mark.parametrize("text", ["visits=abc", "visits>-1", "visits=1.5", "visits=1000000000000000"])
+def test_bad_visit_numbers_match_nothing_and_are_reported(text):
+    rows, parsed = find(text)
+    assert rows == [] and parsed.problems == [f"Unknown number: {text.split('=')[-1].split('>')[-1]}"]
+
+
+# ------------------------------------------------------------------ relative dates
+def test_relative_days():
+    day = date(2026, 6, 15)
+    rel = lambda value, today=day: query._relative_day(value, today)  # noqa: E731
+    assert rel("today") == "2026-06-15" and rel("Yesterday") == "2026-06-14" and rel("tomorrow") == "2026-06-16"
+    assert rel("-7d") == "2026-06-08" and rel("7d") == rel("+7d") == "2026-06-22" and rel("0d") == "2026-06-15"
+    assert rel("2w") == "2026-06-29" and rel("-1w") == "2026-06-08" and rel("-3M") == "2026-03-15"
+    assert rel("1y") == "2027-06-15" and rel("-1y") == "2025-06-15"
+    assert rel("1m", date(2026, 1, 31)) == "2026-02-28" and rel("-1m", date(2024, 3, 31)) == "2024-02-29"  # month ends
+    assert rel("-1y", date(2024, 2, 29)) == "2023-02-28"
+    assert rel("12m", date(2026, 12, 31)) == "2027-12-31"
+    for junk in ("", "d", "7", "7days", "-", "--7d", "12345d", "9999y", "-9999y", "2026"):
+        assert rel(junk) is None, junk
+
+
+def test_relative_dates_in_filters():
+    # NOW is 2026-06-15, every link was created on 2026-01-01 (165 days earlier), bbb and eee are expired, ddd is not
+    assert slugs("created<today") == slugs("") and slugs("created>today") == [] and slugs("created=today") == []
+    assert slugs("created=-165d") == slugs("") and slugs("created>=-165d") == slugs("") and slugs("created>-165d") == []
+    assert slugs("created>-6m") == slugs("") and slugs("created>-5m") == []
+    assert slugs("expires<today") == slugs("status=expired") == ["bbb", "eee"]
+    assert slugs("expires>tomorrow") == ["ddd"] and slugs("expires>0d expires<30d") == []
+    assert slugs("expires<1000y") == ["bbb", "ddd", "eee"]  # a link that never expires is not "before" anything
+    assert slugs("!expires<today") == ["aaa", "ccc", "ddd"]
+    rows, parsed = find("created>=-5x")
+    assert rows == [] and parsed.problems == ["Unknown date: -5x"]
+    assert find("expires<9999y")[1].problems == ["Unknown date: 9999y"]  # too far for a date
+
+
+# ------------------------------------------------------------------ sort_by=created_by
+def test_the_creator_sort_has_both_names():
+    assert find("sort_by=created_by")[1].sort == ("creator", False) == find("sort_by=creator")[1].sort
+    assert find("sort_by=-created_by")[1].sort == ("creator", True)
+    assert find("sort_by=CREATED_BY")[1].problems == []

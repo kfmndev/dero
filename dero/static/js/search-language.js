@@ -10,15 +10,34 @@ const KEY_ALIASES = {
   target: ["target"],
   created: ["created"],
   expires: ["expires"],
+  visits: ["visits"],
   sortby: ["sort_by", "sortby", "sort", "order"],
 };
 const QUERY_KEYS = Object.fromEntries(
   Object.entries(KEY_ALIASES).flatMap(([key, aliases]) => aliases.map((alias) => [alias, key])),
 ); // spelling -> key
 
-// keys that can be unset: the key alone means "is set" (expires = expires!=never); the date keys compare with < <= > >=
+// keys that can be unset: the key alone means "is set" (expires = expires!=never)
 const OPTIONAL_KEYS = ["expires"];
 const DATE_KEYS = ["created", "expires"];
+const TEXT_KEYS = ["slug", "target", "creator"]; // a * in their values is any text ("==" takes it literally)
+// the operators each key understands ("!=" counts as "="); "==" is the exact match. Same table as ALLOWED_OPS in dero/query.py.
+const COMPARISONS = ["<=", ">=", "<", ">"];
+const ALLOWED_OPS = {
+  status: ["=", "=="],
+  creator: ["=", "=="],
+  slug: ["=", "=="],
+  target: ["=", "=="],
+  created: ["=", "==", ...COMPARISONS],
+  expires: ["=", "==", ...COMPARISONS],
+  visits: ["=", "==", ...COMPARISONS],
+  sortby: ["="],
+};
+const SORT_ALIASES = { created_by: "creator" }; // sort_by=created_by, like the key and the dropdown
+const sortName = (raw) => {
+  const name = raw.replace(/^[+-]/, "").toLowerCase();
+  return SORT_ALIASES[name] || name;
+};
 
 function unquote(text) {
   if (text.length >= 2 && text[0] === '"' && text.endsWith('"')) return text.slice(1, -1);
@@ -83,9 +102,8 @@ function parseQuery(text) {
       if (lower === "and" || lower === "or") {
         toks.push({ kind: lower, start: i, end: j });
       } else {
-        const m = /^([A-Za-z_]+)(!=|<=|>=|=|<|>)([\s\S]*)$/.exec(word);
-        let key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
-        if (key && /^[<>]/.test(m[2]) && !DATE_KEYS.includes(key)) key = undefined; // a comparison is for dates only
+        const m = /^([A-Za-z_]+)(!=|==|<=|>=|=|<|>)([\s\S]*)$/.exec(word);
+        const key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
         if (OPTIONAL_KEYS.includes(lower)) {
           toks.push({
             kind: "term",
@@ -107,6 +125,7 @@ function parseQuery(text) {
             rawKey: m[1],
             op: m[2],
             rest: m[3],
+            supported: ALLOWED_OPS[key].includes(m[2] === "!=" ? "=" : m[2]), // false: the server reports it and matches nothing
             negated: m[2] === "!=",
             values: splitRaw(m[3])
               .map(unquote)
@@ -191,6 +210,7 @@ function deriveSet(parsed, key, all) {
   const mine = parsed.terms.filter((t) => t.key === key && t.depth === 0);
   if (mine.length === 0) return { set: all };
   if (mine.length > 1) return { custom: true };
+  if (!mine[0].supported) return { custom: true };
   const wanted = mine[0].values.map((v) => v.toLowerCase());
   const hit = all.filter((v) => wanted.includes(v.toLowerCase()));
   const set = mine[0].negated ? all.filter((v) => !hit.includes(v)) : hit;
@@ -202,16 +222,19 @@ function deriveSort(parsed, sortKeys) {
   const mine = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby" && t.values.length);
   if (!mine.length) return "";
   const raw = mine[mine.length - 1].values[0],
-    name = raw.replace(/^[+-]/, "").toLowerCase();
+    name = sortName(raw);
   if (!sortKeys.includes(name)) return "";
   const value = `${raw.startsWith("-") ? "-" : ""}${name}`;
   return value === "created" ? "" : value;
 }
 
-// 2026 / 2026-11 / 2026-11-25 (the operator < <= > >= belongs to the key, not the value); expires=none and
-// expires=never only with = or !=. Same rules as dero/query.py.
+// A date: 2026 / 2026-11 / 2026-11-25 (the operator < <= > >= belongs to the key, not the value), or relative to today:
+// today, yesterday, tomorrow, -7d, 2w, 3m, -1y. expires=none and expires=never only with = or ==. Same rules as
+// dero/query.py (the server is the authority: it also knows when a relative date leaves the calendar).
 function validDate(value, key, op) {
-  if (OPTIONAL_KEYS.includes(key) && (op === "=" || op === "!=") && /^(none|never)$/i.test(value)) return true;
+  if (OPTIONAL_KEYS.includes(key) && (op === "=" || op === "==" || op === "!=") && /^(none|never)$/i.test(value))
+    return true;
+  if (/^(today|yesterday|tomorrow|[+-]?\d{1,4}[dwmy])$/i.test(value.trim())) return true;
   const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(value.trim());
   if (!m) return false;
   const month = Number(m[2] || 1),
@@ -219,6 +242,8 @@ function validDate(value, key, op) {
     date = new Date(Date.UTC(Number(m[1]), month - 1, day));
   return month >= 1 && month <= 12 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
+
+const validNumber = (value) => /^\d{1,12}$/.test(value.trim());
 
 // Draw the query with its structure: terms as chips, groups tinted, operators and negations coloured.
 // The text of the result is exactly the query text (the highlight sits behind the real input).
@@ -280,15 +305,22 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
         last = top().lastChild;
       if (before && before.kind === "not" && last?.classList?.contains("q-not")) pill.append(last);
       pill.append(span("q-key", t.rawKey));
-      if (t.op) pill.append(span("q-eq", t.op));
+      if (t.op) pill.append(span(t.supported ? "q-eq" : "q-eq q-invalid", t.op)); // an operator the key does not have
+      const wildcard = TEXT_KEYS.includes(t.key) && t.op !== "=="; // with "==" a * is just a *
       (t.op ? splitRaw(t.rest) : []).forEach((piece, i) => {
         if (i) pill.append(span("q-eq", ","));
         const value = unquote(piece);
         const bad =
           (t.key === "status" && value && !statuses.includes(value.toLowerCase())) ||
           (DATE_KEYS.includes(t.key) && value && !validDate(value, t.key, t.op)) ||
-          (t.key === "sortby" && value && !sortKeys.includes(value.replace(/^[+-]/, "").toLowerCase()));
-        pill.append(span(bad ? "q-val q-invalid" : "q-val", piece));
+          (t.key === "visits" && value && !validNumber(value)) ||
+          (t.key === "sortby" && value && !sortKeys.includes(sortName(value)));
+        const shown = span(bad ? "q-val q-invalid" : "q-val", "");
+        (wildcard ? piece.split("*") : [piece]).forEach((part, n) => {
+          if (n) shown.append(span("q-star", "*")); // the wildcards of a value, in blue
+          shown.append(part);
+        });
+        pill.append(shown);
       });
       top().append(pill);
     }

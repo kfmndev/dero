@@ -1417,6 +1417,9 @@ time.localtime {
 .q-not {
   color: var(--err);
 }
+.q-star {
+  color: var(--accent-ink);
+} /* a wildcard in a value */
 .q-invalid {
   text-decoration: underline wavy var(--err);
   text-underline-offset: 3px;
@@ -1698,6 +1701,9 @@ th.col-target {
 }
 .q-k-expires {
   --c: var(--q-expires);
+}
+.q-k-visits {
+  --c: var(--q-visits);
 }
 .q-neg .q-eq {
   color: var(--err);
@@ -2028,16 +2034,19 @@ tr.item.visited td.col-visits {
 :root {
   --q-created: #be185d;
   --q-expires: #4d7c0f;
+  --q-visits: #0369a1;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --q-created: #f472b6;
     --q-expires: #a3e635;
+    --q-visits: #38bdf8;
   }
 }
 :root[data-theme="dark"] {
   --q-created: #f472b6;
   --q-expires: #a3e635;
+  --q-visits: #38bdf8;
 }
 
 /* ---- dero: labels use Hubot Sans ----
