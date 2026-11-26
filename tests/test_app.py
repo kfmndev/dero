@@ -1099,7 +1099,7 @@ def test_update_messages_name_the_short_link_and_what_changed(client, app):
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
     assert note() == "slug xyz updated · new slug · new target https://example.com/x · expires 2098-02-02"
     edit(client, app, "xyz")
-    assert note() == "xyz is up to date"
+    assert note() == "slug xyz is up to date"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
     edit(client, app, "xyz", slug="other")
     assert note() == "Slug other is already taken."  # inline, so no link name needed
@@ -1970,7 +1970,10 @@ def test_enabling_and_disabling_a_link_is_announced(client):
         assert r.status_code == 302
         html = client.get("/admin/", headers=USER).get_data(as_text=True)
         notice = html[html.index('id="links-notices"') :]
-        assert f"slug <code class=\"slug\">abc</code> {word}</span>" in notice[: notice.index("</div>")] and 'class="form-ok"' in notice
+        assert (
+            f'slug <code class="slug">abc</code> {word}</span>' in notice[: notice.index("</div>")]
+            and 'class="form-ok"' in notice
+        )
     assert 'class="form-ok"' not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".form-ok")["color"] == "var(--q-status)"
