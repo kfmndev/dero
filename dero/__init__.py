@@ -21,46 +21,50 @@ from .urls import normalise_base_url
 from .version import build_info
 
 
-def create_app(test_config=None):
-    app = Flask(__name__)
-    app.config.update(
-        DATABASE=os.environ.get("DATABASE", "dero.db"),
-        SECRET_KEY=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
-        AUTH_MODE=os.environ.get("AUTH_MODE", "basic"),
-        USERS_FILE=os.environ.get("USERS_FILE", "users.txt"),
-        NONE_USER=os.environ.get("NONE_USER", "admin"),
-        PROXY_SECRET=os.environ.get("PROXY_SECRET", ""),
-        USER_HEADER=os.environ.get("USER_HEADER", "Remote-User"),
-        GROUPS_HEADER=os.environ.get("GROUPS_HEADER", "Remote-Groups"),
-        USER_GROUP=os.environ.get("USER_GROUP", "dero-users"),
-        ADMIN_GROUP=os.environ.get("ADMIN_GROUP", "dero-admins"),
-        ADMIN_PATH=os.environ.get("ADMIN_PATH", "/admin"),
-        BASE_URL=os.environ.get("BASE_URL", ""),
+def _config_from_environment():
+    env = os.environ.get
+
+    return dict(
+        DATABASE=env("DATABASE", "dero.db"),
+        SECRET_KEY=env("SECRET_KEY") or secrets.token_hex(32),
+        AUTH_MODE=env("AUTH_MODE", "basic"),
+        USERS_FILE=env("USERS_FILE", "users.txt"),
+        NONE_USER=env("NONE_USER", "admin"),
+        PROXY_SECRET=env("PROXY_SECRET", ""),
+        USER_HEADER=env("USER_HEADER", "Remote-User"),
+        GROUPS_HEADER=env("GROUPS_HEADER", "Remote-Groups"),
+        USER_GROUP=env("USER_GROUP", "dero-users"),
+        ADMIN_GROUP=env("ADMIN_GROUP", "dero-admins"),
+        ADMIN_PATH=env("ADMIN_PATH", "/admin"),
+        BASE_URL=env("BASE_URL", ""),
     )
 
-    if test_config:
-        app.config.update(test_config)
 
-    app.teardown_appcontext(db.close_db)
+def _check_auth_mode(app):
+    """Refuse an unknown mode, and warn where the setup leaves the admin UI open or locked."""
+    mode = app.config["AUTH_MODE"]
 
-    if app.config["AUTH_MODE"] not in ("basic", "proxy", "none"):
+    if mode not in ("basic", "proxy", "none"):
         raise RuntimeError("AUTH_MODE must be 'basic', 'proxy' or 'none'")
 
-    if app.config["AUTH_MODE"] == "none":
+    if mode == "none":
         app.logger.warning(
-            "AUTH_MODE=none: the admin UI at %s has NO authentication. " "Anyone who can reach it is an admin.",
+            "AUTH_MODE=none: the admin UI at %s has NO authentication. Anyone who can reach it is an admin.",
             app.config["ADMIN_PATH"],
         )
 
-    if app.config["AUTH_MODE"] == "basic" and not auth.load_users(app.config["USERS_FILE"]):
+    if mode == "basic" and not auth.load_users(app.config["USERS_FILE"]):
         app.logger.warning(
             "No users found in %s: nobody can sign in. "
             "Create one with: python -m dero.passwd --file %s <name> --role admin",
             app.config["USERS_FILE"],
             app.config["USERS_FILE"],
         )
-    db_dir = os.path.dirname(os.path.abspath(app.config["DATABASE"]))
-    os.makedirs(db_dir, exist_ok=True)
+
+
+def _prepare_database(app):
+    """Create the directory and the tables, and take the fallback address from FALLBACK_URL if none is saved yet."""
+    os.makedirs(os.path.dirname(os.path.abspath(app.config["DATABASE"])), exist_ok=True)
 
     with app.app_context():
         db.init_db()
@@ -69,18 +73,15 @@ def create_app(test_config=None):
         if env_fallback and not db.get_setting("fallback_url"):
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
-    app.config["BASE_URL"] = normalise_base_url(app.config["BASE_URL"])
-    admin_path = "/" + app.config["ADMIN_PATH"].strip("/")
-    app.config["ADMIN_PATH"] = admin_path
-    app.register_blueprint(admin_blueprint, url_prefix=admin_path)
-    app.jinja_env.globals["csrf_token"] = auth.csrf_token
-    app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
-    display.register(app)
+
+def _add_short_link_routes(app):
+    """Security headers on every answer, and the public route that follows a short link."""
 
     @app.after_request
     def headers(resp):
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["X-Content-Type-Options"] = "nosniff"
+
         return resp
 
     @app.get("/", defaults={"path": ""})
@@ -94,5 +95,25 @@ def create_app(test_config=None):
         resp.headers["Cache-Control"] = "no-store"
 
         return resp
+
+
+def create_app(test_config=None):
+    app = Flask(__name__)
+    app.config.update(_config_from_environment())
+
+    if test_config:
+        app.config.update(test_config)
+    app.teardown_appcontext(db.close_db)
+    _check_auth_mode(app)
+    _prepare_database(app)
+
+    app.config["BASE_URL"] = normalise_base_url(app.config["BASE_URL"])
+    admin_path = "/" + app.config["ADMIN_PATH"].strip("/")
+    app.config["ADMIN_PATH"] = admin_path
+    app.register_blueprint(admin_blueprint, url_prefix=admin_path)
+    app.jinja_env.globals["csrf_token"] = auth.csrf_token
+    app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
+    display.register(app)
+    _add_short_link_routes(app)
 
     return app

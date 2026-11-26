@@ -19,35 +19,42 @@ def index():
     return render_index()
 
 
+def _save_new_link(conn, kind, plan, target, expires):
+    """Insert the link and return its slug. A typed slug that is taken is an error, a generated one is drawn again."""
+
+    for _ in range(20 if kind == "generate" else 1):
+        slug = plan if kind == "custom" else random_slug(*plan)
+
+        if kind == "generate" and (slug in reserved_slugs() or not slug.strip(".")):
+            continue
+
+        try:
+            conn.execute(
+                "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
+                (slug, target, g.user["username"], db.now_iso(), expires),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            if kind == "custom":
+                raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
+            continue
+
+        return slug
+    raise resolve.ValidationError("No free slug found. Use a longer length or a bigger alphabet.", "length")
+
+
 @bp.post("/links")
 def create_link():
-    conn = db.get_db()
     f = request.form
 
     try:
         target = validated("target", resolve.validate_url, f.get("target", ""))
         expires = parse_expiry(f.get("expires_at", ""))
         kind, plan = slug_plan(f)
+        slug = _save_new_link(db.get_db(), kind, plan, target, expires)
+        flash(f"{base_url()}{slug}", "link")  # the template adds the wording and the open/copy icons
 
-        for _ in range(20 if kind == "generate" else 1):
-            slug = plan if kind == "custom" else random_slug(*plan)
-
-            if kind == "generate" and (slug in reserved_slugs() or not slug.strip(".")):
-                continue
-
-            try:
-                conn.execute(
-                    "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
-                    (slug, target, g.user["username"], db.now_iso(), expires),
-                )
-                conn.commit()
-                flash(f"{base_url()}{slug}", "link")  # the template adds the wording and the open/copy icons
-
-                return redirect(url_for("admin.index"))
-            except sqlite3.IntegrityError:
-                if kind == "custom":
-                    raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
-        raise resolve.ValidationError("No free slug found. Use a longer length or a bigger alphabet.", "length")
+        return redirect(url_for("admin.index"))
     except resolve.ValidationError as exc:
         # Show the form again with everything the user typed, and the error inside it.
         return render_index(form=f, error=str(exc), error_field=exc.field), 400
@@ -89,6 +96,22 @@ def lookup_target():
     return resp
 
 
+def _changes(row, slug, target, expires):
+    """What an edit changed, as [label, value] pairs: the page shows the value after the label."""
+    changes = []
+
+    if slug != row["slug"]:
+        changes.append(["new slug", ""])
+
+    if target != row["target"]:
+        changes.append(["new target", target])
+
+    if expires != row["expires_at"]:
+        changes.append(["expires", expires[:10]] if expires else ["no expiry", ""])
+
+    return changes
+
+
 @bp.post("/links/<int:link_id>/update")
 def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
@@ -116,16 +139,7 @@ def update_link(link_id):
         flash(str(exc), f"link:{link_id}:error")  # shown in that link's details, next to the fields
         return back()
 
-    changes = []  # [label, value]: the template shows the value after the label
-
-    if slug != row["slug"]:
-        changes.append(["new slug", ""])
-
-    if target != row["target"]:
-        changes.append(["new target", target])
-
-    if expires != row["expires_at"]:
-        changes.append(["expires", expires[:10]] if expires else ["no expiry", ""])
+    changes = _changes(row, slug, target, expires)
     flash(json.dumps({"slug": slug, "changes": changes}), f"link:{link_id}")
 
     return back()

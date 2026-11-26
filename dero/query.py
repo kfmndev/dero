@@ -95,55 +95,60 @@ def _split_values(rest: str) -> tuple:
     return tuple(v for v in (_unquote(p) for p in parts) if v != "")
 
 
+_SYMBOLS = (("(", "lpar"), (")", "rpar"), ("&&", "and"), ("||", "or"), ("!", "not"))
+
+
+def _word_end(text: str, i: int) -> int:
+    """Where the word that starts at i ends: at whitespace or a parenthesis (a quoted part may hold both)."""
+    j, n = i, len(text)
+
+    while j < n and not text[j].isspace() and text[j] not in "()":
+        if text[j] == '"':
+            k = text.find('"', j + 1)
+            j = n if k == -1 else k + 1
+        else:
+            j += 1
+
+    return j
+
+
+def _word_token(text: str, i: int, j: int) -> Tok:
+    """The word text[i:j] is "and", "or", a key=value term or free text."""
+    word = text[i:j]
+    lower = word.lower()
+
+    if lower in ("and", "or"):
+        return Tok(lower, i, j)
+    m = _KEYED.match(word)
+    key = KEYS.get(m.group(1).lower()) if m else None
+
+    if key:
+        return Tok("term", i, j, key, m.group(2) == "!=", _split_values(m.group(3)))
+
+    return Tok("term", i, j, None, False, (_unquote(word),))
+
+
 def tokenize(text: str) -> list[Tok]:
     toks, i, n = [], 0, len(text)
 
     while i < n:
-        ch = text[i]
-
-        if ch.isspace():
+        if text[i].isspace():
             j = i
 
             while j < n and text[j].isspace():
                 j += 1
             toks.append(Tok("ws", i, j))
             i = j
-        elif ch in "()":
-            toks.append(Tok("lpar" if ch == "(" else "rpar", i, i + 1))
-            i += 1
-        elif text.startswith("&&", i):
-            toks.append(Tok("and", i, i + 2))
-            i += 2
-        elif text.startswith("||", i):
-            toks.append(Tok("or", i, i + 2))
-            i += 2
-        elif ch == "!":
-            toks.append(Tok("not", i, i + 1))
-            i += 1
+            continue
+
+        for symbol, kind in _SYMBOLS:
+            if text.startswith(symbol, i):
+                toks.append(Tok(kind, i, i + len(symbol)))
+                i += len(symbol)
+                break
         else:
-            j = i
-
-            while j < n and not text[j].isspace() and text[j] not in "()":
-                if text[j] == '"':  # a quoted part may hold spaces and parentheses
-                    k = text.find('"', j + 1)
-                    j = n if k == -1 else k + 1
-                else:
-                    j += 1
-            word = text[i:j]
-            lower = word.lower()
-
-            if lower == "and":
-                toks.append(Tok("and", i, j))
-            elif lower == "or":
-                toks.append(Tok("or", i, j))
-            else:
-                m = _KEYED.match(word)
-                key = KEYS.get(m.group(1).lower()) if m else None
-
-                if key:
-                    toks.append(Tok("term", i, j, key, m.group(2) == "!=", _split_values(m.group(3))))
-                else:
-                    toks.append(Tok("term", i, j, None, False, (_unquote(word),)))
+            j = _word_end(text, i)
+            toks.append(_word_token(text, i, j))
             i = j
 
     return toks
@@ -218,6 +223,19 @@ class _Parser:
 
         return self.primary()
 
+    def _read_sort(self, tok):
+        """sortby=visits / sortby=-visits: remember the sort, or report one that does not exist."""
+
+        if not tok.values:
+            return
+        raw = tok.values[0]
+        name = raw.lstrip("+-").lower()
+
+        if name in SORT_KEYS:
+            self.sort = (name, raw.startswith("-"))
+        else:
+            self.problems.append(f"Unknown sort: {raw}")
+
     def primary(self):
         tok = self.toks[self.i]
         self.i += 1
@@ -238,14 +256,7 @@ class _Parser:
             return ("text", tok.values[0])
 
         if tok.key == "sortby":
-            if tok.values:
-                raw = tok.values[0]
-                name = raw.lstrip("+-").lower()
-
-                if name in SORT_KEYS:
-                    self.sort = (name, raw.startswith("-"))
-                else:
-                    self.problems.append(f"Unknown sort: {raw}")
+            self._read_sort(tok)
 
             return NOOP  # a directive, not a filter (and never negated)
 
@@ -296,43 +307,53 @@ def like(term: str) -> str:
     return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
+def _compile_status(values, now, params, problems):
+    parts = []
+
+    for v in values:
+        sql, needs_now = _STATUS_SQL.get(v.lower(), (None, False))
+
+        if sql is None:
+            problems.append(f"Unknown status: {v}")
+            parts.append("0")
+            continue
+        parts.append(sql)
+
+        if needs_now:
+            params.append(now)
+
+    return "(" + " OR ".join(parts) + ")"
+
+
+def _compile_term(key, values, now, params, problems):
+    """One key=value term (values are alternatives)."""
+
+    if key == "status":
+        return _compile_status(values, now, params, problems)
+
+    if key in DATE_COLUMNS:
+        return "(" + " OR ".join(_date_condition(key, v, params, problems) for v in values) + ")"
+
+    if key == "creator":
+        params += [v.lower() for v in values]
+
+        return "(lower(created_by) IN (" + ",".join("?" * len(values)) + "))"
+    column = key  # slug or target
+    params += [like(v) for v in values]
+
+    return "(" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for _ in values) + ")"
+
+
 def _compile(node, now, params, problems):
     kind = node[0]
 
     if kind == "text":
         params += [like(node[1])] * 3
+
         return "(slug LIKE ? ESCAPE '\\' OR target LIKE ? ESCAPE '\\' OR created_by LIKE ? ESCAPE '\\')"
 
     if kind == "kv":
-        _, key, values = node
-
-        if key == "status":
-            parts = []
-
-            for v in values:
-                sql, needs_now = _STATUS_SQL.get(v.lower(), (None, False))
-
-                if sql is None:
-                    problems.append(f"Unknown status: {v}")
-                    parts.append("0")
-                else:
-                    parts.append(sql)
-
-                    if needs_now:
-                        params.append(now)
-
-            return "(" + " OR ".join(parts) + ")"
-
-        if key in DATE_COLUMNS:
-            return "(" + " OR ".join(_date_condition(key, v, params, problems) for v in values) + ")"
-
-        if key == "creator":
-            params += [v.lower() for v in values]
-            return "(lower(created_by) IN (" + ",".join("?" * len(values)) + "))"
-        column = key  # slug or target
-        params += [like(v) for v in values]
-
-        return "(" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for _ in values) + ")"
+        return _compile_term(node[1], node[2], now, params, problems)
 
     if kind == "not":
         return "(NOT " + _compile(node[1], now, params, problems) + ")"

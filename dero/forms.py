@@ -33,54 +33,54 @@ def random_slug(alphabet: str, length: int) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-def slug_plan(f):
-    """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
-
-    slug_source is one of: default, letters (random from that alphabet), chars (random from the characters in
-    alphabet_custom, where a repeated character is more likely), slug (use the typed slug).
-    Older posts without it: slug_mode/alphabet are read, and a given slug is used, otherwise one is generated.
-    """
+def _slug_source(f, slug):
+    """The slug_source of the form. Older posts have slug_mode/alphabet instead:
+    a given slug is used, otherwise one is drawn."""
     source = f.get("slug_source", "")
-    slug = f.get("slug", "").strip()
 
-    if not source:
-        mode, name = f.get("slug_mode", ""), f.get("alphabet", "default") or "default"
+    if source:
+        return source
+    mode, name = f.get("slug_mode", ""), f.get("alphabet", "default") or "default"
 
-        if mode == "custom" or (mode == "" and slug):
-            source = "slug"
-        elif name == "custom":
-            source = "chars"
-        elif name in ALPHABETS:
-            source = name
-        else:
-            raise resolve.ValidationError("Unknown alphabet.", "slug_source")
+    if mode == "custom" or (mode == "" and slug):
+        return "slug"
 
-    if source == "slug":
-        if not slug:
-            raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
-        validated("slug", resolve.validate_slug, slug)
+    if name == "custom":
+        return "chars"
 
-        if slug in reserved_slugs():
-            raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
+    if name in ALPHABETS:
+        return name
+    raise resolve.ValidationError("Unknown alphabet.", "slug_source")
 
-        return "custom", slug
 
-    if source == "chars":
-        chars = f.get("alphabet_custom", "")  # duplicates stay: they make a character more likely
-        bad = "".join(dict.fromkeys(c for c in chars if c not in SLUG_CHARS))
+def _typed_slug(slug):
+    if not slug:
+        raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
+    validated("slug", resolve.validate_slug, slug)
 
-        if bad:
-            raise resolve.ValidationError(
-                f"Characters: {_quoted(bad)} can't be used. Allowed are letters, digits and - _ . ~", "alphabet_custom"
-            )
-        if len(set(chars)) < 2:
-            raise resolve.ValidationError("Characters: use at least 2 different ones.", "alphabet_custom")
-        alphabet = chars
-    elif source in ALPHABETS:
-        alphabet = ALPHABETS[source]
-    else:
-        raise resolve.ValidationError("Unknown option.", "slug_source")
+    if slug in reserved_slugs():
+        raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
 
+    return slug
+
+
+def _own_characters(f):
+    """The characters a slug is drawn from. Duplicates stay: they make a character more likely."""
+    chars = f.get("alphabet_custom", "")
+    bad = "".join(dict.fromkeys(c for c in chars if c not in SLUG_CHARS))
+
+    if bad:
+        raise resolve.ValidationError(
+            f"Characters: {_quoted(bad)} can't be used. Allowed are letters, digits and - _ . ~", "alphabet_custom"
+        )
+
+    if len(set(chars)) < 2:
+        raise resolve.ValidationError("Characters: use at least 2 different ones.", "alphabet_custom")
+
+    return chars
+
+
+def _slug_length(f):
     try:
         length = int(f.get("length") or DEFAULT_LENGTH)
     except ValueError:
@@ -89,7 +89,30 @@ def slug_plan(f):
     if not MIN_LENGTH <= length <= MAX_LENGTH:
         raise resolve.ValidationError(f"Length must be between {MIN_LENGTH} and {MAX_LENGTH}.", "length")
 
-    return "generate", (alphabet, length)
+    return length
+
+
+def slug_plan(f):
+    """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
+
+    slug_source is one of: default, letters (random from that alphabet), chars (random from the characters in
+    alphabet_custom, where a repeated character is more likely), slug (use the typed slug).
+    Older posts without it: slug_mode/alphabet are read, and a given slug is used, otherwise one is generated.
+    """
+    slug = f.get("slug", "").strip()
+    source = _slug_source(f, slug)
+
+    if source == "slug":
+        return "custom", _typed_slug(slug)
+
+    if source == "chars":
+        alphabet = _own_characters(f)
+    elif source in ALPHABETS:
+        alphabet = ALPHABETS[source]
+    else:
+        raise resolve.ValidationError("Unknown option.", "slug_source")
+
+    return "generate", (alphabet, _slug_length(f))
 
 
 def reserved_slugs():

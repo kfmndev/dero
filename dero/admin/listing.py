@@ -91,15 +91,12 @@ def _slug_source_of(form) -> str:
     return {"letters": "letters", "custom": "chars"}.get(form.get("alphabet", ""), "default")
 
 
-def render_index(form=None, error=None, error_field=None):
-    conn = db.get_db()
-    is_admin = g.user["is_admin"]
-    text = _effective_query(request.args, is_admin)
-    now = db.now_iso()
-    parsed = query.parse(text, now)
-    sort_key, reverse = parsed.sort or ("created", False)
-    direction = "desc" if query.DESC_BY_DEFAULT[sort_key] != reverse else "asc"
+def _own_scope(is_admin):
+    """(SQL, arguments) that limit a query to what the user may see: everything for an admin, else their own links."""
+    return ("", ()) if is_admin else (" WHERE created_by = ?", (g.user["username"],))
 
+
+def _find_links(conn, parsed, sort_key, direction, is_admin):
     where, args = [], []
 
     if not is_admin:  # whatever the query says, people only ever see their own links
@@ -111,32 +108,50 @@ def render_index(form=None, error=None, error_field=None):
         args += parsed.params
     clause = (" WHERE " + " AND ".join(where)) if where else ""
     order = f"{SORTS[sort_key]} {direction.upper()}, id DESC"
-    links = conn.execute(f"SELECT * FROM links{clause} ORDER BY {order}", args).fetchall()
 
-    scope = "" if is_admin else " WHERE created_by = ?"
-    overall = conn.execute(f"SELECT COUNT(*) FROM links{scope}", () if is_admin else (g.user["username"],)).fetchone()[
-        0
-    ]
-    owners = (
-        [r[0] for r in conn.execute("SELECT DISTINCT created_by FROM links ORDER BY created_by COLLATE NOCASE")]
-        if is_admin
-        else []
-    )
+    return conn.execute(f"SELECT * FROM links{clause} ORDER BY {order}", args).fetchall()
 
-    def sort_url(key):
-        nxt_reverse = (not reverse) if key == sort_key else False
-        q = query.with_sort(text, key, nxt_reverse)
-        return url_for("admin.index", q=q) if q else url_for("admin.index")
 
-    sort_options = []
+def _creators(conn, is_admin):
+    """Everyone who has made a link (for the Created by dropdown); only admins see others."""
+
+    if not is_admin:
+        return []
+
+    return [r[0] for r in conn.execute("SELECT DISTINCT created_by FROM links ORDER BY created_by COLLATE NOCASE")]
+
+
+def _sort_options(is_admin):
+    """The entries of the Sort by dropdown: (value, label)."""
+    options = []
 
     for key, desc_by_default in query.DESC_BY_DEFAULT.items():
         if key == "creator" and not is_admin:
             continue
 
-        for rev in (False, True):
-            label = ORDER_LABELS[(key, "desc" if desc_by_default != rev else "asc")]
-            sort_options.append((query.sort_value(key, rev), label))
+        for reverse in (False, True):
+            label = ORDER_LABELS[(key, "desc" if desc_by_default != reverse else "asc")]
+            options.append((query.sort_value(key, reverse), label))
+
+    return options
+
+
+def render_index(form=None, error=None, error_field=None):
+    conn = db.get_db()
+    is_admin = g.user["is_admin"]
+    text = _effective_query(request.args, is_admin)
+    now = db.now_iso()
+    parsed = query.parse(text, now)
+    sort_key, reverse = parsed.sort or ("created", False)
+    direction = "desc" if query.DESC_BY_DEFAULT[sort_key] != reverse else "asc"
+    links = _find_links(conn, parsed, sort_key, direction, is_admin)
+    scope, scope_args = _own_scope(is_admin)
+    overall = conn.execute(f"SELECT COUNT(*) FROM links{scope}", scope_args).fetchone()[0]
+
+    def sort_url(key):
+        q = query.with_sort(text, key, (not reverse) if key == sort_key else False)
+
+        return url_for("admin.index", q=q) if q else url_for("admin.index")
 
     return render_template(
         "index.html",
@@ -146,9 +161,9 @@ def render_index(form=None, error=None, error_field=None):
         base=base_url(),
         query=text,
         problems=parsed.problems,
-        owners=owners,
+        owners=_creators(conn, is_admin),
         statuses=[(v, STATUS_LABELS[v]) for v in query.STATUSES],
-        sort_options=sort_options,
+        sort_options=_sort_options(is_admin),
         sort_value=query.sort_value(sort_key, reverse),
         sort_keys=list(query.SORT_KEYS),
         sort_defaults=query.DESC_BY_DEFAULT,
@@ -162,7 +177,6 @@ def render_index(form=None, error=None, error_field=None):
         column_labels=dict(COLUMNS),
         admin_path=current_app.config["ADMIN_PATH"],
         filtered=bool(parsed.where),
-        query_sort_only=query.sort_term(sort_key, reverse) if parsed.sort else "",
         back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
         form=form or {},
         error=error,
