@@ -2072,3 +2072,11 @@ def test_slug_boxes_centre_their_text_with_the_box_not_a_line_height(client):
         css,
     )
     assert css_rule(css, "code.urlbox > code.slug")["display"] == "inline-flex"
+
+
+def test_boxes_in_a_toast_have_one_height_and_the_lines_leave_room_for_them(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".toasts .toast")["line-height"] == "1.5"
+    assert css_rule(css, ".toast code:not(.urlbox)")["height"] == "1.5em"  # slug boxes and the others alike
+    block = css_rule(css, "code.urlbox > code.slug")
+    assert block["height"] == "1.5em" and css_rule(css, "code.urlbox")["line-height"] == "1"  # the outer box fits it
