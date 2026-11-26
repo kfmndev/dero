@@ -60,12 +60,15 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | --- | --- |
 | `github "exact phrase"` | free text: searches slug, target and creator; terms are joined with *and* |
 | `status=expired,disabled` | status (`active`, `disabled`, `expired`); a comma means *or* |
-| `creator=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
-| *×* behind a term | removes that term (and its *and*/*or*) |
-| `sortby=visits` · `sortby=-visits` | sort by `created`, `visits`, `slug`, `target`, `creator` or `expires`; a minus reverses the usual order |
+| `created_by=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
+| *×* behind a term | removes that term (and its *and*/*or*); the × behind an operator (`and`, `or`, `&&`, `||`) removes just the operator |
+| `created=2026-11` · `expires=<2027-01-01` · `expires=none` | creation or expiry date: a year, month or day (UTC), optionally with `<` `<=` `>` `>=`; `expires=none` = never expires |
+| `sort_by=visits` · `sort_by=-visits` | sort by `created`, `visits`, `slug`, `target`, `creator` or `expires`; a minus reverses the usual order |
 | `!status=expired` · `status!=expired` | negation |
 | `a and b` · `a && b` · `a or b` · `a \|\| b` · `( )` | explicit operators and grouping (*and* binds tighter than *or*) |
-| `creator="Anna Maria"` | quotes for values with spaces |
+| `created_by="Anna Maria"` | quotes for values with spaces |
+
+The key names are the dropdowns' names in snake case: `status`, `created_by`, `sort_by`. The older spellings `creator`, `owner`, `by`, `sortby`, `sort` and `order` still work.
 
 Unknown keys are plain text, so a pasted URL just searches for that text. Terms, groups and negations are shown as chips in the search bar, and invalid values are underlined. People only ever see their own links, whatever the query says.
 

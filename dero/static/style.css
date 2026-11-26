@@ -623,6 +623,8 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 
 /* pieces of the query */
 .q-eq, .q-op, .q-paren { color: var(--muted); }
+/* and / or / && / || are small pills with the same padding as the terms, so the space is the same on both sides */
+.q-op { padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px; border-radius: 4px; background: color-mix(in srgb, var(--muted) 12%, transparent); }
 .q-not { color: var(--err); }
 .q-invalid { text-decoration: underline wavy var(--err); text-underline-offset: 3px; }
 .q-group { border-radius: 6px; background: color-mix(in srgb, var(--muted) 12%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--muted) 12%, transparent); }
@@ -684,11 +686,11 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 .multi-panel .option[aria-selected="true"] .icon { visibility: visible; }
 
 /* ---- dero: search bar -- every kind of term has its own colour, and the terms get some air ---- */
-.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 15px; }    /* in both layers, so the text stays aligned */
+.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 19px; }    /* in both layers, so the text stays aligned */
 :root { --q-text: var(--muted); --q-status: #0b7a4b; --q-creator: #6d28d9; --q-slug: #b45309; --q-target: #0e7490; --q-sortby: var(--accent-2-ink); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; } }
 :root[data-theme="dark"] { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; }
-.q-term { --c: var(--accent-ink); padding: 1px 10px 1px 5px; margin: 0 -10px 0 -5px; border-radius: 4px;   /* the x lives in the right padding; the margins keep the text where the input has it */
+.q-term { --c: var(--accent-ink); padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px; border-radius: 4px;   /* the x lives in the right padding; the margins keep the text where the input has it */
   background: color-mix(in srgb, var(--c) 13%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent); }
 .q-term .q-key { color: var(--c); }
 .q-k-text { --c: var(--q-text); }
@@ -697,6 +699,8 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 .q-k-slug { --c: var(--q-slug); }
 .q-k-target { --c: var(--q-target); }
 .q-k-sortby { --c: var(--q-sortby); }
+.q-k-created { --c: var(--q-created); }
+.q-k-expires { --c: var(--q-expires); }
 .q-neg .q-eq { color: var(--err); }                       /* != */
 .q-group { box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 12%, transparent); }
 .q-group .q-group { box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 22%, transparent); }
@@ -707,11 +711,12 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 /* ---- dero: a small x after every part of the query ---- */
 .qx-layer { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .qx {
-  position: absolute; top: 50%; width: 9px; height: 16px; padding: 0; transform: translateY(-50%);
-  display: flex; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: none;
-  color: var(--muted); font: 400 13px/1 var(--font-text); opacity: .55; cursor: pointer; pointer-events: auto;
+  position: absolute; top: 50%; width: 10px; height: 16px; padding: 0; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; border: 0; border-radius: 0; background: none;
+  color: var(--muted); opacity: .6; cursor: pointer; pointer-events: auto;
 }
-.qx:hover { opacity: 1; color: var(--err); background: color-mix(in srgb, var(--err) 14%, transparent); }
+.qx .icon { width: 9px; height: 9px; vertical-align: 0; stroke-width: 2.5; }
+.qx:hover, .qx:focus-visible { opacity: 1; color: var(--err); background: none; }
 
 /* ---- dero: expired links: a small clock after the icons (the row is dimmed as before) ---- */
 .expired-mark { display: inline-flex; vertical-align: middle; margin-left: 5px; color: var(--err); }
@@ -786,3 +791,9 @@ tr.item.visited td.col-visits { font-weight: 700; color: var(--accent-2-ink); }
 @media (prefers-reduced-motion: reduce) { tr.item.visited td { animation: none; background-color: color-mix(in srgb, var(--accent-2) 14%, transparent); } }
 .live.is-live::before { content: ""; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent-2); align-self: center; }   /* a dot while Live visits is on */
 .multi-panel label:has(input:disabled) { opacity: .6; cursor: not-allowed; }   /* the last column that is on */
+.q-paren { position: relative; z-index: 1; }   /* a ( or ) next to a term stays readable on top of its padding */
+
+/* the date keys: created and expires have their own colours */
+:root { --q-created: #be185d; --q-expires: #4d7c0f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-created: #f472b6; --q-expires: #a3e635; } }
+:root[data-theme="dark"] { --q-created: #f472b6; --q-expires: #a3e635; }

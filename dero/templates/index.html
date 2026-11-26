@@ -81,7 +81,7 @@
       <div class="qfield">
         <div class="qhighlight" aria-hidden="true"><span class="qhl"></span></div>
         <input type="text" name="q" id="q" class="qinput" value="{{ query }}" autocomplete="off" spellcheck="false" autocapitalize="off"
-               placeholder="Search…  e.g. status=expired creator=julian sortby=-visits">
+               placeholder="Search…  e.g. status=expired created_by=julian sort_by=-visits">
         <div class="qx-layer"></div>
       </div>
     </div>
@@ -127,10 +127,11 @@
     <span class="live" id="filter-live">{{ icon('refresh') }}<span>Applies as you change it</span></span>
     <div class="qhelp" id="q-help" hidden>
       <p><span class="url mono">free text</span> searches slug, target and creator · <span class="url mono">"exact phrase"</span></p>
-      <p><span class="url mono">status=expired,disabled</span> · <span class="url mono">creator=julian</span> · <span class="url mono">slug=abc</span> · <span class="url mono">target=github</span> · a comma means or</p>
-      <p><span class="url mono">sortby=visits</span> · <span class="url mono">sortby=-visits</span> reverses the usual order (also created, slug, target, creator, expires)</p>
-      <p><span class="url mono">!status=expired</span> or <span class="url mono">status!=expired</span> negates · <span class="url mono">creator="Anna Maria"</span> for spaces</p>
-      <p><span class="url mono">and</span> <span class="url mono">&amp;&amp;</span> · <span class="url mono">or</span> <span class="url mono">||</span> · <span class="url mono">( )</span> to group, e.g. <span class="url mono">(creator=julian or creator=anna) status=active</span></p>
+      <p><span class="url mono">status=expired,disabled</span> · <span class="url mono">created_by=julian</span> · <span class="url mono">slug=abc</span> · <span class="url mono">target=github</span> · a comma means or</p>
+      <p><span class="url mono">created=2026-11</span> · <span class="url mono">expires=&lt;2027-01-01</span> · <span class="url mono">expires=none</span> dates: a year, month or day (UTC), with <span class="url mono">&lt; &lt;= &gt; &gt;=</span></p>
+      <p><span class="url mono">sort_by=visits</span> · <span class="url mono">sort_by=-visits</span> reverses the usual order (also created, slug, target, creator, expires)</p>
+      <p><span class="url mono">!status=expired</span> or <span class="url mono">status!=expired</span> negates · <span class="url mono">created_by="Anna Maria"</span> for spaces</p>
+      <p><span class="url mono">and</span> <span class="url mono">&amp;&amp;</span> · <span class="url mono">or</span> <span class="url mono">||</span> · <span class="url mono">( )</span> to group, e.g. <span class="url mono">(created_by=julian or created_by=anna) status=active</span></p>
     </div>
   </form>
 
@@ -185,7 +186,7 @@
         {% elif c == 'expires' %}
         <td class="col-expires nowrap mono">{% if l.expires_at %}<time class="localtime" data-day datetime="{{ l.expires_at }}" title="{{ l.expires_at[:10] }} UTC">{{ l.expires_at[:10] }}</time>{% else %}–{% endif %}</td>
         {% elif c == 'visits' %}
-        <td class="col-visits num">{{ l.visits }}</td>
+        <td class="col-visits num mono">{{ l.visits }}</td>
         {% endif %}
         {% endfor %}
       </tr>
@@ -240,7 +241,7 @@
       <tr><td colspan="{{ 2 + cols|length }}" class="empty">{{ 'No links match.' if filtered else 'No links yet.' }}</td></tr>
     {% endfor %}
     </tbody>
-    {% if 'visits' in cols %}<tfoot><tr><td colspan="{{ 2 + cols.index('visits') }}">Total visits</td><td class="num">{{ total }}</td>{% for c in cols[cols.index('visits') + 1:] %}<td></td>{% endfor %}</tr></tfoot>{% endif %}
+    {% if 'visits' in cols %}<tfoot><tr><td colspan="{{ 2 + cols.index('visits') }}">Total visits</td><td class="num mono">{{ total }}</td>{% for c in cols[cols.index('visits') + 1:] %}<td></td>{% endfor %}</tr></tfoot>{% endif %}
   </table>
   </div>
   <p class="meta">{% if filtered %}Showing {{ links|length }} of {{ overall }} links{% else %}{{ overall }} link{{ '' if overall == 1 else 's' }}{% endif %}</p>

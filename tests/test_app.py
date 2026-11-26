@@ -551,7 +551,7 @@ def test_row_columns_chevron_switch_slug(client):
     assert re.match(r"<thead><tr>\s*<th></th><th></th>\s*<th", head)                      # two empty headers, then "Short link"
     assert len(re.findall(r"<th[ >]", head)) == 5
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    assert re.findall(r"<td class=\"([^\"]*)\">", row) == ["narrow lead", "narrow", "col-slug nowrap", "col-target target", "col-visits num"]
+    assert re.findall(r"<td class=\"([^\"]*)\">", row) == ["narrow lead", "narrow", "col-slug nowrap", "col-target target", "col-visits num mono"]
     cells = row.split("</td>")
     assert 'class="mini expand"' in cells[0] and 'class="slug"' not in cells[0]              # chevron alone, first
     assert 'class="row-switch"' in cells[1] and "toggle" in cells[1]                         # enable switch second
@@ -981,7 +981,7 @@ def test_a_query_can_never_widen_what_a_user_sees(client, app):
 def test_old_style_parameters_still_work_and_show_up_as_a_query(client, app):
     seed_query_links(client, app)
     html = client.get("/admin/?status=expired&owner=alice&order=visits:asc", headers=ADMIN).get_data(as_text=True)
-    assert 'value="status=expired creator=alice sortby=-visits"' in html
+    assert 'value="status=expired created_by=alice sort_by=-visits"' in html
     assert re.findall(r'class="slug">([a-z]+)</code>', html) == ["bbb"]
 
 
@@ -1005,7 +1005,7 @@ def test_filter_bar_markup(client, app):
     # the sort dropdown holds sortby values; the current one is selected
     assert '<option value="-visits" selected>Fewest visits</option>' in html and '<option value="">Newest first</option>' in html
     # sortable headers carry the new query; Reset goes back to the plain page
-    assert 'href="/admin/?q=status%3Dexpired+sortby%3Dvisits"' in html or 'href="/admin/?q=status%3Dexpired%20sortby%3Dvisits"' in html
+    assert 'href="/admin/?q=status%3Dexpired+sort_by%3Dvisits"' in html or 'href="/admin/?q=status%3Dexpired%20sort_by%3Dvisits"' in html
     assert re.search(r'id="reset-filters" href="/admin/"', html) and 'aria-disabled="false"' in html
     # people who can't see others have no "created by" dropdown
     assert 'id="filter-creator"' not in client.get("/admin/", headers=USER).get_data(as_text=True)
@@ -1076,7 +1076,7 @@ def test_columns_can_be_reduced_and_the_footer_follows(client):
     assert table_columns(html) == ["col-target"] and "<tfoot>" not in html                      # no visits column, no total row
     client.set_cookie("dero_cols", "creator,visits")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert re.search(r'<tfoot><tr><td colspan="3">Total visits</td><td class="num">0</td></tr></tfoot>', html)   # the total sits under Visits
+    assert re.search(r'<tfoot><tr><td colspan="3">Total visits</td><td class="num mono">0</td></tr></tfoot>', html)   # the total sits under Visits
     client.delete_cookie("dero_cols")
     assert table_columns(client.get("/admin/", headers=USER).get_data(as_text=True)) == ["col-slug", "col-target", "col-visits"]
 
@@ -1086,8 +1086,8 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     expire(app, "abc")
     client.set_cookie("dero_cols", "slug,expires,created,creator")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "sortby%3Dexpires" in html and "sortby%3Dcreator" in html                              # new sort links for the new columns
-    assert "sortby%3D-created" in html                                                           # (created is the current sort, so its link reverses it)
+    assert "sort_by%3Dexpires" in html and "sort_by%3Dcreator" in html                              # new sort links for the new columns
+    assert "sort_by%3D-created" in html                                                           # (created is the current sort, so its link reverses it)
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')                           # the clock comes after the open/copy icons
     css = client.get("/static/style.css").get_data(as_text=True)
@@ -1115,7 +1115,7 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
         assert re.search(rf"\.q-k-{kind} \{{ --c: var\(--q-{kind}\); \}}", css), kind
     colours = re.search(r":root \{ --q-text: var\(--muted\); --q-status: (#\w+); --q-creator: (#\w+); --q-slug: (#\w+); --q-target: (#\w+);", css).groups()
     assert len(set(colours)) == 4                                                                # four different hues (plus muted and the secondary colour)
-    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css)   # same spacing in both layers
+    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 19px; \}", css)   # same spacing in both layers
     assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)                    # the search bar has its own row
 
 
@@ -1155,7 +1155,7 @@ def test_search_bar_has_a_layer_for_the_remove_buttons(client):
     assert "function removePart" in js and "function drawRemovers" in js and 'className = "qx"' in js
     assert 'tabIndex = -1' in js and "Remove ${label}" in js                              # mouse helper; the keyboard edits the text
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert ".qx-layer" in css and re.search(r"\.qx:hover \{[^}]*var\(--err\)", css)
+    assert ".qx-layer" in css and re.search(r"\.qx:hover, \.qx:focus-visible \{[^}]*var\(--err\)", css)
 
 
 def test_expired_mark_is_a_clock_with_the_date_not_a_text_badge(client, app):
@@ -1191,7 +1191,7 @@ def test_detail_inputs_use_card_background(client):
 def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"code, \.url, \.mono, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
-    assert "padding: 1px 10px 1px 5px; margin: 0 -10px 0 -5px;" in css                                          # chips: the x sits in the padding
+    assert "padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px;" in css                                          # chips: the x sits in the padding
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(r'<label><input type="checkbox" value="active" checked><span>[^<]*</span><svg', html)       # checkbox dropdowns tick like the single ones
 
@@ -1316,3 +1316,27 @@ def test_detail_buttons_are_the_last_thing_in_the_details(client):
     assert detail.rindex("<dl") < detail.index('id="link-1-notices"') < detail.index('class="detail-actions"')   # fields, messages, then the buttons
     assert detail.index("Update</button>") > detail.index('class="detail-actions"') and detail.count("<dt>") == 5
     assert "details-top" not in detail
+
+
+def test_operators_are_pills_with_the_same_padding_as_terms_and_visits_are_mono(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.q-op \{ padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px;", css)
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert '<td class="col-visits num mono">' in html
+
+
+def test_query_names_follow_the_dropdowns_and_the_old_ones_still_work(client, app):
+    seed_query_links(client, app)
+    new = shown(client, ADMIN, "created_by=bob sort_by=slug")
+    assert new == shown(client, ADMIN, "creator=bob sortby=slug") == shown(client, ADMIN, "owner=bob sort=slug") and new
+    html = client.get("/admin/", headers=ADMIN, query_string={"q": "created_by=bob"}).get_data(as_text=True)
+    assert 'q-k-creator' not in html                                                   # (chips are drawn in the browser)
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'created_by: "creator"' in js and 'sort_by: "sortby"' in js and '"created_by", sortby: "sort_by"' in js
+
+
+def test_operators_get_a_remove_button_too(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function removeOperator" in js and 'dataset.kind = "operator"' in js and '.q-term, .q-group, .q-op' in js
+    assert "#x" in js and 'button.textContent = "×"' not in js                       # an icon, not a text glyph

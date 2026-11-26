@@ -143,12 +143,12 @@ def test_values_are_bound_never_interpolated():
 
 # ------------------------------------------------------------------ editing queries as text
 def test_sort_term_and_with_sort():
-    assert query.sort_term("created", False) == "" and query.sort_term("created", True) == "sortby=-created"
-    assert query.sort_term("visits", False) == "sortby=visits" and query.sort_term("slug", True) == "sortby=-slug"
-    assert query.with_sort("status=expired", "visits", False) == "status=expired sortby=visits"
-    assert query.with_sort("status=expired sortby=visits", "slug", True) == "status=expired sortby=-slug"
+    assert query.sort_term("created", False) == "" and query.sort_term("created", True) == "sort_by=-created"
+    assert query.sort_term("visits", False) == "sort_by=visits" and query.sort_term("slug", True) == "sort_by=-slug"
+    assert query.with_sort("status=expired", "visits", False) == "status=expired sort_by=visits"
+    assert query.with_sort("status=expired sortby=visits", "slug", True) == "status=expired sort_by=-slug"
     assert query.with_sort("sortby=visits status=expired creator=julian", "created", False) == "status=expired creator=julian"
-    assert query.with_sort("", "visits", True) == "sortby=-visits"
+    assert query.with_sort("", "visits", True) == "sort_by=-visits"
 
 
 def test_add_term_wraps_when_there_is_a_top_level_or():
@@ -173,3 +173,28 @@ def test_tokenizer_positions_cover_the_text():
     first, creator = toks[0], [t for t in toks if t.key == "creator"][0]
     assert first.key == "status" and first.values == ("expired", "disabled")
     assert creator.values == ("Anna Maria",)
+
+
+def test_snake_case_names_match_the_dropdowns():
+    assert slugs("created_by=julian") == slugs("creator=julian") == slugs("owner=julian") == slugs("by=julian")
+    assert find("sort_by=-visits")[1].sort == ("visits", True) and find("sort_by=visits")[1].where is None
+
+
+def test_date_filters():
+    assert slugs("created=2026") == slugs("created=2026-01") == slugs("created=2026-01-01") == ["aaa", "bbb", "ccc", "ddd", "eee"]
+    assert slugs("created=2025") == [] and slugs("created=>2026-01-01") == [] and slugs("created=>=2026-01-01") == slugs("")
+    assert slugs("created=<2026-02") == slugs("") and slugs("created=<2026-01") == []
+    assert slugs("expires=2020") == ["bbb", "eee"] and slugs("expires=2020-01") == ["bbb"] and slugs("expires=2020-02-02") == ["eee"]
+    assert slugs("expires=<2021") == ["bbb", "eee"] and slugs("expires=>2030") == ["ddd"] and slugs("expires=<=2020-01-01") == ["bbb"]
+    assert slugs("expires=none") == slugs("expires=never") == ["aaa", "ccc"]
+    assert slugs("expires!=none") == ["bbb", "ddd", "eee"] and slugs("!expires=none") == ["bbb", "ddd", "eee"]
+    assert slugs("expires=2020-01,2099") == ["bbb", "ddd"]                                  # a comma is "or"
+    assert slugs("expires=2020 creator=julian") == ["bbb"] and slugs("created=2026 or expires=2099") == slugs("")
+
+
+def test_bad_dates_match_nothing_and_are_reported():
+    for text in ("created=nonsense", "created=2026-13", "created=2026-02-30", "expires=<", "created=26"):
+        rows, parsed = find(text)
+        assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
+    assert find("created=2026-02-28")[1].problems == [] and find("created=2024-02-29")[1].problems == []
+    assert find("created=none")[1].problems                                                 # none is only for expires

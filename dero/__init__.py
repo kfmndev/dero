@@ -265,7 +265,7 @@ def _effective_query(args, is_admin: bool) -> str:
         text = query.add_term(text, f"status={status}")
     owner = args.get("owner", "").strip()
     if owner and is_admin:
-        text = query.add_term(text, "creator=" + query.quote_value(owner))
+        text = query.add_term(text, "created_by=" + query.quote_value(owner))
     key, _, direction = args.get("order", "").partition(":")
     if not (key in query.SORT_KEYS and direction in ("asc", "desc")):
         key, direction = args.get("sort", ""), "asc" if args.get("dir") == "asc" else "desc"

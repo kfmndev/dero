@@ -391,8 +391,8 @@ function forgetWarning(form) {
 // The server filters (dero/query.py). This is the same tokenizer, used to highlight the search bar and to
 // keep the dropdowns and the query text in sync.
 const QUERY_KEYS = {
-  status: "status", creator: "creator", owner: "creator", by: "creator",
-  slug: "slug", target: "target", sortby: "sortby", sort: "sortby", order: "sortby",
+  status: "status", created_by: "creator", creator: "creator", owner: "creator", by: "creator",
+  slug: "slug", target: "target", created: "created", expires: "expires", sort_by: "sortby", sortby: "sortby", sort: "sortby", order: "sortby",
 };
 
 function unquote(text) {
@@ -450,7 +450,7 @@ function parseQuery(text) {
       if (lower === "and" || lower === "or") {
         toks.push({ kind: lower, start: i, end: j });
       } else {
-        const m = /^([A-Za-z]+)(!?=)([\s\S]*)$/.exec(word);
+        const m = /^([A-Za-z_]+)(!?=)([\s\S]*)$/.exec(word);
         const key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
         if (key) {
           toks.push({ kind: "term", start: i, end: j, key, rawKey: m[1], op: m[2], rest: m[3],
@@ -500,7 +500,8 @@ const appendTerm = (text, term) => (text.trim() ? `${text.trimEnd()} ${term}` : 
 // Set (values = array) or remove (values = null) the key=... term of a query.
 function editQuery(text, key, values) {
   const parsed = parseQuery(text);
-  const term = values && values.length ? `${key}=${values.map(quoteValue).join(",")}` : "";
+  const name = { creator: "created_by", sortby: "sort_by" }[key] || key;                 // the dropdowns' names, in snake case
+  const term = values && values.length ? `${name}=${values.map(quoteValue).join(",")}` : "";
   if (key === "sortby") {                                          // a directive: replaced wherever it stands
     const edits = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby").map((t) => ({ start: t.removeStart, end: t.end, text: "" }));
     return appendTerm(applyEdits(text, edits), term).trim();
@@ -536,6 +537,15 @@ function deriveSort(parsed, sortKeys) {
   return value === "created" ? "" : value;
 }
 
+// created=2026 / 2026-11 / 2026-11-25, optionally after < <= > >=; expires also takes none. Same rules as dero/query.py.
+function validDate(value, key) {
+  if (key === "expires" && /^(none|never)$/i.test(value)) return true;
+  const m = /^(<=|>=|<|>)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(value.trim());
+  if (!m) return false;
+  const month = Number(m[3] || 1), day = Number(m[4] || 1), date = new Date(Date.UTC(Number(m[2]), month - 1, day));
+  return month >= 1 && month <= 12 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 // Draw the query with its structure: terms as chips, groups tinted, operators and negations coloured.
 // The text of the result is exactly the query text (the highlight sits behind the real input).
 function renderQuery(parsed, text, container, { statuses, sortKeys }) {
@@ -560,7 +570,12 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
     } else if (t.kind === "rpar") {
       top().append(span("q-paren", ")"));
       if (stack.length > 1) { top().dataset.to = t.end; stack.pop(); }
-    } else if (t.kind === "and" || t.kind === "or") top().append(span("q-op", raw));
+    } else if (t.kind === "and" || t.kind === "or") {
+      const op = span("q-op", raw);
+      op.dataset.from = t.start;
+      op.dataset.to = t.end;
+      top().append(op);
+    }
     else if (t.kind === "not") top().append(span("q-not", "!"));
     else if (!t.key) {
       const word = span("q-term q-k-text", raw);
@@ -579,6 +594,7 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
         if (i) pill.append(span("q-eq", ","));
         const value = unquote(piece);
         const bad = (t.key === "status" && value && !statuses.includes(value.toLowerCase()))
+          || ((t.key === "created" || t.key === "expires") && value && !validDate(value, t.key))
           || (t.key === "sortby" && value && !sortKeys.includes(value.replace(/^[+-]/, "").toLowerCase()));
         pill.append(span(bad ? "q-val q-invalid" : "q-val", piece));
       });
@@ -586,6 +602,15 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
     }
   });
   stack.slice(1).forEach((group) => { if (!group.dataset.to) group.dataset.to = text.length; });    // a group that is never closed
+}
+
+// Take just an operator (and, or, &&, ||) out; what it joined is then joined by the implicit "and".
+function removeOperator(text, from, to) {
+  let end = to;
+  while (end < text.length && /\s/.test(text[end])) end++;
+  let start = from;
+  if (end === text.length) while (start > 0 && /\s/.test(text[start - 1])) start--;      // at the end: take the space before it
+  return applyEdits(text, [{ start, end, text: "" }]).trim();
 }
 
 // Take one part (a term or a group) out of a query, together with the "and"/"or" that joined it to its neighbour.
@@ -646,13 +671,13 @@ function removePart(text, from, to) {
   // ---- the highlighted search bar
   const field = form.querySelector(".qfield"), removers = form.querySelector(".qx-layer");
 
-  // one small x after every term and every outermost group, in the gap the word spacing leaves between them
+  // one small x after every term, every outermost group and every operator, inside the padding of its chip
   function drawRemovers() {
     removers.replaceChildren();
     const base = field.getBoundingClientRect();
-    highlight.querySelectorAll(".q-term, .q-group").forEach((el) => {
+    highlight.querySelectorAll(".q-term, .q-group, .q-op").forEach((el) => {
       if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
-      if (el.classList.contains("q-term") && el.closest(".q-group")) return;   // a group is removed as a whole
+      if (!el.classList.contains("q-group") && el.closest(".q-group")) return;   // a group is removed as a whole
       const x = el.getBoundingClientRect().right - base.left;
       if (x < 6 || x > base.width - 6) return;                              // scrolled out of view
       const label = input.value.slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
@@ -664,8 +689,9 @@ function removePart(text, from, to) {
       button.setAttribute("aria-label", `Remove ${label}`);
       button.dataset.from = el.dataset.from;
       button.dataset.to = el.dataset.to;
-      button.style.left = `${x - 10}px`;                                   // inside the chip's right padding
-      button.textContent = "×";
+      if (el.classList.contains("q-op")) button.dataset.kind = "operator";
+      button.style.left = `${x - 11}px`;                                   // inside the chip's right padding, a little after the text
+      button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`;   // an icon sits exactly in the middle
       removers.append(button);
     });
   }
@@ -674,7 +700,8 @@ function removePart(text, from, to) {
   removers.addEventListener("click", (event) => {
     const button = event.target.closest(".qx");
     if (!button) return;
-    setQuery(removePart(input.value, Number(button.dataset.from), Number(button.dataset.to)));
+    const cut = button.dataset.kind === "operator" ? removeOperator : removePart;
+    setQuery(cut(input.value, Number(button.dataset.from), Number(button.dataset.to)));
     input.focus();
   });
   window.addEventListener("resize", drawRemovers);
