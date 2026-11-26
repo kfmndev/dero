@@ -1,21 +1,20 @@
 // ---- The search language ----
 // The server filters (dero/query.py). This is the same tokenizer, used to highlight the search bar and to
 // keep the dropdowns and the query text in sync.
-const QUERY_KEYS = {
-  status: "status",
-  created_by: "creator",
-  creator: "creator",
-  owner: "creator",
-  by: "creator",
-  slug: "slug",
-  target: "target",
-  created: "created",
-  expires: "expires",
-  sort_by: "sortby",
-  sortby: "sortby",
-  sort: "sortby",
-  order: "sortby",
+// each key (the name used in the code) with every spelling that is accepted for it; the first spelling is the
+// dropdown's name in snake case, the others are older ones. Same table as KEY_ALIASES in dero/query.py.
+const KEY_ALIASES = {
+  status: ["status"],
+  creator: ["created_by", "creator", "owner", "by"],
+  slug: ["slug"],
+  target: ["target"],
+  created: ["created"],
+  expires: ["expires"],
+  sortby: ["sort_by", "sortby", "sort", "order"],
 };
+const QUERY_KEYS = Object.fromEntries(
+  Object.entries(KEY_ALIASES).flatMap(([key, aliases]) => aliases.map((alias) => [alias, key])),
+); // spelling -> key
 
 // keys that can be unset: the key alone means "is set" (expires = expires!=never); the date keys compare with < <= > >=
 const OPTIONAL_KEYS = ["expires"];
@@ -168,7 +167,7 @@ const appendTerm = (text, term) => (text.trim() ? `${text.trimEnd()} ${term}` : 
 // Set (values = array) or remove (values = null) the key=... term of a query.
 function editQuery(text, key, values, negated = false) {
   const parsed = parseQuery(text);
-  const name = { creator: "created_by", sortby: "sort_by" }[key] || key; // the dropdowns' names, in snake case
+  const name = KEY_ALIASES[key][0]; // the dropdown's name, in snake case
   const term = values?.length ? `${name}${negated ? "!=" : "="}${values.map(quoteValue).join(",")}` : "";
   if (key === "sortby") {
     // a directive: replaced wherever it stands

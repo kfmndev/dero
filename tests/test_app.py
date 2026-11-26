@@ -1698,7 +1698,8 @@ def test_query_names_follow_the_dropdowns_and_the_old_ones_still_work(client, ap
     html = client.get("/admin/", headers=ADMIN, query_string={"q": "created_by=bob"}).get_data(as_text=True)
     assert "q-k-creator" not in html  # (chips are drawn in the browser)
     js = js_source(client)
-    assert 'created_by: "creator"' in js and 'sort_by: "sortby"' in js and '"created_by", sortby: "sort_by"' in js
+    assert 'creator: ["created_by", "creator", "owner", "by"]' in js
+    assert 'sortby: ["sort_by", "sortby", "sort", "order"]' in js and "KEY_ALIASES[key][0]" in js
 
 
 def test_operators_get_a_remove_button_too(client):
