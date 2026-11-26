@@ -7,7 +7,6 @@
   const box = document.getElementById("new-link-error");
   const reserved = (form.dataset.reserved || "").split(",").filter(Boolean);
   const alphabets = JSON.parse(form.dataset.alphabets || "{}");
-  const hint = form.querySelector(".alphabet-hint");
   const PREFS = "dero.generator";
   const sourceOf = () => form.elements.slug_source.value;
   const lengthField = () => form.elements.namedItem("length");
@@ -31,7 +30,7 @@
     slugField.dispatchEvent(new Event("input")); // the coloured copy behind it follows (not bubbling: not the user typing)
   }
 
-  // Random or typed: only the fields that belong to the chosen option are shown, and a line below says what it draws from.
+  // Random or typed: only the options that belong to the chosen type are shown, next to the dropdown.
   // The slug field is always there: with a random type it is empty ("generated when you create it") until the user
   // clicks or types in it, which switches the type to Custom.
   function syncGenerator() {
@@ -43,13 +42,6 @@
     form
       .querySelectorAll("[data-when-source]")
       .forEach((el) => (el.hidden = !el.dataset.whenSource.split(" ").includes(source)));
-    let text = "";
-    if (source === "chars") {
-      const chars = [...form.elements.alphabet_custom.value];
-      if (chars.length) text = `${chars.length} characters, ${new Set(chars).size} different: ${chars.join("")}`;
-    } else if (alphabets[source]) text = alphabets[source];
-    hint.textContent = text;
-    hint.title = text; // long sets are cut with an ellipsis; the tooltip has all of it
   }
 
   // Generate: draw a slug of the selected type now, put it into the Custom slug field to look at, edit or create.

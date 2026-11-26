@@ -50,10 +50,14 @@
       if (row) flash(row);
     }
     // one pinned toast, always about the latest visit; it stays until its x is clicked
-    const first = names[0];
-    toast("live", `Live · ‹${first}›${names.length > 1 ? ` and ${names.length - 1} more` : ""} visited`, {
-      key: "live",
-    });
+    const message = document.createDocumentFragment();
+    const word = document.createElement("strong");
+    word.className = "live-word";
+    word.textContent = "Live";
+    const rest = document.createElement("span");
+    setRich(rest, `‹${names[0]}›${names.length > 1 ? ` and ${names.length - 1} more` : ""} visited`);
+    message.append(word, rest);
+    toast("live", message, { key: "live" });
   }
 
   function openStream() {

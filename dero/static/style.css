@@ -92,7 +92,7 @@
     --bg: #0b0c0f;
     --card: #15171c;
     --field: #0f1115;
-  --detail: #0f1115;
+    --detail: #0f1115;
     --text: #eceef2;
     --muted: #9aa1ad;
     --border: #2a2e37;
@@ -807,11 +807,6 @@ th[aria-sort="ascending"] .arrow .icon {
 .live-toggle.is-live {
   color: var(--accent-2-ink);
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* ---- dero: expandable rows ---- */
 tr.item {
@@ -843,7 +838,6 @@ tr.open .expand .icon {
 }
 tr.item.open td {
   border-bottom-color: transparent;
-  background: var(--detail);
 }
 tr.detail td {
   background: var(--detail);
@@ -1903,15 +1897,6 @@ th.col-target {
 .nl-chars input {
   width: 100%;
 }
-.alphabet-hint {
-  flex: 1 0 100%;
-  margin: -4px 0 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 12px / 1.4 var(--font-mono);
-  color: var(--muted);
-}
 
 .nl-expires-row {
   display: flex;
@@ -2063,15 +2048,12 @@ dialog p.setting-note {
   flex: 0 0 auto;
   min-width: 9rem;
 }
-.alphabet-hint {
-  min-height: 1.4em;
-} /* keeps its line, so changing the short link type does not move the form */
-.nl-slug > label {
+.nl-type > label {
   display: flex;
   flex-direction: column;
   gap: var(--label-gap);
 } /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
-.nl-slug > label input {
+.nl-type > label input {
   margin-top: 0;
 }
 .slug-group .mini {
@@ -2087,12 +2069,12 @@ dialog p.setting-note {
 .slug-edit .slug-hl code.slug:empty {
   display: none;
 } /* nothing typed: no empty box in front of the placeholder */
-.nl-slug > .field {
+.nl-type > .field {
   display: flex;
   flex-direction: column;
   gap: var(--label-gap);
 }
-.nl-slug .field-label {
+.nl-type .field-label {
   margin: 0;
 }
 
@@ -2233,11 +2215,15 @@ td > .cell:has(> .badge) {
   pointer-events: none; /* only the toasts themselves take clicks */
 }
 .toasts .toast {
+  display: flex; /* (the live toast has none of the form-ok rules that give the others this) */
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
   padding: 9px 10px 9px 14px;
-  border: 1px solid currentColor; /* the colour of its text: green, amber, red or blue */
+  border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 8px;
   background: var(--card);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
@@ -2276,8 +2262,25 @@ td > .cell:has(> .badge) {
 .toasts .toast.form-live {
   color: var(--accent-2-ink);
 }
-.toasts .toast.form-live .icon {
-  animation: spin 2.4s linear infinite;
+.live-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin: 0 1px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: blink 1.4s ease-in-out infinite;
+}
+.live-word {
+  margin-right: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.2;
+  }
 }
 .toasts .toast.bump {
   animation: toast-bump 0.25s ease-out;
@@ -2288,7 +2291,7 @@ td > .cell:has(> .badge) {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .toasts .toast.form-live .icon {
+  .live-dot {
     animation: none;
   }
 }

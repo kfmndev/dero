@@ -1030,7 +1030,11 @@ def test_new_link_form_markup_and_remembered_choice(client):
     assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
     assert 'data-when-source="chars"' in html and 'data-when-source="default letters chars"' in html
     assert 'data-when-source="slug"' not in html and 'id="new-link-slug"' in html  # the slug field is always there
-    assert '<p class="alphabet-hint"' in html  # what it draws from: one line that can't overflow
+    assert "alphabet-hint" not in html  # illegal characters are reported, so the alphabet is not listed
+    rows = html.split('class="nl-row')
+    assert 'name="target"' in rows[1] and 'id="new-link-submit"' not in rows[1]  # the address and the expiry
+    assert 'name="slug_source"' in rows[2] and 'name="length"' in rows[2]  # the type, with its options next to it
+    assert 'id="new-link-slug"' in rows[3] and rows[3].index("new-link-slug") < rows[3].index('id="new-link-submit"')
     assert (
         'data-fresh="yes"' in html and "&#34;default&#34;" in html
     )  # the alphabets are handed to the page for that line
@@ -1508,7 +1512,7 @@ def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
 
 def test_generate_button_and_settings_dialog(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    group = html[html.index('id="new-link-slug"') : html.index("alphabet-hint")]
+    group = html[html.index('id="new-link-slug"') : html.index('id="new-link-submit"')]
     assert 'id="new-link-generate"' in group and 'aria-label="Generate a slug"' in group  # inside the slug field
     assert re.search(
         r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S
@@ -1972,7 +1976,7 @@ def test_every_notice_is_a_toast(client):
 
 def test_the_live_toast_is_pinned_and_follows_the_latest_visit(client):
     js = flat_js(js_source(client))
-    assert 'toast("live"' in js and "Live · ‹${first}›" in js and 'key: "live"' in js
+    assert 'toast("live"' in js and "‹${names[0]}›" in js and 'key: "live"' in js and 'textContent = "Live"' in js
     assert 'if (kind === "live") toastHost().prepend(el)' in js  # above the others
     assert 'if (kind === "ok") {' in js and "const arm = " in js  # only a success fades by itself
     assert 'else dismissToast("live", true)' in js  # switching Live off removes it

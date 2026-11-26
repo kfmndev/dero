@@ -10,7 +10,7 @@ const TOAST_KINDS = {
   ok: { cls: "form-ok", icon: "check", role: "status" },
   warn: { cls: "form-warn", icon: "alert", role: "alert" },
   error: { cls: "form-error", icon: "alert", role: "alert" },
-  live: { cls: "form-live", icon: "refresh", role: "status" },
+  live: { cls: "form-live", icon: null, role: "status" }, // a blinking dot instead of an icon
 };
 let toastStack = null;
 
@@ -90,7 +90,9 @@ function placeToast(el, kind, key) {
 // kind: "ok", "warn", "error" or "live". content: text (a ‹slug› is drawn as a slug box) or a node.
 function toast(kind, content, { key = "" } = {}) {
   const el = document.createElement("p");
-  el.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${toastSprite()}#${TOAST_KINDS[kind].icon}"/></svg>`;
+  el.innerHTML = TOAST_KINDS[kind].icon
+    ? `<svg class="icon" aria-hidden="true"><use href="${toastSprite()}#${TOAST_KINDS[kind].icon}"/></svg>`
+    : '<span class="live-dot toast-icon" aria-hidden="true"></span>';
   const span = document.createElement("span");
   if (typeof content === "string") setRich(span, content);
   else span.append(content);
