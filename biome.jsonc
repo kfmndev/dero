@@ -1,0 +1,31 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
+  // the page's own scripts and its stylesheet (fonts, icons and templates are not touched)
+  "files": { "includes": ["dero/static/js/**", "dero/static/style.css"] },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
+  "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        // the scripts are plain scripts that share one scope, so a function is "unused" in the file that defines it
+        "noUnusedVariables": "off"
+      },
+      "suspicious": {
+        // short arrow callbacks in forEach are the house style (the value they evaluate to is ignored)
+        "useIterableCallbackReturn": "off",
+        // the settings (colour slugs, columns, live visits) are cookies on purpose: the server reads them
+        "noDocumentCookie": "off"
+      },
+      "complexity": {
+        // used deliberately to hide the native <select> behind the custom dropdown
+        "noImportantStyles": "off"
+      },
+      "style": {
+        // the order of the CSS rules is the cascade (see the note at the top of style.css)
+        "noDescendingSpecificity": "off"
+      }
+    }
+  }
+}

@@ -22,7 +22,7 @@ document.addEventListener("click", async (event) => {
 // Click a row to show or hide its details (the row after it).
 function toggleRow(row) {
   const detail = row.nextElementSibling;
-  if (!detail || !detail.classList.contains("detail")) return;
+  if (!detail?.classList.contains("detail")) return;
   const open = detail.hidden;
   detail.hidden = !open;
   row.classList.toggle("open", open);
@@ -45,9 +45,11 @@ const PICKED_DAY = new Intl.DateTimeFormat(undefined, { ...DATE_FORMAT, timeZone
 function localizeTimes(root = document) {
   root.querySelectorAll("time.localtime[datetime]").forEach((el) => {
     const date = new Date(el.getAttribute("datetime"));
-    if (!Number.isNaN(date.getTime())) el.textContent = (el.dataset.day !== undefined ? PICKED_DAY : LOCAL_DATETIME).format(date);
+    if (!Number.isNaN(date.getTime()))
+      el.textContent = (el.dataset.day !== undefined ? PICKED_DAY : LOCAL_DATETIME).format(date);
   });
-  root.querySelectorAll(".expired-mark[data-expired]").forEach((el) => {     // "Expired on <local date>", the UTC time stays in the column's tooltip
+  root.querySelectorAll(".expired-mark[data-expired]").forEach((el) => {
+    // "Expired on <local date>", the UTC time stays in the column's tooltip
     const date = new Date(el.dataset.expired);
     if (Number.isNaN(date.getTime())) return;
     el.title = `Expired on ${PICKED_DAY.format(date)}`;
@@ -58,7 +60,8 @@ function localizeTimes(root = document) {
 // Replace one region of the page with the same region from a freshly fetched page.
 // Rows that were open stay open. Returns false if the region is missing.
 function swapRegion(id, doc) {
-  const current = document.getElementById(id), fresh = doc.getElementById(id);
+  const current = document.getElementById(id),
+    fresh = doc.getElementById(id);
   if (!current || !fresh) return false;
   // The parsed copy treats <noscript> content as real elements; drop it so nothing from it can apply.
   fresh.querySelectorAll("noscript").forEach((el) => el.remove());
@@ -66,7 +69,7 @@ function swapRegion(id, doc) {
   current.replaceWith(document.importNode(fresh, true));
   for (const rowId of open) {
     const detail = document.getElementById(rowId);
-    if (detail && detail.previousElementSibling) toggleRow(detail.previousElementSibling);
+    if (detail?.previousElementSibling) toggleRow(detail.previousElementSibling);
   }
   if (typeof syncAllEdit === "function") syncAllEdit();
   if (typeof initSlugEdits === "function") initSlugEdits();

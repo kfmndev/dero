@@ -31,6 +31,24 @@ def flat_css(css):
     return re.sub(r"\s+", " ", css)
 
 
+def css_rule(css, selector):
+    """The declarations the rules with exactly this selector give together, as {property: value} (later rules win)."""
+    flat = re.sub(r"\s+", " ", css)
+    found = {}
+
+    for m in re.finditer(r"(?:^|[}/]) ?" + re.escape(selector) + r" ?\{([^{}]*)\}", flat):
+        pairs = (d.split(":", 1) for d in m.group(1).split(";") if ":" in d)
+        found.update({name.strip(): value.strip().replace(" / ", "/") for name, value in pairs})
+    assert found, f"no rule for {selector}"
+
+    return found
+
+
+def flat_js(js):
+    """The scripts with line breaks and indentation collapsed, for assertions about exact statements."""
+    return re.sub(r"\s+", " ", js)
+
+
 def flat(html):
     """Page markup with the template's line breaks and indentation removed, for assertions about exact tags."""
     return re.sub(r">\s+<", "><", re.sub(r"\s+", " ", html))
@@ -619,7 +637,7 @@ def test_icons_share_one_wrapper_and_header_has_tagline(client):
     assert html.count('class="link-actions"') == html.count('data-copy="') >= 4
     assert '<span class="tagline">URL Shortener</span>' in html
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert re.search(r"\.tagline \{ font: 600 10px/1 var\(--font-text\);", css)  # 10px Geist
+    assert css_rule(css, ".tagline")["font"] == "600 10px/1 var(--font-text)"  # 10px Geist
 
 
 # ---------------------------------------------------------------- column order, no-reload hooks
@@ -752,11 +770,12 @@ def test_details_layout_buttons_and_edit_form(client):
     # order: Delete, Discard, Update
     assert d.index("Delete</button>") < d.index("data-discard") < d.index('form="x1" class="btn small"')
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
+    assert css_rule(css, ".link-actions")["gap"] == "1px"
     assert (
-        re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css
+        css_rule(css, ".details-row").items() >= {"display": "flex", "flex-wrap": "wrap"}.items()
+        and "repeat(6, minmax(0, 1fr))" not in css
     )  # no fixed grid
-    assert re.search(r"tr\.detail td \{[^}]*padding: var\(--box-pad\)", css)  # margins around the details
+    assert css_rule(css, "tr.detail td")["padding"] == "var(--box-pad)"  # margins around the details
     js = js_source(client)
     assert "function syncEdit" in js and "data-discard" in js and "function linkProblem" in js
 
@@ -793,7 +812,7 @@ def test_every_button_has_an_icon_and_a_single_verb(client):
 def test_details_buttons_neutral_except_the_red_delete(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.btn\.danger \{ color: var\(--err\); \}", css)  # delete buttons are red again
+    assert css_rule(css, ".btn.danger")["color"] == "var(--err)"  # delete buttons are red again
     assert re.search(
         r"\.btn\.solid-danger \{[^}]*background: var\(--err\)", css
     )  # ... also the dialog's confirm button
@@ -877,8 +896,10 @@ def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
         p,
     )
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.confirm-urls code\.slug \{ font-size: 13px; \}", css) and "rotate(90deg)" in css
-    assert re.search(r"input\.url-input \{ font-family: var\(--font-mono\)", css)  # URL inputs are mono
+    assert css_rule(css, ".confirm-urls code.slug")["font-size"] == "13px" and "rotate(90deg)" in css
+    assert (
+        css_rule(css, ".slug-group input.url-input")["font-family"] == "var(--font-mono)"
+    )  # only the slug field is mono
     assert "→" not in js_source(client)  # the arrow is an icon now
 
 
@@ -1041,8 +1062,8 @@ def test_collapsed_row_uses_the_highlight(client):
         '<span class="hl-digit">2</span></code>' in row
     )
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.hl-digit \{ color: var\(--accent-ink\)", css) and re.search(
-        r"\.hl-symbol \{ color: var\(--err\)", css
+    assert css_rule(css, ".hl-digit")["color"] == "var(--accent-ink)" and (
+        css_rule(css, ".hl-symbol")["color"] == "var(--err)"
     )
 
 
@@ -1420,7 +1441,7 @@ def test_search_bar_has_a_layer_for_the_remove_buttons(client):
     assert "function removePart" in js and "function drawRemovers" in js and 'className = "qx"' in js
     assert "tabIndex = -1" in js and "Remove ${label}" in js  # mouse helper; the keyboard edits the text
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert ".qx-layer" in css and re.search(r"\.qx:hover, \.qx:focus-visible \{[^}]*var\(--err\)", css)
+    assert ".qx-layer" in css and css_rule(css, ".qx:hover, .qx:focus-visible")["color"] == "var(--err)"
 
 
 def test_expired_mark_is_a_clock_with_the_date_not_a_text_badge(client, app):
@@ -1691,7 +1712,7 @@ def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
 
 def test_spaces_are_added_around_parentheses_while_typing(client):
     js = js_source(client)
-    assert "function spaceOut" in js and 'event.inputType.startsWith("insert")' in js  # not when deleting
+    assert "function spaceOut" in js and 'event.inputType?.startsWith("insert")' in js  # not when deleting
 
 
 def test_row_cells_centre_their_content(client):
@@ -1703,7 +1724,7 @@ def test_row_cells_centre_their_content(client):
 
 
 def test_a_negated_word_keeps_its_exclamation_mark_inside_its_chip(client):
-    js = js_source(client)
+    js = flat_js(js_source(client))
     assert 'word.classList.add("q-neg"); word.append(last);' in js
 
 

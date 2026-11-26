@@ -1,6 +1,6 @@
 // ---- Live visits ----
 // Uses the search bar's pieces that filters.js hands over (window.deroFilters).
-(function () {
+(() => {
   const { form, input, lists, live, update, indicator } = window.deroFilters || {};
   if (!form) return;
 
@@ -8,13 +8,21 @@
   // events). The row of a visited slug lights up and its count is changed in place; the table is only fetched again
   // when the order depends on the visits or links were created or deleted.
   const LIVE_KEY = "dero.live";
-  let source = null, hiddenTimer = null, dropped = false;
-  const liveOn = () => { try { return localStorage.getItem(LIVE_KEY) === "1"; } catch { return false; } };
+  let source = null,
+    hiddenTimer = null,
+    dropped = false;
+  const liveOn = () => {
+    try {
+      return localStorage.getItem(LIVE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  };
   const sortsByVisits = () => /visits$/.test(deriveSort(parseQuery(input.value), lists.sortKeys) || "");
 
   function flash(row) {
     row.classList.remove("visited");
-    void row.offsetWidth;                                            // restart the animation
+    void row.offsetWidth; // restart the animation
     row.classList.add("visited");
     setTimeout(() => row.classList.remove("visited"), 2600);
   }
@@ -39,7 +47,7 @@
       const row = document.querySelector(`#links-results tr.item[data-id="${c.id}"]`);
       if (row) flash(row);
     }
-    indicator("done", `${names.length > 1 ? names.length + " slugs" : names[0]} visited`);
+    indicator("done", `${names.length > 1 ? `${names.length} slugs` : names[0]} visited`);
   }
 
   function openStream() {
@@ -47,8 +55,15 @@
     source = new EventSource(form.dataset.liveUrl);
     source.addEventListener("visit", (event) => visited(JSON.parse(event.data)));
     source.addEventListener("refresh", () => update());
-    source.addEventListener("open", () => { if (dropped) { dropped = false; update(); } });   // after a gap: catch up
-    source.addEventListener("error", () => { dropped = true; });                              // the browser reconnects itself
+    source.addEventListener("open", () => {
+      if (dropped) {
+        dropped = false;
+        update();
+      }
+    }); // after a gap: catch up
+    source.addEventListener("error", () => {
+      dropped = true;
+    }); // the browser reconnects itself
   }
 
   function closeStream() {
@@ -67,7 +82,10 @@
     clearTimeout(hiddenTimer);
     if (!liveOn()) return;
     if (document.visibilityState === "hidden") hiddenTimer = setTimeout(closeStream, 30000);
-    else if (!source) { openStream(); dropped = true; }
+    else if (!source) {
+      openStream();
+      dropped = true;
+    }
   });
 
   document.addEventListener("dero:live", () => setLive(liveOn()));

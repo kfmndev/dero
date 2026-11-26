@@ -2,7 +2,7 @@
 // The search box holds the whole state as one query. The dropdowns show it (and edit it); changing
 // either one fetches the list again and swaps only the table, so the page doesn't jump and the
 // search box keeps focus. The indicator confirms that something happened.
-(function () {
+(() => {
   const form = document.getElementById("filters");
   if (!form) return;
   const input = document.getElementById("q");
@@ -11,7 +11,7 @@
   const live = document.getElementById("filter-live");
   const clear = document.getElementById("reset-filters");
   const multis = [...form.querySelectorAll("details.multi")];
-  const queryMultis = multis.filter((details) => details.dataset.key);          // status, created by
+  const queryMultis = multis.filter((details) => details.dataset.key); // status, created by
   const columnsMenu = document.getElementById("filter-columns");
   const lists = {
     statuses: JSON.parse(form.dataset.statuses || "[]"),
@@ -19,7 +19,9 @@
   };
   const SPRITE = live.querySelector("use").getAttribute("href").split("#")[0];
   const IDLE = live.querySelector("span").textContent;
-  let seq = 0, typing, resetTimer;
+  let seq = 0,
+    typing,
+    resetTimer;
 
   function indicator(state, text) {
     const use = live.querySelector("use");
@@ -33,17 +35,21 @@
 
   const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby");
 
-  const defaultColumns = () => (columnsMenu && columnsMenu.dataset.default ? columnsMenu.dataset.default.split(",") : []);
-  const chosenColumns = () => (columnsMenu ? [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value) : []);
+  const defaultColumns = () => (columnsMenu?.dataset.default ? columnsMenu.dataset.default.split(",") : []);
+  const chosenColumns = () =>
+    columnsMenu ? [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value) : [];
   const columnsDiffer = () => chosenColumns().join() !== defaultColumns().join();
 
-  function setClear(active) {            // disabled, never hidden: nothing may move
+  function setClear(active) {
+    // disabled, never hidden: nothing may move
     clear.setAttribute("aria-disabled", String(!active));
-    if (active) clear.removeAttribute("tabindex"); else clear.tabIndex = -1;
+    if (active) clear.removeAttribute("tabindex");
+    else clear.tabIndex = -1;
   }
 
   // ---- the highlighted search bar
-  const field = form.querySelector(".qfield"), removers = form.querySelector(".qx-layer");
+  const field = form.querySelector(".qfield"),
+    removers = form.querySelector(".qx-layer");
 
   // one small x after every term, every outermost group and every operator, inside the padding of its chip
   function drawRemovers() {
@@ -51,26 +57,26 @@
     const base = field.getBoundingClientRect();
     highlight.querySelectorAll(".q-term, .q-group, .q-op").forEach((el) => {
       if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
-      if (!el.classList.contains("q-group") && el.closest(".q-group")) return;   // a group is removed as a whole
+      if (!el.classList.contains("q-group") && el.closest(".q-group")) return; // a group is removed as a whole
       const x = el.getBoundingClientRect().right - base.left;
-      if (x < 6 || x > base.width - 6) return;                              // scrolled out of view
+      if (x < 6 || x > base.width - 6) return; // scrolled out of view
       const label = input.value.slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
       const button = document.createElement("button");
       button.type = "button";
       button.className = "qx";
-      button.tabIndex = -1;                                                  // the text itself is the keyboard way to edit
+      button.tabIndex = -1; // the text itself is the keyboard way to edit
       button.title = `Remove ${label}`;
       button.setAttribute("aria-label", `Remove ${label}`);
       button.dataset.from = el.dataset.from;
       button.dataset.to = el.dataset.to;
       if (el.classList.contains("q-op")) button.dataset.kind = "operator";
-      button.style.left = `${x - 11}px`;                                   // inside the chip's right padding, a little after the text
-      button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`;   // an icon sits exactly in the middle
+      button.style.left = `${x - 11}px`; // inside the chip's right padding, a little after the text
+      button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`; // an icon sits exactly in the middle
       removers.append(button);
     });
   }
 
-  removers.addEventListener("mousedown", (event) => event.preventDefault());   // keep the focus where it is
+  removers.addEventListener("mousedown", (event) => event.preventDefault()); // keep the focus where it is
   removers.addEventListener("click", (event) => {
     const button = event.target.closest(".qx");
     if (!button) return;
@@ -82,13 +88,13 @@
 
   function syncScroll() {
     highlight.style.transform = `translateX(${-input.scrollLeft}px)`;
-    drawRemovers();                                                           // the chips moved with the scroll
+    drawRemovers(); // the chips moved with the scroll
   }
 
   function draw() {
     renderQuery(parseQuery(input.value), input.value, highlight, lists);
     syncScroll();
-    requestAnimationFrame(syncScroll);   // the caret may have moved the text after the event
+    requestAnimationFrame(syncScroll); // the caret may have moved the text after the event
   }
 
   // ---- query -> dropdowns
@@ -109,7 +115,9 @@
 
   function syncControls() {
     const parsed = parseQuery(input.value);
-    queryMultis.forEach((details) => showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))));
+    queryMultis.forEach((details) =>
+      showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))),
+    );
     const wanted = deriveSort(parsed, lists.sortKeys);
     sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : "";
     refreshSelect(sortSelect);
@@ -129,8 +137,16 @@
       const all = JSON.parse(details.dataset.all || "[]");
       const checked = [...details.querySelectorAll("input[type=checkbox]:checked")].map((b) => b.value);
       // all = no filter; none = everything excluded (key!=a,b,c), so nothing is shown
-      const everything = checked.length === all.length, none = checked.length === 0 && all.length > 0;
-      setQuery(editQuery(input.value, details.dataset.key, everything ? null : none ? all : all.filter((v) => checked.includes(v)), none));
+      const everything = checked.length === all.length,
+        none = checked.length === 0 && all.length > 0;
+      setQuery(
+        editQuery(
+          input.value,
+          details.dataset.key,
+          everything ? null : none ? all : all.filter((v) => checked.includes(v)),
+          none,
+        ),
+      );
     });
   });
 
@@ -139,12 +155,18 @@
   const lockLastColumn = () => {
     if (!columnsMenu) return;
     const on = [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")];
-    columnsMenu.querySelectorAll("input[type=checkbox]").forEach((box) => (box.disabled = on.length === 1 && box.checked));
+    columnsMenu
+      .querySelectorAll("input[type=checkbox]")
+      .forEach((box) => (box.disabled = on.length === 1 && box.checked));
   };
   lockLastColumn();
   if (columnsMenu) {
     columnsMenu.addEventListener("change", (event) => {
-      if (!columnsMenu.querySelector("input[type=checkbox]:checked")) { event.target.checked = true; lockLastColumn(); return; }   // (keyboard or script)
+      if (!columnsMenu.querySelector("input[type=checkbox]:checked")) {
+        event.target.checked = true;
+        lockLastColumn();
+        return;
+      } // (keyboard or script)
       lockLastColumn();
       const all = JSON.parse(columnsMenu.dataset.all || "[]");
       const chosen = [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value);
@@ -156,9 +178,12 @@
     });
   }
 
-  sortSelect.addEventListener("change", () => setQuery(editQuery(input.value, "sortby", sortSelect.value ? [sortSelect.value] : null)));
+  sortSelect.addEventListener("change", () =>
+    setQuery(editQuery(input.value, "sortby", sortSelect.value ? [sortSelect.value] : null)),
+  );
 
-  document.addEventListener("click", (event) => {          // sortable column headers set the sort in the query
+  document.addEventListener("click", (event) => {
+    // sortable column headers set the sort in the query
     const link = event.target.closest("#links-results th a");
     if (link) {
       event.preventDefault();
@@ -170,21 +195,22 @@
   // ---- query -> results
   async function update() {
     const q = input.value.trim();
-    const url = form.getAttribute("action") + (q ? "?" + new URLSearchParams({ q }) : "");
+    const url = form.getAttribute("action") + (q ? `?${new URLSearchParams({ q })}` : "");
     const mine = ++seq;
     indicator("busy", "Updating…");
     try {
       const res = await fetch(url, { credentials: "same-origin" });
       if (!res.ok) throw new Error(res.status);
       const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-      if (mine !== seq) return;            // a newer change already replaced this one
+      if (mine !== seq) return; // a newer change already replaced this one
       if (!swapRegion("links-results", doc)) throw new Error("unexpected page");
       const fresh = document.getElementById("links-results");
       history.replaceState(null, "", url);
-      const n = Number(fresh.dataset.count), total = Number(fresh.dataset.overall);
+      const n = Number(fresh.dataset.count),
+        total = Number(fresh.dataset.overall);
       indicator("done", hasFilter(parseQuery(q)) ? `Updated · ${n} of ${total}` : "Updated");
     } catch {
-      location.href = url;                 // fall back to a normal page load
+      location.href = url; // fall back to a normal page load
     }
   }
 
@@ -197,16 +223,19 @@
     const paren = (t) => t.kind === "lpar" || t.kind === "rpar";
     const at = [];
     for (let i = 0; i < toks.length - 1; i++) {
-      const a = toks[i], b = toks[i + 1];
-      if (a.end !== b.start || a.kind === "not") continue;       // already apart, or a "!" that belongs to the next term
+      const a = toks[i],
+        b = toks[i + 1];
+      if (a.end !== b.start || a.kind === "not") continue; // already apart, or a "!" that belongs to the next term
       if (!special(a) && !special(b)) continue;
-      if (paren(a) && paren(b)) continue;                        // ((a)) stays as typed
+      if (paren(a) && paren(b)) continue; // ((a)) stays as typed
       at.push(a.end);
     }
     if (!at.length) return false;
-    let caret = input.selectionStart, out = "", last = 0;
+    let caret = input.selectionStart,
+      out = "",
+      last = 0;
     for (const p of at) {
-      out += text.slice(last, p) + " ";
+      out += `${text.slice(last, p)} `;
       last = p;
       if (p <= input.selectionStart) caret++;
     }
@@ -216,21 +245,29 @@
   }
 
   input.addEventListener("input", (event) => {
-    if (event.inputType && event.inputType.startsWith("insert")) spaceOut();
+    if (event.inputType?.startsWith("insert")) spaceOut();
     draw();
     syncControls();
     clearTimeout(typing);
     typing = setTimeout(update, 250);
   });
   ["keyup", "click", "focus", "select", "scroll"].forEach((name) => input.addEventListener(name, syncScroll));
-  document.addEventListener("selectionchange", () => { if (document.activeElement === input) syncScroll(); });
-  form.addEventListener("submit", (event) => { event.preventDefault(); clearTimeout(typing); update(); });
+  document.addEventListener("selectionchange", () => {
+    if (document.activeElement === input) syncScroll();
+  });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    clearTimeout(typing);
+    update();
+  });
 
-  clear.addEventListener("click", (event) => {              // back to the start: no query, no sort, the default columns
+  clear.addEventListener("click", (event) => {
+    // back to the start: no query, no sort, the default columns
     event.preventDefault();
     if (clear.getAttribute("aria-disabled") === "true") return;
     if (columnsMenu) {
-      const all = JSON.parse(columnsMenu.dataset.all || "[]"), wanted = defaultColumns();
+      const all = JSON.parse(columnsMenu.dataset.all || "[]"),
+        wanted = defaultColumns();
       columnsMenu.querySelectorAll("input[type=checkbox]").forEach((box) => (box.checked = wanted.includes(box.value)));
       lockLastColumn();
       columnsMenu.querySelector(".multi-label").textContent = `${wanted.length} of ${all.length}`;
@@ -239,13 +276,14 @@
     setQuery("");
   });
 
-  const helpToggle = document.getElementById("q-help-toggle"), help = document.getElementById("q-help");
+  const helpToggle = document.getElementById("q-help-toggle"),
+    help = document.getElementById("q-help");
   helpToggle.addEventListener("click", () => {
     help.hidden = !help.hidden;
     helpToggle.setAttribute("aria-expanded", String(!help.hidden));
   });
 
-  setQuery(input.value, { fetch: false });    // draw the first time
+  setQuery(input.value, { fetch: false }); // draw the first time
 
   // what the live-visits script (live.js) needs from this one
   window.deroFilters = { form, input, lists, live, update, indicator };

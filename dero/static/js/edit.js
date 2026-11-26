@@ -4,14 +4,19 @@
 // target and slug inputs sit in other places of the row and belong to the
 // form through their form="" attribute.
 function syncEdit(form) {
-  const toggle = form.querySelector(".expiry-switch"), date = form.elements.expires_at;
-  const target = form.elements.target, slug = form.elements.slug;
+  const toggle = form.querySelector(".expiry-switch"),
+    date = form.elements.expires_at;
+  const target = form.elements.target,
+    slug = form.elements.slug;
   date.disabled = !toggle.checked;
   date.required = toggle.checked;
-  const dirty = toggle.checked !== toggle.defaultChecked || (toggle.checked && date.value !== date.defaultValue)
-    || target.value !== target.defaultValue || slug.value !== slug.defaultValue;
+  const dirty =
+    toggle.checked !== toggle.defaultChecked ||
+    (toggle.checked && date.value !== date.defaultValue) ||
+    target.value !== target.defaultValue ||
+    slug.value !== slug.defaultValue;
   for (const button of document.querySelectorAll(`[form="${form.id}"], [data-discard="${form.id}"]`)) {
-    if (button.dataset.discard) button.hidden = false;     // without JavaScript there is nothing to discard
+    if (button.dataset.discard) button.hidden = false; // without JavaScript there is nothing to discard
     if (button.tagName === "BUTTON") button.disabled = !dirty;
   }
 }
@@ -22,7 +27,7 @@ function syncAllEdit() {
 
 function editFormOf(element) {
   const form = element.form;
-  return form && form.classList.contains("edit-form") ? form : null;
+  return form?.classList.contains("edit-form") ? form : null;
 }
 
 document.addEventListener("change", (event) => {
@@ -44,7 +49,7 @@ document.addEventListener("click", (event) => {
   const discard = event.target.closest("[data-discard]");
   if (!discard) return;
   const form = document.getElementById(discard.dataset.discard);
-  form.reset();                                            // back to what is saved (reaches the inputs with form="")
+  form.reset(); // back to what is saved (reaches the inputs with form="")
   document.querySelectorAll(`[form="${form.id}"][aria-invalid]`).forEach((el) => el.removeAttribute("aria-invalid"));
   forgetWarning(form);
   syncEdit(form);
@@ -53,7 +58,7 @@ document.addEventListener("click", (event) => {
 // Check the edit form before it is sent; errors go to the "All links" card.
 document.addEventListener("submit", (event) => {
   const form = event.target;
-  if (!form.classList || !form.classList.contains("edit-form")) return;
+  if (!form.classList?.contains("edit-form")) return;
   document.querySelectorAll(`[form="${form.id}"][aria-invalid]`).forEach((el) => el.removeAttribute("aria-invalid"));
   const found = linkProblem(form, {
     reserved: (form.dataset.reserved || "").split(",").filter(Boolean),
@@ -62,7 +67,11 @@ document.addEventListener("submit", (event) => {
     dateWhenOn: true,
   });
   if (!found) {
-    if (needsLookup(form)) { event.preventDefault(); lookupThenResubmit(form); return; }
+    if (needsLookup(form)) {
+      event.preventDefault();
+      lookupThenResubmit(form);
+      return;
+    }
     warnFirst(form, event, "Update", (message) => showNotice(`link-${form.id.slice(1)}-notices`, message, "warn"));
     return;
   }

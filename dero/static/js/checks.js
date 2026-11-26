@@ -1,5 +1,5 @@
 // ---- Checks shared by the "New link" form and the edit form in a link's details ----
-const SLUG_RE = /^[A-Za-z0-9._~-]{1,64}$/;                    // what a URL path never needs to escape
+const SLUG_RE = /^[A-Za-z0-9._~-]{1,64}$/; // what a URL path never needs to escape
 const BAD_SLUG = "Slug: letters, digits and - _ . ~ only, up to 64.";
 const DOTS_ONLY = "A slug can't be just dots.";
 const slugProblem = (value) => (!SLUG_RE.test(value) ? BAD_SLUG : /^\.+$/.test(value) ? DOTS_ONLY : null);
@@ -7,48 +7,66 @@ const BAD_URL = "Target must be a valid http:// or https:// URL.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
 // `generator` = the "New link" form (slug mode, alphabet and length); otherwise a plain slug field is checked.
-function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = false, dateWhenOn = false, generator = false } = {}) {
-  const target = form.elements.target, expires = form.elements.expires_at;
+function linkProblem(
+  form,
+  { reserved = [], savedSlug = null, slugRequired = false, dateWhenOn = false, generator = false } = {},
+) {
+  const target = form.elements.target,
+    expires = form.elements.expires_at;
   const url = target.value.trim();
   if (!url) return [target, "Enter the URL to shorten."];
   let parsed;
-  try { parsed = new URL(url); } catch { return [target, BAD_URL]; }
+  try {
+    parsed = new URL(url);
+  } catch {
+    return [target, BAD_URL];
+  }
   if (!/^https?:$/.test(parsed.protocol) || !parsed.host || url.length > 2048) return [target, BAD_URL];
   if (generator) {
     const found = generatorProblem(form, reserved);
     if (found) return found;
   } else {
-    const slug = form.elements.slug, s = slug.value.trim();
+    const slug = form.elements.slug,
+      s = slug.value.trim();
     if (!s && slugRequired) return [slug, "Enter a slug."];
     if (s && slugProblem(s)) return [slug, slugProblem(s)];
     if (s && s !== savedSlug && reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
   }
-  if (dateWhenOn && !expires.disabled && !expires.value) return [expires, "Pick the last day the link should work, or switch the expiry off."];
+  if (dateWhenOn && !expires.disabled && !expires.value)
+    return [expires, "Pick the last day the link should work, or switch the expiry off."];
   return null;
 }
 
 // Slug part of the "New link" form: a typed slug, or the characters and length to generate one from.
 function generatorProblem(form, reserved, source = form.elements.slug_source.value) {
   if (source === "slug") {
-    const slug = form.elements.slug, s = slug.value.trim();
+    const slug = form.elements.slug,
+      s = slug.value.trim();
     if (!s) return [slug, "Enter a slug, or pick a random one."];
     if (slugProblem(s)) return [slug, slugProblem(s)];
     if (reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
     return null;
   }
   if (source === "chars") {
-    const field = form.elements.alphabet_custom, chars = [...field.value];
+    const field = form.elements.alphabet_custom,
+      chars = [...field.value];
     const bad = [...new Set(chars.filter((c) => !/[A-Za-z0-9._~-]/.test(c)))];
     if (bad.length) {
       const names = bad.slice(0, 6).map((c) => (c === " " ? "space" : `'${c}'`));
-      const shown = bad.length > 6 ? `${names.join(", ")}, …`                                              // too many: cut
-        : names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;   // "and" before the last
+      const shown =
+        bad.length > 6
+          ? `${names.join(", ")}, …` // too many: cut
+          : names.length === 1
+            ? names[0]
+            : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`; // "and" before the last
       return [field, `Characters: ${shown} can't be used. Allowed are letters, digits and - _ . ~`];
     }
     if (new Set(chars).size < 2) return [field, "Characters: use at least 2 different ones."];
   }
-  const length = form.elements.namedItem("length"), n = Number(length.value);       // (elements.length is the collection's size)
-  const min = Number(form.dataset.minLength), max = Number(form.dataset.maxLength);
+  const length = form.elements.namedItem("length"),
+    n = Number(length.value); // (elements.length is the collection's size)
+  const min = Number(form.dataset.minLength),
+    max = Number(form.dataset.maxLength);
   if (!Number.isInteger(n) || n < min || n > max) return [length, `Length must be between ${min} and ${max}.`];
   return null;
 }
@@ -58,7 +76,10 @@ function slugBox(slug) {
   const code = document.createElement("code");
   code.className = "slug";
   code.append(coloredSlug(slug.length > 20 ? slug.slice(0, 20) : slug));
-  if (slug.length > 20) { code.append("…"); code.title = slug; }
+  if (slug.length > 20) {
+    code.append("…");
+    code.title = slug;
+  }
   return code;
 }
 
@@ -69,10 +90,13 @@ function setRich(element, text) {
 }
 
 // Put a message into a card's .notices container (same markup the server renders).
-function showNotice(id, message, kind = "error") {          // kind: "error", "warn" or "ok"
+function showNotice(id, message, kind = "error") {
+  // kind: "error", "warn" or "ok"
   const box = document.getElementById(id);
   if (!box) return;
-  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" }).getAttribute("href").split("#")[0];
+  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" })
+    .getAttribute("href")
+    .split("#")[0];
   const p = document.createElement("p");
   p.className = kind === "error" ? "form-error" : kind === "warn" ? "form-warn" : "form-ok";
   p.setAttribute("role", kind === "ok" ? "status" : "alert");
@@ -88,7 +112,11 @@ function showNotice(id, message, kind = "error") {          // kind: "error", "w
 function unusualUrl(value) {
   const text = value.trim();
   let url;
-  try { url = new URL(text); } catch { return []; }          // invalid URLs are errors, handled elsewhere
+  try {
+    url = new URL(text);
+  } catch {
+    return [];
+  } // invalid URLs are errors, handled elsewhere
   const reasons = [];
   const host = url.hostname;
   if (url.protocol === "http:") reasons.push("uses http");
@@ -106,17 +134,20 @@ function unusualUrl(value) {
   return reasons;
 }
 
-const joinList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0] || "");
+const joinList = (items) =>
+  items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0] || "";
 
 // Does another link already point to this address? Asked just before sending (and only for a new or changed address).
 function alreadyShortened(slugs, count) {
   if (!slugs.length) return "Target already shortened by someone else.";
-  const shown = slugs.slice(0, 3), more = count - shown.length;
+  const shown = slugs.slice(0, 3),
+    more = count - shown.length;
   return `Target already shortened: ${shown.map((s) => `‹${s}›`).join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
 }
 
 function needsLookup(form) {
-  const target = form.elements.target, url = target.value.trim();
+  const target = form.elements.target,
+    url = target.value.trim();
   return Boolean(form.dataset.lookup) && url !== target.defaultValue.trim() && form.dataset.dupFor !== url;
 }
 
@@ -124,7 +155,7 @@ function needsLookup(form) {
 // A failed lookup never blocks anything: it just counts as "no duplicate".
 async function lookupThenResubmit(form) {
   const url = form.elements.target.value.trim();
-  if (form.dataset.lookingUp === url) return;               // already asking (e.g. a double click)
+  if (form.dataset.lookingUp === url) return; // already asking (e.g. a double click)
   form.dataset.lookingUp = url;
   let answer = { count: 0, slugs: [] };
   try {
@@ -134,7 +165,7 @@ async function lookupThenResubmit(form) {
     if (res.ok) answer = await res.json();
   } catch {}
   delete form.dataset.lookingUp;
-  if (form.elements.target.value.trim() !== url) return;     // the user changed it meanwhile
+  if (form.elements.target.value.trim() !== url) return; // the user changed it meanwhile
   form.dataset.dupFor = url;
   form.dataset.dupCount = String(answer.count);
   form.dataset.dupSlugs = JSON.stringify(answer.slugs);
@@ -143,8 +174,10 @@ async function lookupThenResubmit(form) {
 
 // Things worth a second look but not wrong: an unusual address and an expiry in the past. Unchanged values stay quiet.
 function linkWarnings(form) {
-  const notes = [], fields = [];
-  const target = form.elements.target, expires = form.elements.expires_at;
+  const notes = [],
+    fields = [];
+  const target = form.elements.target,
+    expires = form.elements.expires_at;
   const url = target.value.trim();
   if (url !== target.defaultValue.trim() && form.dataset.dupFor === url && Number(form.dataset.dupCount) > 0) {
     notes.push(alreadyShortened(JSON.parse(form.dataset.dupSlugs || "[]"), Number(form.dataset.dupCount)));
@@ -152,10 +185,19 @@ function linkWarnings(form) {
   }
   if (url !== target.defaultValue.trim()) {
     const reasons = unusualUrl(url);
-    if (reasons.length) { notes.push(`Unusual address: ${joinList(reasons)}.`); fields.push(target); }
+    if (reasons.length) {
+      notes.push(`Unusual address: ${joinList(reasons)}.`);
+      fields.push(target);
+    }
   }
-  if (!expires.disabled && expires.value && expires.value !== expires.defaultValue && expires.value < new Date().toISOString().slice(0, 10)) {
-    notes.push("Expiry date is in the past."); fields.push(expires);
+  if (
+    !expires.disabled &&
+    expires.value &&
+    expires.value !== expires.defaultValue &&
+    expires.value < new Date().toISOString().slice(0, 10)
+  ) {
+    notes.push("Expiry date is in the past.");
+    fields.push(expires);
   }
   return { notes, fields };
 }
@@ -176,6 +218,8 @@ function warnFirst(form, event, verb, show) {
 
 function forgetWarning(form) {
   delete form.dataset.warned;
-  delete form.dataset.dupFor; delete form.dataset.dupCount; delete form.dataset.dupSlugs;
+  delete form.dataset.dupFor;
+  delete form.dataset.dupCount;
+  delete form.dataset.dupSlugs;
   [...form.elements].forEach((el) => el.removeAttribute("data-warn"));
 }

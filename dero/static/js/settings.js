@@ -1,15 +1,22 @@
 // ---- Settings dialog (opens from the user name): colour slugs, live visits ----
-(function () {
-  const dialog = document.getElementById("settings"), open = document.getElementById("settings-open");
+(() => {
+  const dialog = document.getElementById("settings"),
+    open = document.getElementById("settings-open");
   if (dialog && open && typeof dialog.showModal === "function") {
     open.addEventListener("click", () => dialog.showModal());
-    dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });   // a click outside closes it
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close();
+    }); // a click outside closes it
   }
   const liveSwitch = document.getElementById("live-switch");
   if (liveSwitch) {
-    try { liveSwitch.checked = localStorage.getItem("dero.live") === "1"; } catch {}
+    try {
+      liveSwitch.checked = localStorage.getItem("dero.live") === "1";
+    } catch {}
     liveSwitch.addEventListener("change", () => {
-      try { localStorage.setItem("dero.live", liveSwitch.checked ? "1" : "0"); } catch {}
+      try {
+        localStorage.setItem("dero.live", liveSwitch.checked ? "1" : "0");
+      } catch {}
       document.dispatchEvent(new Event("dero:live"));
     });
   }

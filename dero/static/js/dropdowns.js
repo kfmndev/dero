@@ -9,9 +9,17 @@ function upgradeSelect(select) {
   select.tabIndex = -1;
   select.setAttribute("aria-hidden", "true");
 
-  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" }).getAttribute("href").split("#")[0];
+  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" })
+    .getAttribute("href")
+    .split("#")[0];
   const owner = select.closest("label") || (select.id && document.querySelector(`label[for="${select.id}"]`));
-  const name = owner ? [...owner.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim() : "";
+  const name = owner
+    ? [...owner.childNodes]
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent)
+        .join("")
+        .trim()
+    : "";
 
   const details = document.createElement("details");
   details.className = "multi single";
@@ -63,12 +71,18 @@ function upgradeSelect(select) {
     if (details.open) (panel.querySelector('[aria-selected="true"]') || buttons[0]).focus();
   });
 
-  details.addEventListener("keydown", (event) => {            // arrow keys move through the options
+  details.addEventListener("keydown", (event) => {
+    // arrow keys move through the options
     const at = buttons.indexOf(document.activeElement);
-    const to = { ArrowDown: at + 1, ArrowUp: at < 0 ? buttons.length - 1 : at - 1, Home: 0, End: buttons.length - 1 }[event.key];
+    const to = { ArrowDown: at + 1, ArrowUp: at < 0 ? buttons.length - 1 : at - 1, Home: 0, End: buttons.length - 1 }[
+      event.key
+    ];
     if (to === undefined) return;
     event.preventDefault();
-    if (!details.open) { details.open = true; return; }
+    if (!details.open) {
+      details.open = true;
+      return;
+    }
     buttons[(to + buttons.length) % buttons.length].focus();
   });
 }
@@ -77,9 +91,14 @@ document.querySelectorAll("select").forEach(upgradeSelect);
 
 // One handler for every dropdown (checkbox lists and the upgraded selects): a click outside or Escape closes it.
 document.addEventListener("click", (event) => {
-  document.querySelectorAll("details.multi[open]").forEach((d) => { if (!d.contains(event.target)) d.open = false; });
+  document.querySelectorAll("details.multi[open]").forEach((d) => {
+    if (!d.contains(event.target)) d.open = false;
+  });
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  document.querySelectorAll("details.multi[open]").forEach((d) => { d.open = false; d.querySelector("summary").focus(); });
+  document.querySelectorAll("details.multi[open]").forEach((d) => {
+    d.open = false;
+    d.querySelector("summary").focus();
+  });
 });

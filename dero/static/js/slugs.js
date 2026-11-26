@@ -3,7 +3,10 @@
 function coloredSlug(slug) {
   const out = document.createDocumentFragment();
   for (const run of slug.match(/\d+|[^\p{L}\d]+|\p{L}+/gu) || []) {
-    if (/^\p{L}/u.test(run)) { out.append(run); continue; }
+    if (/^\p{L}/u.test(run)) {
+      out.append(run);
+      continue;
+    }
     const span = document.createElement("span");
     span.className = /^\d/.test(run) ? "hl-digit" : "hl-symbol";
     span.textContent = run;
@@ -14,9 +17,13 @@ function coloredSlug(slug) {
 
 // ---- The slug input of a link's details: coloured text behind the transparent input ----
 function paintSlugEdit(box) {
-  const input = box.querySelector("input"), layer = box.querySelector(".slug-hl");
-  const code = document.createElement("code"); code.className = "slug"; code.append(coloredSlug(input.value)); layer.replaceChildren(code);
-  code.style.transform = `translateX(${-input.scrollLeft}px)`;   // the layer itself stays put and clips, so nothing can slide under the base address
+  const input = box.querySelector("input"),
+    layer = box.querySelector(".slug-hl");
+  const code = document.createElement("code");
+  code.className = "slug";
+  code.append(coloredSlug(input.value));
+  layer.replaceChildren(code);
+  code.style.transform = `translateX(${-input.scrollLeft}px)`; // the layer itself stays put and clips, so nothing can slide under the base address
 }
 function initSlugEdits(root = document) {
   root.querySelectorAll(".slug-edit:not(.hl-ready)").forEach(initSlugEdit);
