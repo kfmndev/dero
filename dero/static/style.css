@@ -56,7 +56,8 @@
   color-scheme: light;
   --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-head: "Hubot Sans", "Geist", system-ui, sans-serif;
-  --control-h: round(1.875rem, 1px); /* a whole number of pixels: with a fraction, boxes of the same height came out 1px different */
+  /* a whole number of pixels: with a fraction, boxes of the same height came out 1px different */
+  --control-h: round(1.875rem, 1px);
   --icon-line: 1.4px; /* the line width of every icon, whatever its size (the sprite does not scale it) */
   --slug-size: 0.72rem; /* a slug (mono) at the same visual size as the text around it: mono looks bigger at the same size */
   --label-gap: 0.25rem; /* between a label and its field, in every form */
@@ -83,7 +84,8 @@
   --on-err: #ffffff;
   --hover: #e6edff; /* a dropdown row under the pointer or the keyboard: a tint of the accent, visible on --card */
   /* the theme switch is drawn from these, so it is right on the first paint (no slide on reload) */
-  --toggle-knob: 3.5px;
+  --toggle-gap: calc((2rem - 2px - 1.5rem) / 2); /* the knob is as far from the track on every side */
+  --toggle-knob: var(--toggle-gap);
   --toggle-sun: var(--on-accent);
   --toggle-moon: var(--muted);
 }
@@ -108,7 +110,7 @@
     --warn: #fbbf24;
     --on-err: #0b0c0f;
     --hover: #263250;
-    --toggle-knob: calc(100% - 1.7188rem);
+    --toggle-knob: calc(100% - var(--toggle-gap) - 1.5rem);
     --toggle-sun: var(--muted);
     --toggle-moon: var(--on-accent);
   }
@@ -133,7 +135,7 @@
   --warn: #fbbf24;
   --on-err: #0b0c0f;
   --hover: #263250;
-  --toggle-knob: calc(100% - 1.7188rem);
+  --toggle-knob: calc(100% - var(--toggle-gap) - 1.5rem);
   --toggle-sun: var(--muted);
   --toggle-moon: var(--on-accent);
 }
@@ -274,7 +276,7 @@ h1 .dot {
 .theme-toggle::before {
   content: "";
   position: absolute;
-  top: 3px;
+  top: var(--toggle-gap);
   left: var(--toggle-knob);
   width: 1.5rem;
   height: 1.5rem;
@@ -654,11 +656,16 @@ tr.off td:last-child {
 }
 
 /* ---- dero: switch (enable/disable) ---- */
+/* the knob (--k) is as far from the track on every side (--g), so it is centred */
 .switch {
+  --w: 1.875rem;
+  --h: 1.125rem;
+  --k: 0.75rem;
+  --g: calc((var(--h) - 2px - var(--k)) / 2);
   position: relative;
   display: inline-block;
-  width: 1.875rem;
-  height: 1.125rem;
+  width: var(--w);
+  height: var(--h);
   margin: 0;
   vertical-align: middle;
   cursor: pointer;
@@ -686,10 +693,10 @@ tr.off td:last-child {
 .switch .track::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 0.75rem;
-  height: 0.75rem;
+  top: var(--g);
+  left: var(--g);
+  width: var(--k);
+  height: var(--k);
   border-radius: 50%;
   background: var(--muted);
   transition:
@@ -701,7 +708,7 @@ tr.off td:last-child {
   border-color: var(--accent-2);
 }
 .switch input:checked + .track::after {
-  transform: translateX(0.75rem);
+  transform: translateX(calc(var(--w) - 2px - 2 * var(--g) - var(--k)));
   background: var(--on-accent-2);
 }
 .switch input:focus-visible + .track {

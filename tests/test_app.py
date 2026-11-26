@@ -2080,3 +2080,15 @@ def test_boxes_in_a_toast_have_one_height_and_the_lines_leave_room_for_them(clie
     assert css_rule(css, ".toast code:not(.urlbox)")["height"] == "1.5em"  # slug boxes and the others alike
     block = css_rule(css, "code.urlbox > code.slug")
     assert block["height"] == "1.5em" and css_rule(css, "code.urlbox")["line-height"] == "1"  # the outer box fits it
+
+
+def test_the_knobs_of_the_sliders_are_centred_with_one_gap_on_every_side(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    track = css_rule(css, ".switch")
+    assert track["--g"] == "calc((var(--h) - 2px - var(--k))/2)"  # track height, its border and the knob decide the gap
+    knob = css_rule(css, ".switch .track::after")
+    assert knob["top"] == "var(--g)" and knob["left"] == "var(--g)" and knob["width"] == "var(--k)"
+    assert "translateX(calc(var(--w) - 2px - 2 * var(--g) - var(--k)))" in css  # and the same gap at the other end
+    assert "--toggle-gap: calc((2rem - 2px - 1.5rem) / 2)" in css  # the sun and moon toggle: the same idea
+    assert css_rule(css, ".theme-toggle::before")["top"] == "var(--toggle-gap)"
+    assert "--toggle-knob: calc(100% - var(--toggle-gap) - 1.5rem)" in css
