@@ -1948,7 +1948,7 @@ tr.detail .notices .form-ok {
 .note-line {
   display: flex;
   align-items: baseline;
-  gap: 0 0.45em;
+  gap: 0 0.28em; /* the width of a space: the pieces read as one sentence */
   min-width: 0;
 }
 .note-line > span,
@@ -2291,8 +2291,8 @@ td > .cell:has(> .badge) {
 }
 .live-dot {
   flex: 0 0 auto;
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.35rem;
+  height: 0.35rem;
   margin: 0 1px;
   border-radius: 50%;
   background: currentColor;
