@@ -2069,14 +2069,25 @@ dialog p.setting-note {
 .nl-type > label input {
   margin-top: 0;
 }
-.slug-group.is-random .slug-edit input.url-input::placeholder {
+.slug-group .slug-edit input.url-input::placeholder {
   color: var(--muted);
-  font-family: var(--font-text);
   font-style: italic;
 }
+#new-link-slug input.url-input:focus::placeholder {
+  color: transparent;
+} /* the placeholder goes away when the field is clicked (or a slug is drawn: then it has text) */
+/* The slug of the new link keeps its box when it is empty, five or six characters wide: it shows where the slug will
+   appear (and holds the placeholder). In a link's details an empty slug has no box. */
 .slug-edit .slug-hl code.slug:empty {
   display: none;
-} /* nothing typed: no empty box in front of the placeholder */
+}
+#new-link-slug .slug-hl code.slug,
+#new-link-slug .slug-hl code.slug:empty {
+  display: inline-block;
+  min-width: 6ch;
+  min-height: 1.6em;
+  box-sizing: content-box;
+}
 .nl-type > .field,
 .nl-slug > .field {
   display: flex;
@@ -2236,7 +2247,7 @@ td > .cell:has(> .badge) {
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 8px;
   background: var(--card);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  box-shadow: 0 0 16px color-mix(in srgb, currentColor 26%, transparent); /* a soft glow in the accent colour */
   animation: toast-in 0.14s ease-out;
 }
 .toasts .toast.leaving {
@@ -2247,7 +2258,7 @@ td > .cell:has(> .badge) {
 }
 .toast-close {
   flex: 0 0 auto;
-  margin-left: 2px;
+  margin-left: 0;
 }
 @keyframes toast-in {
   from {
