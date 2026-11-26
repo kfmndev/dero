@@ -1334,11 +1334,20 @@ time.localtime {
   font-size: 13px;
 }
 
-/* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain */
-.hl-digit {
+/* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain. Only where the setting
+   "Colour slugs" says so (html[data-hl] lists the places): the table, the forms (edit fields, dialogs), the toasts */
+html[data-hl~="table"] tr.item .hl-digit,
+html[data-hl~="forms"] .slug-edit .hl-digit,
+html[data-hl~="forms"] .confirm-urls .hl-digit,
+html[data-hl~="toast"] .notices .hl-digit,
+html[data-hl~="toast"] .toasts .hl-digit {
   color: var(--accent-ink);
 }
-.hl-symbol {
+html[data-hl~="table"] tr.item .hl-symbol,
+html[data-hl~="forms"] .slug-edit .hl-symbol,
+html[data-hl~="forms"] .confirm-urls .hl-symbol,
+html[data-hl~="toast"] .notices .hl-symbol,
+html[data-hl~="toast"] .toasts .hl-symbol {
   color: var(--err);
 }
 
@@ -1900,11 +1909,6 @@ th.col-target {
   color: var(--muted);
 }
 
-/* ---- dero: slug colouring is a stored user option (cookie dero_hl, html[data-hl]) ---- */
-html[data-hl="off"] .hl-digit,
-html[data-hl="off"] .hl-symbol {
-  color: inherit;
-}
 .nl-expires-row {
   display: flex;
   align-items: center;
@@ -2043,6 +2047,17 @@ dialog p.setting-note {
 }
 #settings {
   min-width: min(24rem, 92vw);
+}
+.setting-menu {
+  align-items: center;
+  justify-content: space-between;
+}
+.setting-menu > div:first-child {
+  flex: 1 1 auto;
+}
+.setting-menu details.multi {
+  flex: 0 0 auto;
+  min-width: 9rem;
 }
 .alphabet-hint {
   min-height: 1.4em;

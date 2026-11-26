@@ -70,6 +70,7 @@
     select.value = "slug";
     refreshSelect(select);
     form.elements.slug.value = randomSlug(kind);
+    form.elements.slug.dispatchEvent(new Event("input", { bubbles: true })); // the coloured copy behind it follows
     syncGenerator();
     savePrefs();
     forgetWarning(form);

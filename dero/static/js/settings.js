@@ -1,4 +1,4 @@
-// ---- Settings dialog (opens from the user name): colour slugs, live visits, explicit search terms, leave warning ----
+// ---- Settings dialog (opens from the user name): colour slugs, explicit search terms, leave warning; the live switch ----
 (() => {
   const dialog = document.getElementById("settings"),
     open = document.getElementById("settings-open");
@@ -42,10 +42,20 @@
       } catch {}
     }); // read by filters.js whenever a dropdown is used
   }
-  const toggle = document.getElementById("hl-switch");
-  if (!toggle) return;
-  toggle.addEventListener("change", () => {
-    document.documentElement.dataset.hl = toggle.checked ? "on" : "off";
-    document.cookie = `dero_hl=${toggle.checked ? 1 : 0}; path=/; max-age=31536000; SameSite=Lax`;
+  // "Colour slugs": where slugs are coloured, kept in the cookie dero_hl (read by the server, so nothing flashes on load)
+  const menu = document.getElementById("hl-menu");
+  if (!menu) return;
+  const boxes = [...menu.querySelectorAll("input[type=checkbox]")];
+  const names = { forms: "Forms", table: "Table", toast: "Toasts" };
+  function showPlaces() {
+    const on = boxes.filter((box) => box.checked).map((box) => box.value);
+    menu.querySelector(".multi-label").textContent = on.length ? on.map((v) => names[v]).join(", ") : "Nowhere";
+    return on;
+  }
+  showPlaces();
+  menu.addEventListener("change", () => {
+    const on = showPlaces();
+    document.documentElement.dataset.hl = on.join(" ");
+    document.cookie = `dero_hl=${on.join(",") || "none"}; path=/; max-age=31536000; SameSite=Lax`;
   });
 })();

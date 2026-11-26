@@ -1,6 +1,6 @@
-{% from "_macros.html" import icon %}
+{% from "_macros.html" import icon, check_option %}
 <!doctype html>
-<html lang="en" data-hl="{{ 'on' if highlight_on else 'off' }}">
+<html lang="en" data-hl="{{ hl_places|join(' ') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -63,16 +63,19 @@
     <button type="submit" class="mini dialog-close" aria-label="Close" title="Close">{{ icon('x') }}</button>
     <h2 id="settings-title">Settings</h2>
     <p class="signed-in">Signed in as <strong>{{ g.user.username }}</strong> ({{ 'admin' if g.user.is_admin else 'user' }})</p>
-    <div class="setting">
-      <label class="switch small">
-        <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %}
-          checked{% endif %}>
-        <span class="track"></span>
-      </label>
+    <div class="setting setting-menu">
       <div>
         <strong id="hl-name">Colour slugs</strong>
-        <span>Digits blue and symbols red, like Bitwarden shows passwords.</span>
+        <span>Digits blue and symbols red, like Bitwarden shows passwords. Choose where.</span>
       </div>
+      <details class="multi" id="hl-menu">
+        <summary aria-labelledby="hl-name"><span class="multi-label"></span></summary>
+        <div class="multi-panel multi-right" role="group" aria-labelledby="hl-name">
+          {% for value, label in (('forms', 'Forms'), ('table', 'Table'), ('toast', 'Toasts')) %}
+            {{- check_option(value, label, value in hl_places) -}}
+          {% endfor %}
+        </div>
+      </details>
     </div>
     <div class="setting">
       <label class="switch small">

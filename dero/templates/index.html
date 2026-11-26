@@ -62,11 +62,18 @@
           min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
           autofocus{% endif %}>
       </label>
-      <label class="grow" data-when-source="slug">Slug
-        <input name="slug" type="text" placeholder="my-link" value="{{ form.get('slug', '') }}" maxlength="64"
-          autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9._~\-]{1,64}"
-          {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
-      </label>
+      <div class="grow" data-when-source="slug">
+        <span class="slug-group">
+          <span class="slug-prefix">{{ base }}</span>
+          <span class="slug-edit">
+            <span class="slug-hl" aria-hidden="true"></span>
+            <input name="slug" type="text" class="url-input" placeholder="my-link" aria-label="Custom slug"
+              value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
+              pattern="[A-Za-z0-9._~\-]{1,64}"
+              {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
+          </span>
+        </span>
+      </div>
       <p class="alphabet-hint" aria-live="polite"></p>
       {% if slug_error %}{{ err_box }}{% endif %}
     </div>

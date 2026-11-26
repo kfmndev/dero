@@ -362,7 +362,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     # what was typed is still in the fields
     assert 'value="https://example.com/mine?a=1&amp;b=2"' in html
     assert (
-        'name="slug" type="text" placeholder="my-link" value="taken"' in html
+        re.search(r'<input name="slug"[^>]*class="url-input"[^>]*value="taken"', html)
         and '<option value="slug" selected>' in html
     )  # "Custom slug" restored
     assert 'value="2031-05-06"' in html
@@ -1065,9 +1065,9 @@ def test_collapsed_row_uses_the_highlight(client):
         '<span class="hl-digit">2</span></code>' in row
     )
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert css_rule(css, ".hl-digit")["color"] == "var(--accent-ink)" and (
-        css_rule(css, ".hl-symbol")["color"] == "var(--err)"
-    )
+    flat = flat_css(css)  # grouped selectors: the colours apply in the table, the forms and the toasts alike
+    assert re.search(r'html\[data-hl~="table"\] tr\.item \.hl-digit,[^{]*\{ color: var\(--accent-ink\);', flat)
+    assert re.search(r'html\[data-hl~="table"\] tr\.item \.hl-symbol,[^{]*\{ color: var\(--err\);', flat)
 
 
 # ---------------------------------------------------------------- warnings stay short
@@ -1471,20 +1471,23 @@ def test_expired_mark_is_a_clock_with_the_date_not_a_text_badge(client, app):
 
 def test_slug_colour_option_and_small_expiry_switch(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert (
-        '<html lang="en" data-hl="on">' in html
-        and 'id="hl-switch"' in html
-        and " checked" in html[html.index('id="hl-switch"') :][:120]
-    )
-    client.set_cookie("dero_hl", "0")
-    off = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert 'data-hl="off"' in off and " checked" not in off[off.index('id="hl-switch"') :][:120]
+    assert '<html lang="en" data-hl="table">' in html  # by default only the table is coloured
+    menu = html[html.index('id="hl-menu"') : html.index("</details>", html.index('id="hl-menu"'))]
+    assert re.search(r'<input type="checkbox" value="table" checked>', menu)
+    assert re.search(r'<input type="checkbox" value="forms">', menu) and re.search(r'value="toast">', menu)
+    client.set_cookie("dero_hl", "forms,toast")
+    some = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'data-hl="forms toast"' in some and 'value="forms" checked' in some and 'value="table" checked' not in some
+    client.set_cookie("dero_hl", "none")
+    assert 'data-hl=""' in client.get("/admin/", headers=USER).get_data(as_text=True)
+    client.set_cookie("dero_hl", "1")  # the old switch, on: everywhere
+    assert 'data-hl="forms table toast"' in client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(
         r'<label class="switch small"[^>]*>\s*<input type="checkbox" role="switch" id="new-expiry-switch"', html
     )
     assert re.search(r'<input name="expires_at" type="date"[^>]*disabled', html)  # off until the switch is on
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert 'html[data-hl="off"] .hl-digit' in css and "table.no-target td.col-slug" in css
+    assert 'html[data-hl~="forms"] .slug-edit .hl-digit' in css and "table.no-target td.col-slug" in css
     js = js_source(client)
     assert "dero_hl=" in js and "function coloredSlug" in js and "new-expiry-switch" in js
 
@@ -1513,7 +1516,12 @@ def test_generate_button_and_settings_dialog(client):
         r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S
     )  # the user name opens the settings
     dialog = html[html.index('<dialog id="settings"') : html.index("</dialog>", html.index('<dialog id="settings"'))]
-    assert 'id="hl-switch"' in dialog and "Colour slugs" in dialog and 'class="header-tools"' not in html
+    assert (
+        'id="hl-menu"' in dialog
+        and "Colour slugs" in dialog
+        and 'id="live-switch"' not in dialog
+        and 'class="header-tools"' not in html
+    )
     assert (
         'id="explicit-switch"' in dialog
         and "Explicit search terms" in dialog

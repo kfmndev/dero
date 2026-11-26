@@ -103,6 +103,20 @@ def _add_short_link_routes(app: Flask) -> None:
         return resp
 
 
+SLUG_PLACES = ("forms", "table", "toast")  # where a slug can be coloured (the setting "Colour slugs")
+
+
+def highlighted_places(cookie: str | None) -> list[str]:
+    """Where slugs are coloured: the places in the cookie (comma separated, "none" for nowhere); by default the table."""
+    if cookie is None:
+        return ["table"]
+
+    if cookie == "1":  # the old on/off switch: on was everywhere
+        return list(SLUG_PLACES)
+
+    return [place for place in SLUG_PLACES if place in cookie.split(",")]
+
+
 def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     """Build the app. `test_config` overrides the settings (the tests use it)."""
     app = Flask(__name__)
@@ -119,7 +133,9 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     app.config["ADMIN_PATH"] = admin_path
     app.register_blueprint(admin_blueprint, url_prefix=admin_path)
     app.add_template_global(auth.csrf_token, "csrf_token")
-    app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
+    app.context_processor(
+        lambda: {"build": build_info(), "hl_places": highlighted_places(request.cookies.get("dero_hl"))}
+    )
     display.register(app)
     _add_short_link_routes(app)
 
