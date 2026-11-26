@@ -15,6 +15,7 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
     """Colour a slug like Bitwarden colours passwords: digits and symbols stand out, letters stay plain.
     With a limit, a longer slug is cut there and gets an ellipsis (the full slug belongs in a tooltip)."""
     cut = bool(limit) and len(slug) > limit
+
     if cut:
         slug = slug[:limit]
 
@@ -22,11 +23,14 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
         return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
 
     out = []
+
     for k, chars in groupby(slug, kind):
         text = escape("".join(chars))
         out.append(text if k == "letter" else Markup(f'<span class="hl-{k}">{text}</span>'))
+
     if cut:
         out.append("…")
+
     return Markup("").join(out)
 
 
@@ -40,8 +44,10 @@ def slug_box(slug: str) -> Markup:
 def highlight_url(url: str) -> Markup:
     """A short link: the base address in the normal font, the slug in its box."""
     base = base_url()
+
     if url.startswith(base) and len(url) > len(base):
         return Markup('<span class="base">') + escape(base) + Markup("</span>") + slug_box(url[len(base) :])
+
     return escape(url)
 
 

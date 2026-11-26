@@ -30,23 +30,29 @@ def csrf_token() -> str:
 
 def load_users(path: str) -> dict:
     """Parse the users file, re-reading it only when it changed on disk."""
+
     try:
         mtime = os.stat(path).st_mtime_ns
     except OSError:
         return {}
     cached = _cache.get(path)
+
     if cached and cached[0] == mtime:
         return cached[1]
     users = {}
+
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip()
+
             if not line or line.startswith("#"):
                 continue
             parts = line.split(":", 2)  # the hash itself contains ':' and '$'
+
             if len(parts) == 3 and parts[1] in ("admin", "user") and parts[0]:
                 users[parts[0]] = (parts[1], parts[2])
     _cache[path] = (mtime, users)
+
     return users
 
 
@@ -62,33 +68,41 @@ def _unauthorized():
 
 def _identify_basic():
     creds = request.authorization
+
     if not creds or creds.type != "basic" or not creds.username:
         _unauthorized()
     entry = load_users(current_app.config["USERS_FILE"]).get(creds.username)
     ok = check_password_hash(entry[1] if entry else _DUMMY_HASH, creds.password or "")
+
     if not (entry and ok):
         _unauthorized()
+
     return creds.username, entry[0] == "admin"
 
 
 def _identify_proxy():
     cfg = current_app.config
     secret = cfg["PROXY_SECRET"]
+
     if secret and not hmac.compare_digest(request.headers.get("X-Proxy-Secret", ""), secret):
         abort(403)
 
     username = request.headers.get(cfg["USER_HEADER"], "").strip()
+
     if not username:
         abort(403)
     groups = {x.strip() for x in request.headers.get(cfg["GROUPS_HEADER"], "").split(",") if x.strip()}
     is_admin = cfg["ADMIN_GROUP"] in groups
+
     if not (is_admin or cfg["USER_GROUP"] in groups):
         abort(403)
+
     return username, is_admin
 
 
 def load_user():
     mode = current_app.config["AUTH_MODE"]
+
     if mode == "basic":
         username, is_admin = _identify_basic()
     elif mode == "none":
@@ -106,6 +120,7 @@ def load_user():
             who = _csrf_serializer().loads(request.form.get("csrf", ""), max_age=8 * 3600)
         except BadData:
             abort(400, "Invalid or expired form token.")
+
         if who != username:
             abort(400, "Invalid form token.")
 
@@ -115,6 +130,7 @@ def admin_required(view):
     def wrapper(*a, **kw):
         if not g.user["is_admin"]:
             abort(403)
+
         return view(*a, **kw)
 
     return wrapper

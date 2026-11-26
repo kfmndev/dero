@@ -17,6 +17,7 @@ def make_line(username: str, role: str, password: str) -> str:
         raise ValueError("Role must be 'admin' or 'user'.")
     if len(password) < 8:
         raise ValueError("Password must be at least 8 characters.")
+
     return f"{username}:{role}:{generate_password_hash(password)}"
 
 
@@ -32,9 +33,11 @@ def main(argv=None) -> int:
         password = sys.stdin.readline().rstrip("\n")
     else:
         password = getpass.getpass("Password: ")
+
         if password != getpass.getpass("Repeat password: "):
             print("Passwords do not match.", file=sys.stderr)
             return 1
+
     try:
         line = make_line(args.username, args.role, password)
     except ValueError as exc:
@@ -50,6 +53,7 @@ def main(argv=None) -> int:
         )
     else:
         print(line)
+
     return 0
 
 

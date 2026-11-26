@@ -42,6 +42,7 @@ def _git(*args: str) -> str | None:
         result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=5, check=True)
     except (OSError, subprocess.SubprocessError):
         return None
+
     return result.stdout.strip()
 
 
@@ -49,11 +50,14 @@ def _git(*args: str) -> str | None:
 def build_info() -> BuildInfo:
     repo_url = os.environ.get("DERO_REPO_URL", REPO_URL).rstrip("/")
     commit = os.environ.get("DERO_COMMIT", "").strip().lower()
+
     if _HASH.match(commit):
         return BuildInfo(VERSION, repo_url, commit)
 
     commit = (_git("rev-parse", "HEAD") or "").lower()
+
     if not _HASH.match(commit):
         return BuildInfo(VERSION, repo_url, None)
     dirty = bool(_git("status", "--porcelain", "--untracked-files=no"))
+
     return BuildInfo(VERSION, repo_url, commit, dirty)

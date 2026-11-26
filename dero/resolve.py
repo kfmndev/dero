@@ -29,6 +29,7 @@ def validate_slug(slug: str) -> str:
         raise ValidationError("Slug: letters, digits and - _ . ~ only, up to 64.")
     if not slug.strip("."):
         raise ValidationError("A slug can't be just dots.")  # "/." and "/.." are folded away by browsers
+
     return slug
 
 
@@ -36,14 +37,17 @@ def validate_url(url: str) -> str:
     """Plain http(s) URL (no javascript:, data:, ...)."""
     url = url.strip()
     parts = urlsplit(url)
+
     if parts.scheme not in ("http", "https") or not parts.netloc or len(url) > 2048:
         raise ValidationError("Target must be a valid http:// or https:// URL.")
+
     return url
 
 
 def glob_to_regex(pattern: str) -> str:
     """'*' = anything except '/', '**' = anything, '?' = one char. '*' and '**' capture."""
     out, i = [], 0
+
     while i < len(pattern):
         if pattern.startswith("**", i):
             out.append("(.*)")
@@ -57,6 +61,7 @@ def glob_to_regex(pattern: str) -> str:
         else:
             out.append(re.escape(pattern[i]))
             i += 1
+
     return "".join(out)
 
 
@@ -67,15 +72,18 @@ def _compile(pattern: str, match_type: str):
 
 def validate_rule(pattern: str, match_type: str, target: str) -> None:
     pattern = pattern.strip().strip("/")
+
     if not pattern or len(pattern) > 255:
         raise ValidationError("Pattern is required (max 255 characters).")
     if match_type not in ("glob", "regex"):
         raise ValidationError("Unknown match type.")
+
     try:
         compiled = _compile(pattern, match_type)
     except regex.error as exc:
         raise ValidationError(f"Invalid pattern: {exc}") from exc
     indices = [int(n) for n in PLACEHOLDER_RE.findall(target)]
+
     if any(n < 1 or n > compiled.groups for n in indices):
         raise ValidationError(
             f"Target uses a placeholder the pattern doesn't capture " f"(pattern has {compiled.groups} group(s))."
@@ -96,6 +104,7 @@ def match_rule(rule, path: str):
         m = _compile(rule["pattern"], rule["match_type"]).fullmatch(path, timeout=REGEX_TIMEOUT)
     except TimeoutError:
         return None
+
     return fill_target(rule["target"], m.groups()) if m else None
 
 
@@ -108,6 +117,7 @@ def resolve(path: str):
         "SELECT id, target FROM links WHERE slug = ? AND enabled = 1 " "AND (expires_at IS NULL OR expires_at > ?)",
         (path, now_iso()),
     ).fetchone()
+
     if link:
         db.execute("UPDATE links SET visits = visits + 1 WHERE id = ?", (link["id"],))
         db.commit()
@@ -115,10 +125,12 @@ def resolve(path: str):
 
     for rule in db.execute("SELECT * FROM rules WHERE enabled = 1 ORDER BY priority, id"):
         url = match_rule(rule, path)
+
         if url:
             db.execute("UPDATE rules SET visits = visits + 1 WHERE id = ?", (rule["id"],))
             db.commit()
             return url, True
 
     fallback = get_setting("fallback_url")
+
     return (fallback or None), False

@@ -23,14 +23,18 @@ def index():
 def create_link():
     conn = db.get_db()
     f = request.form
+
     try:
         target = validated("target", resolve.validate_url, f.get("target", ""))
         expires = parse_expiry(f.get("expires_at", ""))
         kind, plan = slug_plan(f)
+
         for _ in range(20 if kind == "generate" else 1):
             slug = plan if kind == "custom" else random_slug(*plan)
+
             if kind == "generate" and (slug in reserved_slugs() or not slug.strip(".")):
                 continue
+
             try:
                 conn.execute(
                     "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
@@ -38,6 +42,7 @@ def create_link():
                 )
                 conn.commit()
                 flash(f"{base_url()}{slug}", "link")  # the template adds the wording and the open/copy icons
+
                 return redirect(url_for("admin.index"))
             except sqlite3.IntegrityError:
                 if kind == "custom":
@@ -54,6 +59,7 @@ def toggle_link(link_id):
     conn = db.get_db()
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
     conn.commit()
+
     return back()
 
 
@@ -68,6 +74,7 @@ def lookup_target():
     """Which links already point to this address? Slugs are only revealed for links the user may see."""
     url = request.args.get("target", "").strip()
     exclude = request.args.get("exclude", type=int)  # the link being edited doesn't count
+
     try:
         resolve.validate_url(url)
     except resolve.ValidationError:
@@ -78,6 +85,7 @@ def lookup_target():
     mine = [r["slug"] for r in hits if g.user["is_admin"] or r["created_by"] == g.user["username"]]
     resp = jsonify(count=len(hits), slugs=mine)
     resp.headers["Cache-Control"] = "no-store"
+
     return resp
 
 
@@ -86,14 +94,17 @@ def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
     row = own_or_admin(link_id)
     f = request.form
+
     try:
         target = validated("target", resolve.validate_url, f.get("target", ""))
         slug = f.get("slug", "").strip()
         validated("slug", resolve.validate_slug, slug)
+
         if slug != row["slug"] and slug in reserved_slugs():
             raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
         expires = parse_expiry(f.get("expires_at", ""))
         conn = db.get_db()
+
         try:
             conn.execute(
                 "UPDATE links SET target = ?, slug = ?, expires_at = ? WHERE id = ?", (target, slug, expires, link_id)
@@ -106,13 +117,17 @@ def update_link(link_id):
         return back()
 
     changes = []  # [label, value]: the template shows the value after the label
+
     if slug != row["slug"]:
         changes.append(["new slug", ""])
+
     if target != row["target"]:
         changes.append(["new target", target])
+
     if expires != row["expires_at"]:
         changes.append(["expires", expires[:10]] if expires else ["no expiry", ""])
     flash(json.dumps({"slug": slug, "changes": changes}), f"link:{link_id}")
+
     return back()
 
 
@@ -122,4 +137,5 @@ def delete_link(link_id):
     conn = db.get_db()
     conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
     conn.commit()
+
     return back()

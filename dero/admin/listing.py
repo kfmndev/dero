@@ -49,9 +49,11 @@ DEFAULT_COLUMNS = ["slug", "target", "visits"]
 def _visible_columns() -> list:
     """The data columns to show, in table order. Chosen in the browser, remembered in the dero_cols cookie."""
     raw = request.cookies.get("dero_cols")
+
     if raw is None:
         return list(DEFAULT_COLUMNS)
     wanted = set(raw.split(","))
+
     return [key for key, _ in COLUMNS if key in wanted] or list(DEFAULT_COLUMNS)  # never an empty table
 
 
@@ -60,25 +62,32 @@ def _effective_query(args, is_admin: bool) -> str:
     if a URL still has them."""
     text = args.get("q", "").strip()[:500]
     status = args.get("status", "")
+
     if status in query.STATUSES:
         text = query.add_term(text, f"status={status}")
     owner = args.get("owner", "").strip()
+
     if owner and is_admin:
         text = query.add_term(text, "created_by=" + query.quote_value(owner))
     key, _, direction = args.get("order", "").partition(":")
+
     if not (key in query.SORT_KEYS and direction in ("asc", "desc")):
         key, direction = args.get("sort", ""), "asc" if args.get("dir") == "asc" else "desc"
+
     if key in query.SORT_KEYS and (args.get("order") or args.get("sort")):
         text = query.with_sort(text, key, (direction == "desc") != query.DESC_BY_DEFAULT[key])
+
     return text
 
 
 def _slug_source_of(form) -> str:
     """Which "Short link" option a (rejected) form was using."""
+
     if form.get("slug_source") in ("default", "letters", "chars", "slug"):
         return form["slug_source"]
     if form.get("slug_mode") == "custom" or (not form.get("slug_mode") and form.get("slug")):
         return "slug"
+
     return {"letters": "letters", "custom": "chars"}.get(form.get("alphabet", ""), "default")
 
 
@@ -92,9 +101,11 @@ def render_index(form=None, error=None, error_field=None):
     direction = "desc" if query.DESC_BY_DEFAULT[sort_key] != reverse else "asc"
 
     where, args = [], []
+
     if not is_admin:  # whatever the query says, people only ever see their own links
         where.append("created_by = ?")
         args.append(g.user["username"])
+
     if parsed.where:
         where.append(parsed.where)
         args += parsed.params
@@ -118,9 +129,11 @@ def render_index(form=None, error=None, error_field=None):
         return url_for("admin.index", q=q) if q else url_for("admin.index")
 
     sort_options = []
+
     for key, desc_by_default in query.DESC_BY_DEFAULT.items():
         if key == "creator" and not is_admin:
             continue
+
         for rev in (False, True):
             label = ORDER_LABELS[(key, "desc" if desc_by_default != rev else "asc")]
             sort_options.append((query.sort_value(key, rev), label))

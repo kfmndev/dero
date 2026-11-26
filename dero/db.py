@@ -18,11 +18,13 @@ def get_db() -> sqlite3.Connection:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
         g.db = conn
+
     return g.db
 
 
 def close_db(_exc=None):
     conn = g.pop("db", None)
+
     if conn is not None:
         conn.close()
 

@@ -37,17 +37,21 @@ def create_app(test_config=None):
         ADMIN_PATH=os.environ.get("ADMIN_PATH", "/admin"),
         BASE_URL=os.environ.get("BASE_URL", ""),
     )
+
     if test_config:
         app.config.update(test_config)
 
     app.teardown_appcontext(db.close_db)
+
     if app.config["AUTH_MODE"] not in ("basic", "proxy", "none"):
         raise RuntimeError("AUTH_MODE must be 'basic', 'proxy' or 'none'")
+
     if app.config["AUTH_MODE"] == "none":
         app.logger.warning(
             "AUTH_MODE=none: the admin UI at %s has NO authentication. " "Anyone who can reach it is an admin.",
             app.config["ADMIN_PATH"],
         )
+
     if app.config["AUTH_MODE"] == "basic" and not auth.load_users(app.config["USERS_FILE"]):
         app.logger.warning(
             "No users found in %s: nobody can sign in. "
@@ -57,9 +61,11 @@ def create_app(test_config=None):
         )
     db_dir = os.path.dirname(os.path.abspath(app.config["DATABASE"]))
     os.makedirs(db_dir, exist_ok=True)
+
     with app.app_context():
         db.init_db()
         env_fallback = os.environ.get("FALLBACK_URL", "")
+
         if env_fallback and not db.get_setting("fallback_url"):
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
@@ -81,10 +87,12 @@ def create_app(test_config=None):
     @app.get("/<path:path>")
     def follow(path):
         url, _counted = resolve.resolve(path)
+
         if not url:
             abort(404)
         resp = redirect(url, 302)  # 302: never cached, so counting/disabling keep working
         resp.headers["Cache-Control"] = "no-store"
+
         return resp
 
     return app

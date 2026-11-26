@@ -22,6 +22,7 @@ def visit_stream():
 
     def events():
         conn = sqlite3.connect(path, timeout=10)
+
         try:
 
             def fingerprint():  # one cheap aggregate: how many links, how many visits
@@ -35,18 +36,22 @@ def visit_stream():
             seen, known = fingerprint(), snapshot()
             yield "retry: 3000\n: ready\n\n"
             ticks = quiet = 0
+
             while max_ticks is None or ticks < max_ticks:
                 time.sleep(tick)
                 ticks += 1
                 now = fingerprint()
+
                 if now == seen:
                     quiet += 1
+
                     if quiet >= 10:  # a comment now and then: proxies keep the stream open,
                         quiet = 0  # and a page that left is noticed by the failing write
                         yield ": keepalive\n\n"
                     continue
                 quiet, seen = 0, now
                 latest = snapshot()
+
                 if set(latest) != set(known):
                     yield "event: refresh\ndata: {}\n\n"
                 changed = [
@@ -54,6 +59,7 @@ def visit_stream():
                     for i, (slug, visits) in latest.items()
                     if i in known and visits > known[i][1]
                 ]
+
                 if changed:
                     yield f"event: visit\ndata: {json.dumps(changed)}\n\n"
                 known = latest

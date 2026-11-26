@@ -18,11 +18,13 @@ def rules():
 @auth.admin_required
 def create_rule():
     f = request.form
+
     try:
         pattern = f.get("pattern", "").strip().strip("/")
         mtype = f.get("match_type", "glob")
         target = f.get("target", "").strip()
         resolve.validate_rule(pattern, mtype, target)
+
         try:
             priority = int(f.get("priority") or 100)
         except ValueError:
@@ -35,6 +37,7 @@ def create_rule():
         conn.commit()
     except resolve.ValidationError as exc:
         flash(str(exc), "rules:error")
+
     return redirect(url_for("admin.rules"))
 
 
@@ -49,6 +52,7 @@ def rule_priority(rule_id):
     conn = db.get_db()
     conn.execute("UPDATE rules SET priority = ? WHERE id = ?", (prio, rule_id))
     conn.commit()
+
     return redirect(url_for("admin.rules"))
 
 
@@ -58,6 +62,7 @@ def rule_toggle(rule_id):
     conn = db.get_db()
     conn.execute("UPDATE rules SET enabled = 1 - enabled WHERE id = ?", (rule_id,))
     conn.commit()
+
     return redirect(url_for("admin.rules"))
 
 
@@ -67,6 +72,7 @@ def rule_delete(rule_id):
     conn = db.get_db()
     conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
     conn.commit()
+
     return redirect(url_for("admin.rules"))
 
 
@@ -74,9 +80,11 @@ def rule_delete(rule_id):
 @auth.admin_required
 def set_fallback():
     value = request.form.get("fallback_url", "").strip()
+
     try:
         db.set_setting("fallback_url", resolve.validate_url(value) if value else "")
         flash("Fallback saved." if value else "Fallback cleared.", "fallback")
     except resolve.ValidationError as exc:
         flash(str(exc), "fallback:error")
+
     return redirect(url_for("admin.rules"))
