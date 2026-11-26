@@ -131,11 +131,16 @@ def test_sortby_is_a_directive_not_a_filter():
 # ------------------------------------------------------------------ mistakes are handled, not raised
 def test_problems_are_reported_but_never_fail():
     rows, parsed = find("status=nonsense")
-    assert rows == [] and parsed.problems == ["Unknown status: nonsense"]
+    assert rows == [] and parsed.problems == ["nonsense isn't a status. Use active, expired or disabled."]
     assert find("status=expired,nonsense")[0] == ["bbb", "eee"]  # the valid part still works
-    assert find("sortby=colour")[1].problems == ["Unknown sort: colour"]
-    assert find("(status=expired")[1].problems == ["Missing )"] and find("(status=expired")[0] == ["bbb", "eee"]
-    assert find("status=expired)")[1].problems == ["Unbalanced )"]
+    assert find("sortby=colour")[1].problems == [
+        "You can't sort by colour. Sort by created, visits, slug, target, created_by or expires."
+    ]
+    assert find("(status=expired")[1].problems == ["A ( is never closed."] and find("(status=expired")[0] == [
+        "bbb",
+        "eee",
+    ]
+    assert find("status=expired)")[1].problems == ["There is a ) with no ( before it."]
     for text in (
         "and",
         "or",
@@ -270,7 +275,7 @@ def test_comparisons_are_written_without_the_equals_sign():
     # an operator after the equals sign is not a date
     for text in ("expires=<2027", "expires=>=2027", "created=>2026", "expires=<=2027-01-01"):
         rows, parsed = find(text)
-        assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
+        assert rows == [] and parsed.problems and parsed.problems[0].endswith("-2w."), text
 
 
 def test_bad_dates_match_nothing_and_are_reported():
@@ -283,7 +288,7 @@ def test_bad_dates_match_nothing_and_are_reported():
         "expires<none",
     ):
         rows, parsed = find(text)
-        assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
+        assert rows == [] and parsed.problems and parsed.problems[0].endswith("-2w."), text
     assert find("created=2026-02-28")[1].problems == [] and find("created=2024-02-29")[1].problems == []
     assert find("created=none")[1].problems  # none is only for expires
 
@@ -327,10 +332,14 @@ def test_an_operator_a_key_does_not_have_is_reported_and_matches_nothing():
         ("!slug<abc", "slug", "<"),
     ):
         rows, parsed = find(text)
-        assert parsed.problems == [f"{key} does not support {op}"], text
+        assert parsed.problems == [f"{key} can't be used with {op}."], text
         assert rows == (slugs("") if text.startswith("!") else []), text
     rows, parsed = find("sort_by>visits status=active")
-    assert parsed.problems == ["sort_by does not support >"] and parsed.sort is None and rows == slugs("status=active")
+    assert (
+        parsed.problems == ["sort_by can't be used with >. Use = (and - or + for the direction)."]
+        and parsed.sort is None
+        and rows == slugs("status=active")
+    )
     assert find("slug=abc visits>1")[1].problems == []  # what exists is fine
 
 
@@ -348,7 +357,7 @@ def test_visits_filter():
 @pytest.mark.parametrize("text", ["visits=abc", "visits>-1", "visits=1.5", "visits=1000000000000000"])
 def test_bad_visit_numbers_match_nothing_and_are_reported(text):
     rows, parsed = find(text)
-    assert rows == [] and parsed.problems == [f"Unknown number: {text.split('=')[-1].split('>')[-1]}"]
+    assert rows == [] and parsed.problems == [f"{text.split('=')[-1].split('>')[-1]} isn't a number."]
 
 
 # ------------------------------------------------------------------ relative dates
@@ -376,8 +385,12 @@ def test_relative_dates_in_filters():
     assert slugs("expires<1000y") == ["bbb", "ddd", "eee"]  # a link that never expires is not "before" anything
     assert slugs("!expires<today") == ["aaa", "ccc", "ddd"]
     rows, parsed = find("created>=-5x")
-    assert rows == [] and parsed.problems == ["Unknown date: -5x"]
-    assert find("expires<9999y")[1].problems == ["Unknown date: 9999y"]  # too far for a date
+    assert rows == [] and parsed.problems == [
+        "-5x isn't a date. Use a year, month or day like 2026-11-05, or today, 7d, -2w."
+    ]
+    assert find("expires<9999y")[1].problems == [
+        "9999y isn't a date. Use a year, month or day like 2026-11-05, or today, 7d, -2w."
+    ]  # too far for a date
 
 
 # ------------------------------------------------------------------ sort_by=created_by

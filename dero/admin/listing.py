@@ -153,7 +153,7 @@ def _unencoded_plus(raw_query: bytes) -> list[str]:
         name, _, value = part.partition("=")
 
         if name == "q" and _PLUS_AFTER_OPERATOR.search(value):
-            return ["A + in an address stands for a space. If you meant a plus sign, write %2B instead."]
+            return ["In an address, + means a space. To search for a plus sign, write %2B."]
 
     return []
 

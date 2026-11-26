@@ -31,17 +31,30 @@ def create_rule() -> ViewResult:
         try:
             priority = int(f.get("priority") or 100)
         except ValueError:
-            raise resolve.ValidationError("Priority must be a number.")
+            raise resolve.ValidationError("Priority must be a whole number.")
         conn = db.get_db()
         conn.execute(
             "INSERT INTO rules(pattern, match_type, target, priority, created_by, created_at) VALUES(?,?,?,?,?,?)",
             (pattern, mtype, target, priority, g.user["username"], db.now_iso()),
         )
         conn.commit()
+        flash(f"Rule {_quoted(pattern)} added", "rules")
     except resolve.ValidationError as exc:
         flash(str(exc), "rules:error")
 
     return redirect(url_for("admin.rules"))
+
+
+def _quoted(pattern: str) -> str:
+    """A rule's pattern as the notices name it."""
+    return f"“{pattern}”"
+
+
+def _pattern_of(rule_id: int) -> str:
+    """The pattern of a rule, for the notice (the rule may be gone already)."""
+    row = db.get_db().execute("SELECT pattern FROM rules WHERE id = ?", (rule_id,)).fetchone()
+
+    return _quoted(row["pattern"]) if row else "—"
 
 
 @bp.post("/rules/<int:rule_id>/priority")
@@ -51,11 +64,12 @@ def rule_priority(rule_id: int) -> ViewResult:
     try:
         prio = int(request.form.get("priority", ""))
     except ValueError:
-        flash("Priority must be a number.", "rules:error")
+        flash("Priority must be a whole number.", "rules:error")
         return redirect(url_for("admin.rules"))
     conn = db.get_db()
     conn.execute("UPDATE rules SET priority = ? WHERE id = ?", (prio, rule_id))
     conn.commit()
+    flash(f"Rule {_pattern_of(rule_id)} now has priority {prio}", "rules")
 
     return redirect(url_for("admin.rules"))
 
@@ -67,6 +81,8 @@ def rule_toggle(rule_id: int) -> ViewResult:
     conn = db.get_db()
     conn.execute("UPDATE rules SET enabled = 1 - enabled WHERE id = ?", (rule_id,))
     conn.commit()
+    on = conn.execute("SELECT enabled FROM rules WHERE id = ?", (rule_id,)).fetchone()
+    flash(f"Rule {_pattern_of(rule_id)} {'enabled' if on and on['enabled'] else 'disabled'}", "rules")
 
     return redirect(url_for("admin.rules"))
 
@@ -76,8 +92,10 @@ def rule_toggle(rule_id: int) -> ViewResult:
 def rule_delete(rule_id: int) -> ViewResult:
     """Delete a rule."""
     conn = db.get_db()
+    name = _pattern_of(rule_id)
     conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
     conn.commit()
+    flash(f"Rule {name} deleted", "rules")
 
     return redirect(url_for("admin.rules"))
 
@@ -90,7 +108,7 @@ def set_fallback() -> ViewResult:
 
     try:
         db.set_setting("fallback_url", resolve.validate_url(value) if value else "")
-        flash("Fallback saved." if value else "Fallback cleared.", "fallback")
+        flash("Fallback saved" if value else "Fallback removed · unmatched addresses now return 404", "fallback")
     except resolve.ValidationError as exc:
         flash(str(exc), "fallback:error")
 

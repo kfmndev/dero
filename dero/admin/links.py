@@ -40,11 +40,11 @@ def _save_new_link(conn: sqlite3.Connection, plan: SlugPlan, target: str, expire
             conn.commit()
         except sqlite3.IntegrityError:
             if not drawn:
-                raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
+                raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug")
             continue
 
         return slug
-    raise resolve.ValidationError("No free slug found. Use a longer length or a bigger alphabet.", "length")
+    raise resolve.ValidationError("Couldn't find a free slug. Try a longer length or more characters.", "length")
 
 
 @bp.post("/links")
@@ -72,7 +72,7 @@ def toggle_link(link_id: int) -> ViewResult:
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
     conn.commit()
     link = conn.execute("SELECT slug, enabled FROM links WHERE id = ?", (link_id,)).fetchone()
-    flash(f"slug ‹{link['slug']}› {'enabled' if link['enabled'] else 'disabled'}", "links")  # shown as a toast
+    flash(f"Link ‹{link['slug']}› {'enabled' if link['enabled'] else 'disabled'}", "links")  # shown as a toast
 
     return back()
 
@@ -108,13 +108,13 @@ def _changes(row: sqlite3.Row, slug: str, target: str, expires: str | None) -> l
     changes = []
 
     if slug != row["slug"]:
-        changes.append(["new slug", ""])
+        changes.append(["slug changed", ""])
 
     if target != row["target"]:
-        changes.append(["new target", target])
+        changes.append(["target changed to", target])
 
     if expires != row["expires_at"]:
-        changes.append(["expires", expires[:10]] if expires else ["no expiry", ""])
+        changes.append(["expires", expires[:10]] if expires else ["no longer expires", ""])
 
     return changes
 
@@ -131,7 +131,7 @@ def update_link(link_id: int) -> ViewResult:
         validated("slug", resolve.validate_slug, slug)
 
         if slug != row["slug"] and slug in reserved_slugs():
-            raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug")
         expires = parse_expiry(f.get("expires_at", ""))
         conn = db.get_db()
 
@@ -141,7 +141,7 @@ def update_link(link_id: int) -> ViewResult:
             )
             conn.commit()
         except sqlite3.IntegrityError:
-            raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug")
     except resolve.ValidationError as exc:
         flash(str(exc), f"link:{link_id}:error")  # shown in that link's details, next to the fields
         return back()
@@ -155,9 +155,10 @@ def update_link(link_id: int) -> ViewResult:
 @bp.post("/links/<int:link_id>/delete")
 def delete_link(link_id: int) -> ViewResult:
     """Delete a link."""
-    own_or_admin(link_id)
+    row = own_or_admin(link_id)
     conn = db.get_db()
     conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
     conn.commit()
+    flash(f"Link ‹{row['slug']}› deleted", "links")
 
     return back()

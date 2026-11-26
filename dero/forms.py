@@ -54,17 +54,17 @@ def _slug_source(f: Mapping[str, str], slug: str) -> str:
 
     if name in ALPHABETS:
         return name
-    raise resolve.ValidationError("Unknown alphabet.", "slug_source")
+    raise resolve.ValidationError("Choose one of the listed slug types.", "slug_source")
 
 
 def _typed_slug(slug: str) -> str:
     """A slug the user typed, if it is allowed and free to use."""
     if not slug:
-        raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
+        raise resolve.ValidationError("Type a slug, or choose a random one.", "slug")
     validated("slug", resolve.validate_slug, slug)
 
     if slug in reserved_slugs():
-        raise resolve.ValidationError(f"‹{slug}› is reserved.", "slug")
+        raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug")
 
     return slug
 
@@ -76,11 +76,11 @@ def _own_characters(f: Mapping[str, str]) -> str:
 
     if bad:
         raise resolve.ValidationError(
-            f"Characters: {_quoted(bad)} can't be used. Allowed are letters, digits and - _ . ~", "alphabet_custom"
+            f"{_quoted(bad)} can't be used in a slug. Allowed: letters, digits and - _ . ~", "alphabet_custom"
         )
 
     if len(set(chars)) < 2:
-        raise resolve.ValidationError("Characters: use at least 2 different ones.", "alphabet_custom")
+        raise resolve.ValidationError("Use at least 2 different characters.", "alphabet_custom")
 
     return chars
 
@@ -93,7 +93,7 @@ def _slug_length(f: Mapping[str, str]) -> int:
         length = 0
 
     if not MIN_LENGTH <= length <= MAX_LENGTH:
-        raise resolve.ValidationError(f"Length must be between {MIN_LENGTH} and {MAX_LENGTH}.", "length")
+        raise resolve.ValidationError(f"Length must be {MIN_LENGTH} to {MAX_LENGTH} characters.", "length")
 
     return length
 
@@ -125,7 +125,7 @@ def slug_plan(f: Mapping[str, str]) -> SlugPlan:
     elif source in ALPHABETS:
         alphabet = ALPHABETS[source]
     else:
-        raise resolve.ValidationError("Unknown option.", "slug_source")
+        raise resolve.ValidationError("Choose one of the listed slug types.", "slug_source")
 
     return SlugPlan(alphabet=alphabet, length=_slug_length(f))
 
@@ -145,7 +145,7 @@ def parse_expiry(text: str) -> str | None:
     try:
         day = datetime.strptime(text, "%Y-%m-%d").date()
     except ValueError:
-        raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).", "expires_at")
+        raise resolve.ValidationError("Enter the expiry as a date, like 2026-12-31.", "expires_at")
 
     return day.strftime("%Y-%m-%dT23:59:59Z")
 

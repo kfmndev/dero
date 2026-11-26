@@ -19,7 +19,8 @@
   {%- else %}{% set m = message|fromjson %}
   <p class="form-ok" role="status">{{ icon('check') }}
     <span class="note-line">
-      <span>slug</span>{{ m.slug|slug_box }}<span>{{ 'updated' if m.changes else 'is up to date' }}</span>
+      {%- if m.changes %}<span>Link</span>{{ m.slug|slug_box }}<span>updated</span>
+      {%- else %}<span>Nothing to update</span><span>·</span>{{ m.slug|slug_box }}<span>is unchanged</span>{% endif %}
       {%- for label, value in m.changes %}<span>· {{ label }}</span>
         {%- if value and label == 'expires' %}{{ expiry_day(value) }}
         {%- elif value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}

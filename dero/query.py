@@ -53,7 +53,7 @@ KEYS = {alias: key for key, aliases in KEY_ALIASES.items() for alias in aliases}
 STATUSES = ("active", "disabled", "expired")
 SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
 SORT_ALIASES = {"created_by": "creator"}  # sort_by=created_by, like the key and the dropdown
-NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"
+NO_NEGATED_SORT = "! does nothing on sort_by. Use - for descending and + for ascending."
 # keys whose usual order is newest/most first; the others start at A (or soonest)
 DESC_BY_DEFAULT = {"created": True, "visits": True, "slug": False, "target": False, "creator": False, "expires": False}
 
@@ -228,7 +228,7 @@ class _Parser:
         nodes = [self.or_expr()]
 
         while self.i < len(self.toks):  # only reachable on a stray ")"
-            self.problems.append("Unbalanced )")
+            self.problems.append("There is a ) with no ( before it.")
             self.i += 1
             nodes.append(self.or_expr())
 
@@ -299,12 +299,14 @@ class _Parser:
         name = SORT_ALIASES.get(name, name)
 
         if tok.op not in ALLOWED_OPS["sortby"]:
-            self.problems.append(f"sort_by does not support {tok.op}")
+            self.problems.append(f"sort_by can't be used with {tok.op}. Use = (and - or + for the direction).")
         elif name in SORT_KEYS:
             # stored as "the key's usual order, reversed or not": a sign only reverses it if it asks for the other way
             self.sort = (name, bool(sign) and (sign == "-") != DESC_BY_DEFAULT[name])
         else:
-            self.problems.append(f"Unknown sort: {raw}")
+            self.problems.append(
+                f"You can't sort by {raw}. Sort by created, visits, slug, target, created_by or expires."
+            )
 
     def primary(self) -> Node:
         """A parenthesised group, a free-text word or a key=value term."""
@@ -317,7 +319,7 @@ class _Parser:
             if self.kind() == "rpar":
                 self.i += 1
             else:
-                self.problems.append("Missing )")
+                self.problems.append("A ( is never closed.")
 
             return node
 
@@ -396,7 +398,7 @@ def _date_condition(key: str, op: str, value: str, today: date, params: list[Any
         year, month, day = m.groups()
         text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
     else:
-        problems.append(f"Unknown date: {value}")
+        problems.append(f"{value} isn't a date. Use a year, month or day like 2026-11-05, or today, 7d, -2w.")
         return "0"
     params.append(text)
     compare = f"substr({column}, 1, {len(text)}) {op} ?"
@@ -437,7 +439,7 @@ def _compile_status(values: tuple[str, ...], now: str, params: list[Any], proble
         sql, needs_now = _STATUS_SQL.get(v.lower(), (None, False))
 
         if sql is None:
-            problems.append(f"Unknown status: {v}")
+            problems.append(f"{v} isn't a status. Use active, expired or disabled.")
             parts.append("0")
             continue
         parts.append(sql)
@@ -452,7 +454,7 @@ def _number_condition(column: str, op: str, value: str, params: list[Any], probl
     """visits=0 / visits>100: a whole number compared with the column."""
 
     if not _NUMBER.match(value):
-        problems.append(f"Unknown number: {value}")
+        problems.append(f"{value} isn't a number.")
         return "0"
     params.append(int(value))
 
@@ -476,7 +478,7 @@ def _compile_term(key: str, values: tuple[str, ...], op: str, now: str, params: 
     """One key=value term (values are alternatives)."""
 
     if op != "set" and op not in ALLOWED_OPS[key]:
-        problems.append(f"{key} does not support {op}")
+        problems.append(f"{key} can't be used with {op}.")
 
         return "0"
 

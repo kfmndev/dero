@@ -31,9 +31,11 @@ class ValidationError(ValueError):
 def validate_slug(slug: str) -> str:
     """The slug, if it only uses URL-safe characters and is not just dots; else a ValidationError."""
     if not SLUG_RE.fullmatch(slug):
-        raise ValidationError("Slug: letters, digits and - _ . ~ only, up to 64.")
+        raise ValidationError("A slug can use letters, digits and - _ . ~, up to 64 characters.")
     if not slug.strip("."):
-        raise ValidationError("A slug can't be just dots.")  # "/." and "/.." are folded away by browsers
+        raise ValidationError(
+            "A slug needs at least one character that isn't a dot."
+        )  # "/." and "/.." are folded away by browsers
 
     return slug
 
@@ -44,7 +46,7 @@ def validate_url(url: str) -> str:
     parts = urlsplit(url)
 
     if parts.scheme not in ("http", "https") or not parts.netloc or len(url) > 2048:
-        raise ValidationError("Target must be a valid http:// or https:// URL.")
+        raise ValidationError("Enter a full web address starting with http:// or https://.")
 
     return url
 
@@ -81,20 +83,21 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
     pattern = pattern.strip().strip("/")
 
     if not pattern or len(pattern) > 255:
-        raise ValidationError("Pattern is required (max 255 characters).")
+        raise ValidationError("Enter a pattern, up to 255 characters.")
     if match_type not in ("glob", "regex"):
-        raise ValidationError("Unknown match type.")
+        raise ValidationError("Choose glob or regex.")
 
     try:
         compiled = _compile(pattern, match_type)
     except regex.error as exc:
-        raise ValidationError(f"Invalid pattern: {exc}") from exc
+        raise ValidationError(f"This pattern doesn't work: {exc}") from exc
     indices = [int(n) for n in PLACEHOLDER_RE.findall(target)]
 
-    if any(n < 1 or n > compiled.groups for n in indices):
-        raise ValidationError(
-            f"Target uses a placeholder the pattern doesn't capture (pattern has {compiled.groups} group(s))."
-        )
+    bad = next((n for n in indices if n < 1 or n > compiled.groups), None)
+
+    if bad is not None:
+        captures = {0: "nothing", 1: "only 1 part"}.get(compiled.groups, f"only {compiled.groups} parts")
+        raise ValidationError(f"The target uses {{{bad}}}, but the pattern captures {captures}.")
     validate_url(PLACEHOLDER_RE.sub("x", target))
 
 

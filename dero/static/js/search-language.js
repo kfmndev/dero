@@ -330,7 +330,7 @@ const validNumber = (value) => /^\d{1,12}$/.test(value.trim());
 
 // Draw the query with its structure: terms as chips, groups tinted, operators and negations coloured.
 // The text of the result is exactly the query text (the highlight sits behind the real input).
-const NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"; // same text as in dero/query.py
+const NO_NEGATED_SORT = "! does nothing on sort_by. Use - for descending and + for ascending."; // same text as in dero/query.py
 function flagIdle(el) {
   el.classList.add("q-invalid");
   el.title = NO_NEGATED_SORT;

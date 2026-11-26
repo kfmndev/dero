@@ -201,7 +201,7 @@ def test_target_placeholder_is_escaped(client):
 
 def test_admin_slug_reserved(client):
     r = post(client, "/admin/links", USER, target="https://example.com", slug="admin")
-    assert r.status_code == 400 and '<code class="slug">admin</code> is reserved.' in r.get_data(as_text=True)
+    assert r.status_code == 400 and '<code class="slug">admin</code> is reserved by dero.' in r.get_data(as_text=True)
     assert client.get("/admin").status_code in (301, 308, 404)  # the UI, never a short link
 
 
@@ -368,7 +368,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     assert 'value="2031-05-06"' in html
     # the message is inside the "New link" card (before the "links" card), next to the offending field
     card = html[html.index("New link") : html.index("Slugs are served from")]
-    assert 'Slug <code class="slug">taken</code> is already taken.' in card and 'role="alert"' in card
+    assert '<code class="slug">taken</code> is already taken. Choose another slug.' in card and 'role="alert"' in card
     assert re.search(r'name="slug"[^>]*aria-invalid="true"', html) and 'name="target"' in html
     assert not re.search(r'name="target"[^>]*aria-invalid', html)
     # ... and not in the page-level flash area
@@ -396,7 +396,7 @@ def test_success_message_is_shown_in_the_card_and_cleared_form(client):
     assert r.status_code == 302
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     card = html[html.index("New link") : html.index("Slugs are served from")]
-    assert "Created" in card and 'class="form-ok"' in card and 'class="flash' not in html
+    assert "Link created" in card and 'class="form-ok"' in card and 'class="flash' not in html
     assert "form-ok" not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
 
 
@@ -422,7 +422,7 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
     assert (
         "<code>s.example.com</code>" in html
-        and 'Created <span class="base">https://s.example.com/</span><code class="slug">abc</code>' in html
+        and 'Link created <span class="base">https://s.example.com/</span><code class="slug">abc</code>' in html
     )
     assert "localhost" not in html
 
@@ -581,7 +581,7 @@ def test_expiry_edit_reactivates_an_expired_link(client, app):
 def test_expiry_edit_rejects_bad_dates_and_other_users(client, app):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     before = link_row(app, "abc")["expires_at"]
-    for bad, message in (("31/12/2030", "must be a date"), ("tomorrow", "must be a date")):
+    for bad, message in (("31/12/2030", "as a date"), ("tomorrow", "as a date")):
         r = edit(client, app, "abc", expires_at=bad)
         assert r.status_code == 302
         assert link_row(app, "abc")["expires_at"] == before
@@ -697,7 +697,7 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert f"slug abc updated · expires {day}" in link_note(client, link_id, html) and 'class="form-ok"' in notice_box(
+    assert f"Link abc updated · expires {day}" in link_note(client, link_id, html) and 'class="form-ok"' in notice_box(
         html, f"link-{link_id}"
     )
     assert 'id="flashes"' not in html and 'class="flash' not in html
@@ -705,7 +705,7 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at="31/12/2030")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "must be a date" in link_note(client, link_id, html) and 'class="form-error"' in notice_box(
+    assert "as a date" in link_note(client, link_id, html) and 'class="form-error"' in notice_box(
         html, f"link-{link_id}"
     )
 
@@ -716,7 +716,7 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     post(client, "/admin/settings/fallback", ADMIN, fallback_url="https://example.com/oops")
     html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
-    assert "Fallback saved." in notice_box(html, "fallback") and notice_box(html, "rules").count("<p") == 0
+    assert "Fallback saved<" in notice_box(html, "fallback") and notice_box(html, "rules").count("<p") == 0
     post(client, "/admin/settings/fallback", ADMIN, fallback_url="nope")
     html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
     assert 'class="form-error"' in notice_box(html, "fallback")
@@ -734,7 +734,7 @@ def test_unusual_url_warning_is_wired(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'id="new-link-submit"' in html and "</svg>Create</button>" in html and "novalidate" in html
     js = js_source(client)
-    assert "function unusualUrl" in js and "data-warn" in js and "anyway" not in js  # the button keeps its verb
+    assert "function unusualUrl" in js and "data-warn" in js and "again to ${verb" in js  # the button keeps its verb
     assert "markSubmit" not in js and "new-link-submit use" not in js  # ... and its icon
     css = client.get("/static/style.css").get_data(as_text=True)
     assert ".form-warn" in css and "--warn" in css and "input[data-warn]:focus" in css
@@ -847,7 +847,8 @@ def test_edit_target_and_slug(client, app):
     assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
     note = link_note(client, row["id"])
     assert (
-        "renamed updated · new slug · new target https://example.com/new?x=1" in note and "was" not in note
+        "Link renamed updated · slug changed · target changed to https://example.com/new?x=1" in note
+        and "was" not in note
     )  # the new short link, then what changed
 
 
@@ -858,8 +859,8 @@ def test_edit_rejections_keep_the_link_unchanged(client, app):
         ({"slug": "bbb"}, "already taken"),
         ({"slug": "static"}, "reserved"),
         ({"slug": "admin"}, "reserved"),
-        ({"slug": "bad slug!"}, "Slug: letters"),
-        ({"slug": ""}, "Slug: letters"),
+        ({"slug": "bad slug!"}, "A slug can use letters"),
+        ({"slug": ""}, "A slug can use letters"),
         ({"target": "javascript:alert(1)"}, "http:// or https://"),
         ({"target": ""}, "http:// or https://"),
     ]
@@ -981,7 +982,7 @@ def test_generator_validation(client):
 def test_slug_mode_decides_what_is_used(client):
     assert created_slug(client, slug_mode="custom", slug="mine") == "mine"
     r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="custom", slug="")
-    assert r.status_code == 400 and "Enter a slug" in r.get_data(as_text=True)
+    assert r.status_code == 400 and "Type a slug" in r.get_data(as_text=True)
     other = created_slug(
         client, slug_mode="generate", slug="ignored", length="6"
     )  # a typed slug is ignored when generating
@@ -1011,7 +1012,7 @@ def test_generator_gives_up_politely_when_the_alphabet_is_exhausted(client):
     html = r.get_data(as_text=True)
     assert (
         r.status_code == 400
-        and "No free slug found" in html
+        and "find a free slug" in html
         and re.search(r'name="length"[^>]*aria-invalid="true"', html)
     )
 
@@ -1072,7 +1073,7 @@ def test_collapsed_row_uses_the_highlight(client):
 # ---------------------------------------------------------------- warnings stay short
 def test_warning_texts_are_brief(client):
     js = js_source(client)
-    assert "Unusual address:" in js and "Expiry date is in the past." in js and "again to continue" in js
+    assert "looks unusual" in js and "has already passed" in js and "anyway" in js
     assert (
         "won't work" not in js and "(:" not in js and "odd ending (" not in js
     )  # no explanations, no values in parentheses
@@ -1091,18 +1092,18 @@ def test_update_messages_name_the_short_link_and_what_changed(client, app):
         return link_note(client, lid)
 
     edit(client, app, "abc", target="https://example.com/new")
-    assert note() == "slug abc updated · new target https://example.com/new"
+    assert note() == "Link abc updated · target changed to https://example.com/new"
     edit(client, app, "abc", expires_at="2099-01-01")
-    assert note() == "slug abc updated · expires 2099-01-01"
+    assert note() == "Link abc updated · expires 2099-01-01"
     edit(client, app, "abc", expires_at="")
-    assert note() == "slug abc updated · no expiry"
+    assert note() == "Link abc updated · no longer expires"
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
-    assert note() == "slug xyz updated · new slug · new target https://example.com/x · expires 2098-02-02"
+    assert note() == "Link xyz updated · slug changed · target changed to https://example.com/x · expires 2098-02-02"
     edit(client, app, "xyz")
-    assert note() == "slug xyz is up to date"
+    assert note() == "Nothing to update · xyz is unchanged"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
     edit(client, app, "xyz", slug="other")
-    assert note() == "Slug other is already taken."  # inline, so no link name needed
+    assert note() == "other is already taken. Choose another slug."  # inline, so no link name needed
 
 
 # ---------------------------------------------------------------- "target already shortened" lookup
@@ -1149,7 +1150,7 @@ def test_forms_know_where_to_look_up_and_the_warning_is_brief(client):
     assert html.count('data-lookup="/admin/links/lookup"') == 2  # the new-link form and the edit form
     assert 'data-exclude="1"' in html  # an edit never counts its own link
     js = js_source(client)
-    assert "function alreadyShortened" in js and "Target already shortened" in js and "by someone else" in js
+    assert "function alreadyShortened" in js and "already has links" in js and "Someone else already shortened" in js
     assert "function lookupThenResubmit" in js and "needsLookup(form)" in js
 
 
@@ -1222,7 +1223,7 @@ def test_problems_are_shown_briefly_above_the_table(client, app):
             "</p>", html.index('class="form-warn query-problems"')
         )
     ]
-    assert "Unknown status: nonsense" in line and "Unknown sort: colour" in line and "Missing )" in line
+    assert "nonsense isn&#39;t a status" in line and "sort by colour" in line and "never closed" in line
     assert "query-problems" not in client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired"}).get_data(
         as_text=True
     )
@@ -1281,14 +1282,14 @@ def test_slugs_may_use_any_character_a_url_does_not_need_to_escape(client, app):
         assert r.status_code == 400, bad
     for dots in (".", "..", "....."):
         r = post(client, "/admin/links", USER, target="https://example.com/t", slug_source="slug", slug=dots)
-        assert r.status_code == 400 and "can&#39;t be just dots" in r.get_data(as_text=True), (
+        assert r.status_code == 400 and "isn&#39;t a dot" in r.get_data(as_text=True), (
             dots
         )  # browsers fold "/." and "/.." away
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert (
         html.count('pattern="[A-Za-z0-9._~\\-]{1,64}"') == html.count('name="slug"') >= 2
     )  # the browser pattern agrees
-    assert "Slug: letters, digits and - _ . ~ only, up to 64." in js_source(client)
+    assert "A slug can use letters, digits and - _ . ~, up to 64 characters." in js_source(client)
 
 
 # ---------------------------------------------------------------- columns the user can switch on and off
@@ -1621,7 +1622,7 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert 'document.execCommand("insertText", false, inserted)' in js and "if (rewriting) return;" in js
     assert "rewriteBox(fixed);" in js and "rewriteBox(out + text.slice(last));" in js
     # a ! in front of sort_by (or in !=) does nothing: it is marked, with the same text the server reports
-    assert 'NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"' in js
+    assert 'NO_NEGATED_SORT = "! does nothing on sort_by. Use - for descending and + for ascending."' in js
     assert 't.key === "sortby" && (t.nots > 0 || t.op === "!=")' in js and "marks.forEach(flagIdle)" in js
     # the share button copies the address of the search; the copy handler puts back whatever icon the button had
     assert 'document.getElementById("q-share")' in js and "share.dataset.copy = q ? new URL(addressFor(q)" in js
@@ -1665,7 +1666,7 @@ def test_targets_lose_https_and_keep_their_end_when_the_middle_is_cut():
 
 def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
     def warned(address):
-        return "stands for a space" in client.get(address, headers=USER).get_data(as_text=True)
+        return "+ means a space" in client.get(address, headers=USER).get_data(as_text=True)
 
     assert (
         warned("/admin/?q=sort_by=+visits") and warned("/admin/?q=expires%3C+30d") and warned("/admin/?q=created>+7d")
@@ -1751,17 +1752,14 @@ def test_custom_characters_errors_name_the_problem(client):
         return html_lib.unescape(r.get_data(as_text=True))
 
     page = error("1Il|")
-    assert (
-        "Characters: '|' can&#39;t" not in page
-        and "Characters: '|' can't be used. Allowed are letters, digits and - _ . ~" in page
-    )
-    assert "Characters: 'space' " not in error("ab c") and "Characters: space can't be used" in error("ab c")
-    assert "Characters: '|' and '?' can't be used" in error("ab|?")  # two: and
-    assert "Characters: '|', '?' and '#' can't be used" in error("ab|?#")  # more: commas, and before the last
-    assert "Characters: '|', '?', '#', '%', '\"', '<', … can't be used" in error('ab|?#%"<>')  # more than six are cut
-    assert "Characters: use at least 2 different ones." in error("aaaa")
+    assert "'|' can&#39;t" not in page and "'|' can't be used in a slug. Allowed: letters, digits and - _ . ~" in page
+    assert "'space' " not in error("ab c") and "space can't be used in a slug" in error("ab c")
+    assert "'|' and '?' can't be used" in error("ab|?")  # two: and
+    assert "'|', '?' and '#' can't be used" in error("ab|?#")  # more: commas, and before the last
+    assert "'|', '?', '#', '%', '\"', '<', … can't be used" in error('ab|?#%"<>')  # more than six are cut
+    assert "Use at least 2 different characters." in error("aaaa")
     js = js_source(client)
-    assert "can't be used. Allowed are letters, digits and - _ . ~" in js and "use at least 2 different ones." in js
+    assert "can't be used in a slug. Allowed: letters, digits and - _ . ~" in js and "Use at least 2 different" in js
 
 
 def test_slugs_look_the_same_in_every_message(client, app):
@@ -1771,13 +1769,13 @@ def test_slugs_look_the_same_in_every_message(client, app):
     assert '<code class="slug">a<span class="hl-digit">1</span><span class="hl-symbol">-</span>b</code>' in cell
     r = post(client, "/admin/links", USER, target="https://example.com/b", slug="a1-b")  # error text
     assert (
-        '<code class="slug">a<span class="hl-digit">1</span><span class="hl-symbol">-</span>b</code> is already taken.'
-        in r.get_data(as_text=True)
+        '<code class="slug">a<span class="hl-digit">1</span><span class="hl-symbol">-</span>b</code>'
+        " is already taken. Choose another slug." in r.get_data(as_text=True)
     )
     post(client, "/admin/links", USER, target="https://example.com/c", slug="c2.d")  # created message
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert (
-        'Created <span class="base">http://localhost/</span><code class="slug">c<span class="hl-digit">2</span>'
+        'Link created <span class="base">http://localhost/</span><code class="slug">c<span class="hl-digit">2</span>'
         '<span class="hl-symbol">.</span>d</code>' in page
     )
     js = js_source(client)
@@ -1971,7 +1969,7 @@ def test_enabling_and_disabling_a_link_is_announced(client):
         html = client.get("/admin/", headers=USER).get_data(as_text=True)
         notice = html[html.index('id="links-notices"') :]
         assert (
-            f'slug <code class="slug">abc</code> {word}</span>' in notice[: notice.index("</div>")]
+            f'Link <code class="slug">abc</code> {word}</span>' in notice[: notice.index("</div>")]
             and 'class="form-ok"' in notice
         )
     assert 'class="form-ok"' not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once

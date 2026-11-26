@@ -74,7 +74,7 @@
   <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
   <p class="form-ok" role="status">{{ icon('check') }}
-    <span>Created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
+    <span>Link created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
   {% endfor %}
   </div>
 </section>

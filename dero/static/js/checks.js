@@ -1,9 +1,9 @@
 // ---- Checks shared by the "New link" form and the edit form in a link's details ----
 const SLUG_RE = /^[A-Za-z0-9._~-]{1,64}$/; // what a URL path never needs to escape
-const BAD_SLUG = "Slug: letters, digits and - _ . ~ only, up to 64.";
-const DOTS_ONLY = "A slug can't be just dots.";
+const BAD_SLUG = "A slug can use letters, digits and - _ . ~, up to 64 characters.";
+const DOTS_ONLY = "A slug needs at least one character that isn't a dot.";
 const slugProblem = (value) => (!SLUG_RE.test(value) ? BAD_SLUG : /^\.+$/.test(value) ? DOTS_ONLY : null);
-const BAD_URL = "Target must be a valid http:// or https:// URL.";
+const BAD_URL = "Enter a full web address starting with http:// or https://.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
 // `generator` = the "New link" form (slug mode, alphabet and length); otherwise a plain slug field is checked.
@@ -14,7 +14,7 @@ function linkProblem(
   const target = form.elements.target,
     expires = form.elements.expires_at;
   const url = target.value.trim();
-  if (!url) return [target, "Enter the URL to shorten."];
+  if (!url) return [target, "Enter the address to shorten."];
   let parsed;
   try {
     parsed = new URL(url);
@@ -28,12 +28,12 @@ function linkProblem(
   } else {
     const slug = form.elements.slug,
       s = slug.value.trim();
-    if (!s && slugRequired) return [slug, "Enter a slug."];
+    if (!s && slugRequired) return [slug, "Type a slug."];
     if (s && slugProblem(s)) return [slug, slugProblem(s)];
-    if (s && s !== savedSlug && reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
+    if (s && s !== savedSlug && reserved.includes(s)) return [slug, `‹${s}› is reserved by dero. Choose another slug.`];
   }
   if (dateWhenOn && !expires.disabled && !expires.value)
-    return [expires, "Pick the last day the link should work, or switch the expiry off."];
+    return [expires, "Pick the last day the link works, or switch expiry off."];
   return null;
 }
 
@@ -42,9 +42,9 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
   if (source === "slug") {
     const slug = form.elements.slug,
       s = slug.value.trim();
-    if (!s) return [slug, "Enter a slug, or pick a random one."];
+    if (!s) return [slug, "Type a slug, or choose a random one."];
     if (slugProblem(s)) return [slug, slugProblem(s)];
-    if (reserved.includes(s)) return [slug, `‹${s}› is reserved.`];
+    if (reserved.includes(s)) return [slug, `‹${s}› is reserved by dero. Choose another slug.`];
     return null;
   }
   if (source === "chars") {
@@ -59,15 +59,15 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
           : names.length === 1
             ? names[0]
             : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`; // "and" before the last
-      return [field, `Characters: ${shown} can't be used. Allowed are letters, digits and - _ . ~`];
+      return [field, `${shown} can't be used in a slug. Allowed: letters, digits and - _ . ~`];
     }
-    if (new Set(chars).size < 2) return [field, "Characters: use at least 2 different ones."];
+    if (new Set(chars).size < 2) return [field, "Use at least 2 different characters."];
   }
   const length = form.elements.namedItem("length"),
     n = Number(length.value); // (elements.length is the collection's size)
   const min = Number(form.dataset.minLength),
     max = Number(form.dataset.maxLength);
-  if (!Number.isInteger(n) || n < min || n > max) return [length, `Length must be between ${min} and ${max}.`];
+  if (!Number.isInteger(n) || n < min || n > max) return [length, `Length must be ${min} to ${max} characters.`];
   return null;
 }
 
@@ -139,10 +139,10 @@ const joinList = (items) =>
 
 // Does another link already point to this address? Asked just before sending (and only for a new or changed address).
 function alreadyShortened(slugs, count) {
-  if (!slugs.length) return "Target already shortened by someone else.";
+  if (!slugs.length) return "Someone else already shortened this address.";
   const shown = slugs.slice(0, 3),
     more = count - shown.length;
-  return `Target already shortened: ${shown.map((s) => `‹${s}›`).join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
+  return `This address already has links: ${shown.map((s) => `‹${s}›`).join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
 }
 
 function needsLookup(form) {
@@ -186,7 +186,7 @@ function linkWarnings(form) {
   if (url !== target.defaultValue.trim()) {
     const reasons = unusualUrl(url);
     if (reasons.length) {
-      notes.push(`Unusual address: ${joinList(reasons)}.`);
+      notes.push(`This address looks unusual: it ${joinList(reasons)}.`);
       fields.push(target);
     }
   }
@@ -196,7 +196,7 @@ function linkWarnings(form) {
     expires.value !== expires.defaultValue &&
     expires.value < new Date().toISOString().slice(0, 10)
   ) {
-    notes.push("Expiry date is in the past.");
+    notes.push("This expiry date has already passed, so the link would be expired at once.");
     fields.push(expires);
   }
   return { notes, fields };
@@ -211,7 +211,7 @@ function warnFirst(form, event, verb, show) {
   event.preventDefault();
   form.dataset.warned = signature;
   fields.forEach((el) => el.setAttribute("data-warn", ""));
-  show(`${notes.join(" ")} Press ${verb} again to continue.`, fields[0]);
+  show(`${notes.join(" ")} Press ${verb} again to ${verb === "Create" ? "create it" : "save it"} anyway.`, fields[0]);
   fields[0].focus();
   return true;
 }
