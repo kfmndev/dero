@@ -307,6 +307,30 @@
     });
   }
 
+  // Rewrites the box as one edit that the browser can undo: setting input.value would wipe its undo history (Ctrl+Z
+  // would stop at the first space that was tidied). Only the part that differs is replaced, through the editing
+  // commands; the input event they cause is ignored (rewriting). The selection is the caller's to set.
+  let rewriting = false;
+  function rewriteBox(text) {
+    const old = input.value;
+    if (text === old) return;
+    let from = 0,
+      oldEnd = old.length,
+      newEnd = text.length;
+    while (from < oldEnd && from < newEnd && old[from] === text[from]) from++;
+    while (oldEnd > from && newEnd > from && old[oldEnd - 1] === text[newEnd - 1]) {
+      oldEnd--;
+      newEnd--;
+    }
+    rewriting = true;
+    input.setSelectionRange(from, oldEnd);
+    const inserted = text.slice(from, newEnd);
+    if (inserted) document.execCommand("insertText", false, inserted);
+    else document.execCommand("delete");
+    rewriting = false;
+    if (input.value !== text) input.value = text; // the browser refused: set it (the undo history is lost then)
+  }
+
   // A parenthesis (or an operator next to one) typed against a term gets a space on each side, so the chips and
   // their x never run into it. Only while typing or pasting: deleting a space must stay possible.
   function spaceOut() {
@@ -332,7 +356,7 @@
       last = p;
       if (p <= input.selectionStart) caret++;
     }
-    input.value = out + text.slice(last);
+    rewriteBox(out + text.slice(last));
     input.setSelectionRange(caret, caret);
     return true;
   }
@@ -343,7 +367,7 @@
     const fixed = spaceQuotes(input.value);
     if (fixed === input.value) return;
     const { selectionStart, selectionEnd, selectionDirection } = input;
-    input.value = fixed;
+    rewriteBox(fixed);
     input.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
   }
 
@@ -380,7 +404,9 @@
   });
 
   input.addEventListener("input", (event) => {
-    if (!event.isComposing) tidy(event);
+    if (rewriting) return; // our own edit (rewriteBox): the event of the one that caused it does the rest
+    // not while composing (it would cancel it), and not for undo or redo (the user is going back, not typing)
+    if (!event.isComposing && !event.inputType?.startsWith("history")) tidy(event);
     draw();
     syncControls();
     remember(queryText());
