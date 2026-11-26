@@ -77,6 +77,10 @@ between inline elements the template uses `{{-` or `{%-` so no stray space appea
 and on pull requests. The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
 request weekly when one has a newer release.
 
+**Docker image**: `.github/workflows/docker.yml` builds the image on every pull request (nothing is pushed) and publishes
+it to `ghcr.io/kfmndev/dero` from `main` (`:edge`) and from release tags (`v1.2.3` becomes `:1.2.3`, `:1.2`, `:latest`).
+The compose files for running it are in `deploy/`.
+
 ## Code layout
 
 - `dero/__init__.py` – the app factory only. Around it: `forms.py` (reading the New link and edit forms: slugs,

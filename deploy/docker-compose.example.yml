@@ -1,9 +1,9 @@
+# Runs the published image (built by CI, see .github/workflows/docker.yml).
+# Put it next to your .env as docker-compose.yml. To build from source instead, use docker-compose.build.example.yml.
 services:
   dero:
-    build:
-      context: .
-      args:
-        DERO_COMMIT: ${DERO_COMMIT:-}
+    # Pin a release (e.g. :0.1.0) instead of :latest if you want to update on purpose.
+    image: ghcr.io/kfmndev/dero:latest
     restart: unless-stopped
     environment:
       SECRET_KEY: "${SECRET_KEY:?generate one with openssl rand -hex 32}"

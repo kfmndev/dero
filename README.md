@@ -27,12 +27,15 @@
 Requirements: Docker and a reverse proxy with TLS (e.g. Caddy) in front of dero.
 
 ```sh
-cp .env.example .env       # set SECRET_KEY (openssl rand -hex 32)
-docker compose up -d --build   # optional: DERO_COMMIT=$(git rev-parse HEAD) shows the commit in the footer
+cp .env.example .env                                  # set SECRET_KEY (openssl rand -hex 32)
+cp deploy/docker-compose.example.yml docker-compose.yml
+docker compose up -d                                  # pulls ghcr.io/kfmndev/dero
 
 # create the first admin (prompts for a password, writes /data/users.txt)
 docker compose run --rm dero python -m dero.passwd --file /data/users.txt alice --role admin
 ```
+
+To build the image yourself instead, use [`deploy/docker-compose.build.example.yml`](deploy/docker-compose.build.example.yml) (`docker compose -f deploy/docker-compose.build.example.yml --env-file .env up -d --build`). CI publishes `main` as `:edge` and each release `v1.2.3` as `:1.2.3`, `:1.2` and `:latest`.
 
 The users file is re-read when it changes, so no restart is needed. Each line is `username:role:hash` with role `admin` (everything, plus rules and fallback) or `user` (own links only); a later line overrides an earlier one for the same user.
 
