@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-  <img src="assets/logo-light.svg" alt="dero" height="100">
+  <img src="assets/logo-light.svg" alt="dero" height="60">
 </picture>
 
 **Tiny, privacy-first URL shortener. Counts visits, nothing else.**
