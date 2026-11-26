@@ -1558,6 +1558,9 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    # a ! in front of sort_by (or in !=) does nothing: it is marked, with the same text the server reports
+    assert 'NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"' in js
+    assert 't.key === "sortby" && (t.nots > 0 || t.op === "!=")' in js and "marks.forEach(flagIdle)" in js
     # the share button copies the address of the search; the copy handler puts back whatever icon the button had
     assert 'document.getElementById("q-share")' in js and "share.dataset.copy = q ? new URL(addressFor(q)" in js
     assert "button.dataset.icon ??=" in js and "#copy" not in js.split("data-copy")[1].split("Click a row")[0]

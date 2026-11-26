@@ -164,6 +164,7 @@ function parseQuery(text) {
     else if (t.kind === "term") {
       t.depth = depth;
       t.negated = t.negated !== (nots.length % 2 === 1);
+      t.nots = nots.length; // how many ! stand in front (a sort_by has nothing to negate)
       t.removeStart = nots.length ? nots[0].start : t.start; // a "!" in front goes with the term
       nots = [];
       if (t.key) terms.push(t);
@@ -265,6 +266,12 @@ const validNumber = (value) => /^\d{1,12}$/.test(value.trim());
 
 // Draw the query with its structure: terms as chips, groups tinted, operators and negations coloured.
 // The text of the result is exactly the query text (the highlight sits behind the real input).
+const NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"; // same text as in dero/query.py
+function flagIdle(el) {
+  el.classList.add("q-invalid");
+  el.title = NO_NEGATED_SORT;
+}
+
 function renderQuery(parsed, text, container, { statuses, sortKeys }) {
   container.replaceChildren();
   const stack = [container];
@@ -316,7 +323,9 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       word.append(raw);
       top().append(word);
     } else {
-      const pill = span(`q-term q-k-${t.key}${t.negated ? " q-neg" : ""}${t.empty ? " q-empty" : ""}`, "");
+      // sort_by is a directive, not a filter: a ! in front of it or in != changes nothing, and is marked as such
+      const idle = t.key === "sortby" && (t.nots > 0 || t.op === "!=");
+      const pill = span(`q-term q-k-${t.key}${t.negated && !idle ? " q-neg" : ""}${t.empty ? " q-empty" : ""}`, "");
       pill.dataset.from = t.removeStart;
       pill.dataset.to = t.end;
       const before = parsed.toks[idx - 1],
@@ -324,7 +333,11 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       if (before && before.kind === "not" && last?.classList?.contains("q-not")) pill.append(last);
       pill.append(span("q-key", t.rawKey));
       // an operator the key does not have (not while the value is still missing: the server says nothing then either)
-      if (t.op) pill.append(span(t.supported || t.empty ? "q-eq" : "q-eq q-invalid", t.op));
+      if (t.op) {
+        const eq = span(t.supported || t.empty ? "q-eq" : "q-eq q-invalid", t.op);
+        if (idle && t.op === "!=") flagIdle(eq);
+        pill.append(eq);
+      }
       const wildcard = TEXT_KEYS.includes(t.key) && t.op !== "=="; // with "==" a * is just a *
       (t.op ? splitRaw(t.rest) : []).forEach((piece, i) => {
         if (i) pill.append(span("q-eq", ","));
@@ -342,6 +355,13 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
         pill.append(shown);
       });
       top().append(pill);
+      if (idle) {
+        // every ! in front of it: the one in the chip and any before the chip
+        const marks = [...pill.querySelectorAll(":scope > .q-not")];
+        for (let prev = pill.previousSibling; prev?.classList?.contains("q-not"); prev = prev.previousSibling)
+          marks.push(prev);
+        marks.forEach(flagIdle);
+      }
     }
   });
   stack.slice(1).forEach((group) => {

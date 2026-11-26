@@ -16,7 +16,7 @@
     sort_by=-visits           sort: - is descending, + ascending (write %2B for a + in an address); no sign is the
                               key's usual order (newest and most first for created and visits, A-Z for the rest)
                               The Sort by dropdown always writes the sign, the usual order included (sort_by=-created)
-    !term   key!=value        negate
+    !term   key!=value        negate (not for sort_by: that is no filter, a ! there does nothing and is reported)
     and  &&   or  ||   ( )    combine and group
     created_by="Anna Maria"   quotes for values with spaces
 
@@ -53,6 +53,7 @@ KEYS = {alias: key for key, aliases in KEY_ALIASES.items() for alias in aliases}
 STATUSES = ("active", "disabled", "expired")
 SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
 SORT_ALIASES = {"created_by": "creator"}  # sort_by=created_by, like the key and the dropdown
+NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"
 # keys whose usual order is newest/most first; the others start at A (or soonest)
 DESC_BY_DEFAULT = {"created": True, "visits": True, "slug": False, "target": False, "creator": False, "expires": False}
 
@@ -271,6 +272,9 @@ class _Parser:
 
             if self.kind() in (None, "or", "and", "rpar"):
                 return NOOP  # a dangling "!"
+
+            if self.toks[self.i].key == "sortby":
+                self.problems.append(NO_NEGATED_SORT)
             inner = self.unary()
 
             return NOOP if inner == NOOP else ("not", inner)
@@ -282,6 +286,8 @@ class _Parser:
 
         if not tok.values:
             return
+        if tok.negated:
+            self.problems.append(NO_NEGATED_SORT)  # (sort_by!=x) the sort still applies
         raw = tok.values[0]
         sign = raw[0] if raw[0] in "+-" else ""
         name = raw[len(sign) :].lower()

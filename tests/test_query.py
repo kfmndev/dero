@@ -407,3 +407,11 @@ def test_sort_signs_name_the_direction_and_no_sign_is_the_usual_order():
     assert query.sort_value("visits", False) == "-visits" and query.sort_value("slug", False) == "+slug"
     for text in ("sort_by=++visits", "sort_by=-", "sort_by=+", "sort_by=+nonsense"):
         assert find(text)[1].problems, text
+
+
+def test_a_negation_of_sort_by_does_nothing_and_is_reported():
+    for text in ("!sort_by=visits", "sort_by!=visits", "!!sort_by=visits", "!sortby=visits"):
+        rows, parsed = find(text)
+        assert parsed.problems == [query.NO_NEGATED_SORT], text
+        assert parsed.sort == ("visits", False) and parsed.where is None and rows == slugs("sort_by=visits"), text
+    assert find("sort_by=visits")[1].problems == [] and find("!slug=a sort_by=-slug")[1].problems == []
