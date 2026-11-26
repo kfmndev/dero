@@ -1,6 +1,9 @@
 <div align="center">
 
-# dero
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img src="assets/logo-light.svg" alt="dero" height="100">
+</picture>
 
 **Tiny, privacy-first URL shortener. Counts visits, nothing else.**
 

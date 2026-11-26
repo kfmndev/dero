@@ -119,6 +119,8 @@ with a hyphen (`v0.2.0-rc1`) is marked as a pre-release.
 
   A function that other scripts call while the page loads must live in a file that loads earlier (`refreshSelect`
   is in `core.js` for that reason).
+- `tools/make_logo.py` – draws the README logos in `assets/` from the header font; run `uv run tools/make_logo.py`
+  (it declares its own dependencies) after changing the header font or the colours.
 
 ## Pull requests
 
