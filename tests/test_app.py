@@ -1564,6 +1564,11 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         rule = css_rule(css, selector)
         assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
     assert "x - (padding - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
+    # room for an x exists only where there is one: an opening parenthesis is compact, a ) that closes nothing and every
+    # term, operator and inner group have an x of their own (a group's removes it whole)
+    assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
+    assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
+    assert css_rule(css, ".q-paren.q-open.q-pill") == {"padding-right": "3px", "margin-right": "-3px"}
     # hovering an x marks what a click would remove (dimmed, a group outlined too), the joining and / or included
     assert "function markRemoval(button)" in js and "function partRange(text, from, to)" in js
     assert css_rule(css, ".q-doomed")["opacity"] == "0.35" and css_rule(css, ".q-group.q-doomed")["outline"].startswith(

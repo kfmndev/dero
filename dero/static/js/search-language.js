@@ -313,9 +313,16 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       group.dataset.from = t.start;
       top().append(group);
       stack.push(group);
-      group.append(span(apart ? "q-paren q-pill" : "q-paren", "("));
+      group.append(span(apart ? "q-paren q-pill q-open" : "q-paren", "(")); // (an opening one never has an x: no room)
     } else if (t.kind === "rpar") {
-      top().append(span(apart ? "q-paren q-pill" : "q-paren", ")"));
+      const closer = span(apart ? "q-paren q-pill" : "q-paren", ")");
+      if (apart && stack.length === 1) {
+        // a ) that closes nothing has its own x, which removes just it (like an operator's)
+        closer.classList.add("q-stray");
+        closer.dataset.from = t.start;
+        closer.dataset.to = t.end;
+      }
+      top().append(closer);
       if (stack.length > 1) {
         top().dataset.to = t.end;
         stack.pop();

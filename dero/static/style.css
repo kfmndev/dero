@@ -1445,6 +1445,11 @@ time.localtime {
   background: none;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
 } /* same size as a chip, outline only */
+/* an opening parenthesis never has an x, so it has no room for one: its padding is as wide on both sides */
+.q-paren.q-open.q-pill {
+  padding-right: 3px;
+  margin-right: -3px;
+}
 .q-not {
   color: var(--q-not);
 }

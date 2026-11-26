@@ -61,17 +61,18 @@
   const field = form.querySelector(".qfield"),
     removers = form.querySelector(".qx-layer");
 
-  // one small x after every term, every outermost group and every operator, inside the padding of its chip
+  // One small x after every term, group, operator and stray ")", inside the padding of its chip or pill: the room for an
+  // x exists only where there is one. A group's x removes the whole group, the parentheses and what is between them.
   function drawRemovers() {
     removers.replaceChildren();
     const base = field.getBoundingClientRect();
-    highlight.querySelectorAll(".q-term, .q-group, .q-op").forEach((el) => {
-      if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
-      if (!el.classList.contains("q-group") && el.closest(".q-group")) return; // a group is removed as a whole
+    highlight.querySelectorAll(".q-term, .q-group, .q-op, .q-stray").forEach((el) => {
       // A closed group has its x in its closing parenthesis, which is a pill like and / or; an open one (still being
       // typed) after what there is, in the room the group keeps for it. Every other x is in the right padding of its chip.
       const closing = el.classList.contains("q-group") ? el.lastElementChild : null;
-      const anchor = closing?.classList.contains("q-pill") && closing.textContent === ")" ? closing : el;
+      const pill = closing?.classList.contains("q-pill") && closing.textContent === ")";
+      if (el.classList.contains("q-group") && !pill && el.parentElement.closest(".q-group")) return; // no room for a second x
+      const anchor = pill ? closing : el;
       const x = anchor.getBoundingClientRect().right - base.left - field.clientLeft; // (the layer starts inside the border)
       if (x < 6 || x > base.width - 6) return; // scrolled out of view
       const label = queryText().slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
@@ -83,7 +84,7 @@
       button.setAttribute("aria-label", `Remove ${label}`);
       button.dataset.from = el.dataset.from;
       button.dataset.to = el.dataset.to;
-      if (el.classList.contains("q-op")) button.dataset.kind = "operator";
+      if (el.classList.contains("q-op") || el.classList.contains("q-stray")) button.dataset.kind = "operator"; // just itself
       // the x sits in the middle of the space after the text: for a chip that is the right padding plus the 1px ring of
       // the chip, for a group the padding after its closing parenthesis (a group has no ring)
       // the x sits in the middle of the space after the text: the right padding, plus the 1px ring of a chip or pill
