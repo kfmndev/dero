@@ -16,3 +16,19 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(release)"
+
+  # the dependencies in pyproject.toml and the pins in uv.lock
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build(deps)"
+
+  # the uv image the Dockerfile copies from, and the Python base image
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "build(deps)"
