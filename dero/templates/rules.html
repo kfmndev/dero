@@ -49,7 +49,8 @@
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <button class="btn small icon-only" title="{{ 'Disable' if r.enabled else 'Enable' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }}">{{ icon('power') }}</button></form>
           <form method="post" action="{{ url_for('admin.rule_delete', rule_id=r.id) }}"
-                onsubmit="return confirm('Delete this rule?')">
+                data-confirm-title="Delete this rule?" data-confirm-name="{{ r.pattern }}"
+                data-confirm-detail="{{ r.target }}" data-confirm-yes="Delete rule">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <button class="btn small icon-only danger" title="Delete" aria-label="Delete">{{ icon('trash') }}</button></form>
         </td>

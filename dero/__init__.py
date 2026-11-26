@@ -1,11 +1,29 @@
 import os
 import secrets
 import sqlite3
+from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from flask import Flask, abort, current_app, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
 
 from . import auth, db, resolve
 from .version import build_info
+
+
+def _normalise_base_url(value: str) -> str:
+    """BASE_URL is the public address short links are shown (and copied) with, e.g. https://s.example.com"""
+    value = (value or "").strip()
+    if not value:
+        return ""
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.netloc or parts.path not in ("", "/") \
+            or parts.query or parts.fragment:
+        raise RuntimeError("BASE_URL must look like https://s.example.com (no path, query or fragment)")
+    return f"{parts.scheme}://{parts.netloc}/"
+
+
+def _base_url() -> str:
+    return current_app.config["BASE_URL"] or request.host_url
 
 
 def create_app(test_config=None):
@@ -22,6 +40,7 @@ def create_app(test_config=None):
         USER_GROUP=os.environ.get("USER_GROUP", "dero-users"),
         ADMIN_GROUP=os.environ.get("ADMIN_GROUP", "dero-admins"),
         ADMIN_PATH=os.environ.get("ADMIN_PATH", "/admin"),
+        BASE_URL=os.environ.get("BASE_URL", ""),
     )
     if test_config:
         app.config.update(test_config)
@@ -44,6 +63,7 @@ def create_app(test_config=None):
         if env_fallback and not db.get_setting("fallback_url"):
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
+    app.config["BASE_URL"] = _normalise_base_url(app.config["BASE_URL"])
     admin_path = "/" + app.config["ADMIN_PATH"].strip("/")
     app.config["ADMIN_PATH"] = admin_path
     app.register_blueprint(admin, url_prefix=admin_path)
@@ -112,8 +132,7 @@ def _like(term: str) -> str:
     return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-@admin.get("/")
-def index():
+def _render_index(form=None, error=None, error_field=None):
     conn = db.get_db()
     q = request.args.get("q", "").strip()[:200]
     status = request.args.get("status", "")
@@ -164,11 +183,20 @@ def index():
 
     return render_template(
         "index.html", links=links, total=sum(l["visits"] for l in links), overall=overall,
-        base=request.host_url, q=q, status=status, owner=owner, owners=owners,
+        base=_base_url(), q=q, status=status, owner=owner, owners=owners,
         sort=sort, direction=direction, sort_url=sort_url, now=now,
         order_options=[(f"{k}:{d}", label) for (k, d), label in ORDER_LABELS.items()
                        if g.user["is_admin"] or k != "creator"],
-        filtered=bool(q or status or owner), back=request.full_path.rstrip("?"))
+        filtered=bool(q or status or owner),
+        back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
+        form=form or {}, error=error, error_field=error_field,
+        today=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        reserved=sorted(_reserved_slugs()))
+
+
+@admin.get("/")
+def index():
+    return _render_index()
 
 
 def _back():
@@ -179,38 +207,56 @@ def _back():
     return redirect(url_for("admin.index"))
 
 
+def _reserved_slugs():
+    return {current_app.config["ADMIN_PATH"].strip("/").split("/")[0], "static"}
+
+
+def _validated(field, fn, *args):
+    """Run a validator and tag its error with the form field it belongs to."""
+    try:
+        return fn(*args)
+    except resolve.ValidationError as exc:
+        raise resolve.ValidationError(str(exc), field) from exc
+
+
 @admin.post("/links")
 def create_link():
     conn = db.get_db()
+    f = request.form
     try:
-        target = resolve.validate_url(request.form.get("target", ""))
-        slug = request.form.get("slug", "").strip()
-        expires = request.form.get("expires_at", "").strip() or None
+        target = _validated("target", resolve.validate_url, f.get("target", ""))
+        slug = f.get("slug", "").strip()
+        if slug:
+            _validated("slug", resolve.validate_slug, slug)
+            if slug in _reserved_slugs():
+                raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
+        expires = f.get("expires_at", "").strip() or None
         if expires:
-            from datetime import datetime
             try:
-                expires = datetime.strptime(expires, "%Y-%m-%d").strftime("%Y-%m-%dT23:59:59Z")
+                day = datetime.strptime(expires, "%Y-%m-%d").date()
             except ValueError:
-                raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).")
+                raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).", "expires_at")
+            if day < datetime.now(timezone.utc).date():
+                raise resolve.ValidationError(
+                    "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC).",
+                    "expires_at")
+            expires = day.strftime("%Y-%m-%dT23:59:59Z")
         for _ in range(10):
-            candidate = resolve.validate_slug(slug) if slug else _random_slug()
-            if candidate in (current_app.config["ADMIN_PATH"].strip("/").split("/")[0], "static"):
-                raise resolve.ValidationError(f"'{candidate}' is reserved.")
+            candidate = slug or _random_slug()
             try:
                 conn.execute(
                     "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
                     (candidate, target, g.user["username"], db.now_iso(), expires))
                 conn.commit()
-                flash(f"Created {request.host_url}{candidate}")
-                break
+                flash(f"Created {_base_url()}{candidate}", "link")
+                return redirect(url_for("admin.index"))
             except sqlite3.IntegrityError:
                 if slug:
-                    raise resolve.ValidationError(f"Slug '{slug}' is already taken.")
-        else:
-            raise resolve.ValidationError("Could not find a free slug, try again.")
+                    raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
+        raise resolve.ValidationError("Could not find a free slug, try again.")
     except resolve.ValidationError as exc:
-        flash(str(exc), "error")
-    return redirect(url_for("admin.index"))
+        # Show the form again with everything the user typed, and the error inside it.
+        return _render_index(form=f, error=str(exc), error_field=exc.field), 400
 
 
 @admin.post("/links/<int:link_id>/toggle")

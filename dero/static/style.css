@@ -36,9 +36,11 @@
 }
 
 /* ---- Theme tokens ----
-   Accent: green-500 (#22c55e, from #1aad5c) in both themes, with dark text on it (8.6:1).
-   --accent-ink is the accent for thin text on the page background: darker in light mode.
-   Accent 2 is the complement (hue 322 deg), used for hover and focus.
+   Primary: #05f (white text on it, 5.6:1). --accent-ink is the primary for thin text on the page
+   background: #05f on white, a lighter #6b9bff on dark (6.6:1).
+   Secondary: spring green (hue 158), analogous to the blue and still reads as "on"/"ok". Used for
+   hover, focus, the enable switch and success messages. --accent-2-ink is its text-safe variant
+   (#008554 on white, 4.7:1).
    Dark applies when the browser prefers it, unless the user switched to light;
    or when the user switched to dark. theme.js sets data-theme. */
 :root {
@@ -54,10 +56,11 @@
   --text: #15171c;
   --muted: #5f6673;
   --border: #d9dde3;
-  --accent: #22c55e;
-  --accent-ink: #15803d;
-  --accent-2: #c0338f;
-  --on-accent: #0b0c0f;
+  --accent: #05f;
+  --accent-ink: #05f;
+  --accent-2: #00c27b;
+  --accent-2-ink: #008554;
+  --on-accent: #ffffff;
   --err: #c0362c;
 }
 
@@ -70,10 +73,11 @@
     --text: #eceef2;
     --muted: #9aa1ad;
     --border: #2a2e37;
-    --accent: #22c55e;
-    --accent-ink: #22c55e;
-    --accent-2: #e462b4;
-    --on-accent: #0b0c0f;
+    --accent: #05f;
+    --accent-ink: #6b9bff;
+    --accent-2: #00d688;
+    --accent-2-ink: #00d688;
+    --on-accent: #ffffff;
     --err: #ff7b72;
   }
 }
@@ -86,14 +90,17 @@
   --text: #eceef2;
   --muted: #9aa1ad;
   --border: #2a2e37;
-  --accent: #22c55e;
-  --accent-ink: #22c55e;
-  --accent-2: #e462b4;
-  --on-accent: #0b0c0f;
+  --accent: #05f;
+  --accent-ink: #6b9bff;
+  --accent-2: #00d688;
+  --accent-2-ink: #00d688;
+  --on-accent: #ffffff;
   --err: #ff7b72;
 }
 
 /* ---- Base ---- */
+[hidden] { display: none !important; }  /* classes like .btn must not undo the hidden attribute */
+
 * { box-sizing: border-box; }
 
 body {
@@ -148,7 +155,7 @@ footer {
 footer a { color: inherit; text-decoration: none; }
 footer a:first-child { display: inline-flex; align-items: center; gap: 6px; }
 footer .icon { width: 14px; height: 14px; vertical-align: 0; }
-footer a:hover { color: var(--accent-2); }
+footer a:hover { color: var(--accent-2-ink); }
 /* The hash is plain text here, not the boxed inline-code look. */
 footer code { padding: 0; border: 0; background: none; font-size: 11px; color: inherit; }
 
@@ -190,7 +197,7 @@ h1 .dot { color: var(--accent); }
 /* A block-level icon with no baseline offset, so every browser centers it. */
 .theme-toggle .icon { display: block; width: 18px; height: 18px; vertical-align: 0; }
 
-.theme-toggle:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.theme-toggle:hover { border-color: var(--accent-2-ink); color: var(--accent-2-ink); }
 
 /* ---- Forms ---- */
 label, .label { display: block; font-weight: 600; margin: 0 0 6px; }
@@ -208,7 +215,7 @@ input[type="text"], input[type="number"], input[type="color"], textarea, select 
 input[type="text"]:focus, input[type="number"]:focus, input[type="color"]:focus,
 textarea:focus, select:focus {
   outline: none;
-  border-color: var(--accent-2);
+  border-color: var(--accent-2-ink);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent);
 }
 
@@ -252,7 +259,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
   transition: background-color 0.1s, border-color 0.1s, color 0.1s;
 }
 
-.btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.btn:hover { border-color: var(--accent-2-ink); color: var(--accent-2-ink); }
 
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { background: transparent; color: var(--accent-ink); }
@@ -274,7 +281,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 }
 
 .topnav a:hover { color: var(--text); }
-.topnav a[aria-current="page"] { color: var(--text); border-color: var(--accent-2); }
+.topnav a[aria-current="page"] { color: var(--text); border-color: var(--accent-2-ink); }
 .topnav .who { margin-left: auto; color: var(--muted); font-size: 13px; }
 .topnav .who .role { margin-left: 4px; font-family: var(--font-mono); font-size: 12px; }
 
@@ -289,9 +296,7 @@ section {
 
 h2 {
   margin: 0 0 12px;
-  font: 800 16px/1.4 var(--font-head);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font: 600 17px/1.4 var(--font-head);
 }
 
 .form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
@@ -310,7 +315,7 @@ input[type="url"], input[type="date"], input[type="number"], input[type="text"] 
   border-radius: 6px;
 }
 
-input[type="url"]:focus, input[type="date"]:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
+input[type="url"]:focus, input[type="date"]:focus { outline: none; border-color: var(--accent-2-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
 
 @media (max-width: 760px) {
   .form-grid, .form-grid.rules { grid-template-columns: 1fr; }
@@ -347,9 +352,9 @@ tfoot td { border-top: 1px solid var(--border); border-bottom: 0; color: var(--m
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono); font-size: 13px; }
 .nowrap, th { white-space: nowrap; }
-.target { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .target a { color: inherit; text-decoration: none; }
-.target a:hover { color: var(--accent-2); }
+.target a:hover { color: var(--accent-2-ink); }
 tr.off td { opacity: 0.5; }
 tr.off td:last-child { opacity: 1; }
 .actions { white-space: nowrap; text-align: right; }
@@ -364,7 +369,7 @@ tr.off td:last-child { opacity: 1; }
 }
 
 .copy { cursor: pointer; }
-.copy.done { color: var(--accent-2); border-color: var(--accent-2); }
+.copy.done { color: var(--accent-2-ink); border-color: var(--accent-2-ink); }
 
 .hint-inline { font-weight: 400; color: var(--muted); }
 .form-grid select { display: block; width: 100%; margin-top: 4px; }
@@ -375,10 +380,10 @@ tr.off td:last-child { opacity: 1; }
 .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
 .switch .track { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--field); transition: background-color .15s, border-color .15s; }
 .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .15s, background-color .15s; }
-.switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .track { background: var(--accent-2); border-color: var(--accent-2); }
 .switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.switch:hover .track { border-color: var(--accent-2); }
+.switch:hover .track { border-color: var(--accent-2-ink); }
 
 /* ---- dero: filter bar and sortable headers ---- */
 .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 0 0 14px; }
@@ -393,16 +398,28 @@ th a:hover { color: var(--text); }
 th[aria-sort] a { color: var(--text); }
 th .arrow { color: var(--accent-ink); margin-left: 4px; }
 
+/* ---- dero: small icon buttons next to links ---- */
+.mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; vertical-align: middle;
+  border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; text-decoration: none;
+}
+.mini:hover { color: var(--accent-2-ink); }
+.mini .icon { width: 14px; height: 14px; vertical-align: 0; }
+.mini.done { color: var(--accent-2-ink); }
+
+/* ---- dero: live filter indicator (like podutils) ---- */
+.live { flex: 0 0 100%; display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 18px; margin: -4px 0 0; color: var(--muted); font-size: 12px; transition: color .15s; }
+.live.updated { color: var(--accent-2-ink); }
+.live.busy .icon { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .live.busy .icon { animation: none; } }
+
 /* ---- dero: expandable rows ---- */
 tr.item { cursor: pointer; }
 tr.item:hover td { background: color-mix(in srgb, var(--field) 70%, transparent); }
 .narrow { width: 1%; }
-.expand {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 22px; height: 22px; margin: 0 4px 0 -4px; padding: 0;
-  border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; vertical-align: middle;
-}
-.expand:hover { color: var(--text); }
+.expand { margin: 0 4px 0 -4px; }
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
@@ -413,3 +430,40 @@ tr.detail[hidden] { display: none; }
 .details dd { margin: 2px 0 0; word-break: break-word; }
 .details .wide { grid-column: 1 / -1; }
 .details .wrap { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---- dero: form feedback ---- */
+.form-error, .form-ok { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.form-error { color: var(--err); }
+.form-error:empty { display: none; }
+.form-ok { color: var(--accent-2-ink); }
+input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 18%, transparent); }
+
+.target .cell { display: flex; align-items: center; gap: 4px; }
+.target .truncate { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-actions { display: flex; justify-content: flex-end; }
+.detail-actions form { margin: 0; }
+tr.detail .btn { background: var(--card); }
+
+/* ---- dero: inputs are regular weight (labels around them are bold, and inputs inherit that) ---- */
+input[type], input:not([type]), select, textarea { font-weight: 400; }
+
+/* ---- dero: confirmation dialog ---- */
+dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
+}
+dialog[open] { animation: dialog-in .12s ease-out; }
+dialog::backdrop { background: rgb(0 0 0 / 0.5); backdrop-filter: blur(2px); }
+dialog form { margin: 0; padding: 20px; }
+dialog h2 { margin: 0 0 8px; }
+dialog p { margin: 0 0 18px; color: var(--muted); overflow-wrap: anywhere; }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-start; }
+.btn.solid-danger { background: var(--err); border-color: var(--err); color: #fff; }
+.btn.solid-danger:hover { background: transparent; color: var(--err); border-color: var(--err); }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { dialog[open] { animation: none; } }

@@ -13,7 +13,7 @@
 - Stored per link: slug, target, **creator**, creation date, optional expiry, visit count. **No IPs, referrers or user agents**
 - Lookup order: **exact link** → **pattern rule** (lowest priority number first) → **fallback URL** → `404`
 - Example pattern rule: `gh/*` → `https://github.com/{1}`
-- Small admin UI in the style of [podutils](https://github.com/kfmndev/podutils) with a green accent: compact links table (click a row for creator, dates and the full target), sorting, search, status and creator filters, enable/disable sliders, light and dark mode (follows the browser, toggle overrides), no external requests, fonts bundled
+- Small admin UI in the style of [podutils](https://github.com/kfmndev/podutils) with a blue accent: compact links table (click a row for creator, dates, the full target and delete), live sorting, search and filters, enable/disable sliders, light and dark mode (follows the browser, toggle overrides), no external requests, fonts bundled
 - Admin UI at `/admin`, protected by **HTTP Basic auth** (users file with hashed passwords). SSO via a reverse proxy such as [Authelia](https://www.authelia.com) is available as `AUTH_MODE=proxy`
 
 > [!IMPORTANT]
@@ -72,6 +72,7 @@ Captured text is URL-encoded before it is placed into the target.
 | `USERS_FILE` | `users.txt` (`/data/users.txt` in Docker) | Basic-auth users, one `username:role:hash` per line; create with `python -m dero.passwd` |
 | `SECRET_KEY` | random per start | Signs form tokens (CSRF). Set it, or forms break after restarts |
 | `PROXY_SECRET` | *(empty)* | `proxy` mode only: if set, requests must carry a matching `X-Proxy-Secret` header |
+| `BASE_URL` | request host | Public address of the short links, e.g. `https://s.example.com`. Used to display and copy links; set it when dero runs behind a proxy under a different name |
 | `FALLBACK_URL` | *(empty)* | Initial fallback target; later editable in the UI. Empty means `404` |
 | `USER_GROUP` / `ADMIN_GROUP` | `dero-users` / `dero-admins` | `proxy` mode: groups allowed to use / administer dero |
 | `USER_HEADER` / `GROUPS_HEADER` | `Remote-User` / `Remote-Groups` | `proxy` mode: identity headers set by the proxy |

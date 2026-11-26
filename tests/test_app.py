@@ -70,7 +70,7 @@ def test_random_slug_and_duplicate(client):
     post(client, "/admin/links", USER, target="https://example.com/x", slug="dup")
     r = post(client, "/admin/links", USER, target="https://example.com/y", slug="dup")
     assert client.get("/dup").headers["Location"] == "https://example.com/x"
-    assert "already taken" in client.get("/admin/", headers=USER).get_data(as_text=True) or r.status_code == 302
+    assert r.status_code == 400 and "already taken" in r.get_data(as_text=True)
 
 
 @pytest.mark.parametrize("bad", ["javascript:alert(1)", "ftp://x.y/z", "notaurl", "https://"])
@@ -79,8 +79,19 @@ def test_rejects_bad_urls(client, bad):
     assert client.get("/bad").status_code == 404
 
 
-def test_disable_and_expiry(client):
-    post(client, "/admin/links", USER, target="https://example.com", slug="gone", expires_at="2000-01-01")
+def expire(app, slug):
+    """Make an existing link expired (the form refuses to create one that already is)."""
+    from dero.db import get_db
+    with app.app_context():
+        conn = get_db()
+        conn.execute("UPDATE links SET expires_at = '2000-01-01T23:59:59Z' WHERE slug = ?", (slug,))
+        conn.commit()
+
+
+def test_disable_and_expiry(client, app):
+    post(client, "/admin/links", USER, target="https://example.com", slug="gone")
+    assert client.get("/gone").status_code == 302
+    expire(app, "gone")
     assert client.get("/gone").status_code == 404
     post(client, "/admin/links", USER, target="https://example.com", slug="off")
     assert client.get("/off").status_code == 302
@@ -143,9 +154,9 @@ def test_target_placeholder_is_escaped(client):
 
 
 def test_admin_slug_reserved(client):
-    post(client, "/admin/links", USER, target="https://example.com", slug="admin")
+    r = post(client, "/admin/links", USER, target="https://example.com", slug="admin")
+    assert r.status_code == 400 and "&#39;admin&#39; is reserved." in r.get_data(as_text=True)
     assert client.get("/admin").status_code in (301, 308, 404)  # the UI, never a short link
-    assert "reserved" in client.get("/admin/", headers=USER).get_data(as_text=True)
 
 
 def test_custom_admin_path(tmp_path):
@@ -233,11 +244,12 @@ def test_static_slug_reserved_and_assets_served(client):
 
 
 # ---------------------------------------------------------------- sorting / filtering
-def seed_links(client):
+def seed_links(client, app):
     post(client, "/admin/links", USER, target="https://example.com/apple", slug="aaa")
     post(client, "/admin/links", USER, target="https://example.com/banana", slug="bbb")
     post(client, "/admin/links", USER2, target="https://other.org/cherry", slug="ccc")
-    post(client, "/admin/links", USER, target="https://example.com/old", slug="old", expires_at="2000-01-01")
+    post(client, "/admin/links", USER, target="https://example.com/old", slug="old")
+    expire(app, "old")
     for _ in range(3):
         client.get("/bbb")
     client.get("/aaa")
@@ -249,8 +261,8 @@ def slugs(client, headers, query=""):
     return re.findall(r'class="slug">/([a-z]+)</span>', html)
 
 
-def test_sorting(client):
-    seed_links(client)
+def test_sorting(client, app):
+    seed_links(client, app)
     assert slugs(client, ADMIN, "?sort=slug&dir=asc") == ["aaa", "bbb", "ccc", "old"]
     assert slugs(client, ADMIN, "?sort=slug&dir=desc") == ["old", "ccc", "bbb", "aaa"]
     assert slugs(client, ADMIN, "?sort=visits&dir=desc")[0] == "bbb"
@@ -260,8 +272,8 @@ def test_sorting(client):
     assert slugs(client, ADMIN, "?order=nonsense")
 
 
-def test_filtering(client):
-    seed_links(client)
+def test_filtering(client, app):
+    seed_links(client, app)
     assert slugs(client, ADMIN, "?q=cherry") == ["ccc"]
     assert slugs(client, ADMIN, "?q=BOB") == ["ccc"]                 # creator, case-insensitive
     assert slugs(client, ADMIN, "?status=disabled") == ["aaa"]
@@ -272,16 +284,146 @@ def test_filtering(client):
     assert "No links match." in client.get("/admin/?q=zzz", headers=ADMIN).get_data(as_text=True)
 
 
-def test_filters_never_expose_other_users_links(client):
-    seed_links(client)
+def test_filters_never_expose_other_users_links(client, app):
+    seed_links(client, app)
     assert "ccc" not in slugs(client, USER)
     assert "ccc" not in slugs(client, USER, "?owner=bob&q=cherry")
     assert slugs(client, USER2, "?owner=alice") == ["ccc"]
 
 
-def test_toggle_returns_to_same_view_only(client):
-    seed_links(client)
+def test_toggle_returns_to_same_view_only(client, app):
+    seed_links(client, app)
     r = post(client, "/admin/links/2/toggle", USER, back="/admin/?status=active&sort=slug")
     assert r.headers["Location"] == "/admin/?status=active&sort=slug"
     for evil in ("https://evil.example/", "//evil.example/", "/other", "/admin\\evil"):
         assert post(client, "/admin/links/2/toggle", USER, back=evil).headers["Location"] == "/admin/"
+
+
+# ---------------------------------------------------------------- form errors stay in the form
+def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
+    post(client, "/admin/links", USER, target="https://example.com/x", slug="taken")
+    r = post(client, "/admin/links", USER, target="https://example.com/mine?a=1&b=2", slug="taken", expires_at="2031-05-06")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 400
+    # what was typed is still in the fields
+    assert 'value="https://example.com/mine?a=1&amp;b=2"' in html
+    assert 'name="slug" type="text" placeholder="random" value="taken"' in html
+    assert 'value="2031-05-06"' in html
+    # the message is inside the "New link" card (before the "links" card), next to the offending field
+    card = html[html.index("New link"):html.index("Short links are served from")]
+    assert "Slug &#39;taken&#39; is already taken." in card and 'role="alert"' in card
+    assert re.search(r'name="slug"[^>]*aria-invalid="true"', html) and 'name="target"' in html
+    assert not re.search(r'name="target"[^>]*aria-invalid', html)
+    # ... and not in the page-level flash area
+    assert 'class="flash' not in html
+
+
+def test_each_field_error_is_tagged_and_nothing_is_created(client):
+    for data, field in [({"target": "javascript:alert(1)"}, "target"),
+                        ({"target": "https://example.com", "slug": "bad slug!"}, "slug"),
+                        ({"target": "https://example.com", "slug": "static"}, "slug"),
+                        ({"target": "https://example.com", "expires_at": "31/12/2030"}, "expires_at"),
+                        ({"target": "https://example.com", "expires_at": "2000-01-01"}, "expires_at")]:
+        r = post(client, "/admin/links", USER, **data)
+        html = r.get_data(as_text=True)
+        assert r.status_code == 400
+        assert re.search(rf'name="{field}"[^>]*aria-invalid="true"', html), data
+        for key, value in data.items():                       # input is preserved
+            assert f'value="{value}"' in html, (data, key)
+    assert "No links yet." in client.get("/admin/", headers=USER).get_data(as_text=True)
+
+
+def test_success_message_is_shown_in_the_card_and_cleared_form(client):
+    r = post(client, "/admin/links", USER, target="https://example.com", slug="fine")
+    assert r.status_code == 302
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    card = html[html.index("New link"):html.index("Short links are served from")]
+    assert "Created" in card and 'class="form-ok"' in card and 'class="flash' not in html
+    assert "form-ok" not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
+
+
+def test_row_actions_after_failed_create_still_work(client):
+    post(client, "/admin/links", USER, target="https://example.com", slug="one")
+    html = post(client, "/admin/links", USER, target="nope").get_data(as_text=True)
+    assert 'name="back" value="/admin/"' in html           # not "/admin/links", which has no GET route
+
+
+# ---------------------------------------------------------------- base URL, row layout
+def test_base_url_is_used_for_display_and_copy(tmp_path):
+    app = create_app({"DATABASE": str(tmp_path / "u.db"), "SECRET_KEY": "t", "AUTH_MODE": "proxy",
+                      "BASE_URL": "https://s.example.com/"})
+    c = app.test_client()
+    r = post(c, "/admin/links", USER, target="https://example.com", slug="abc")
+    html = c.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
+    assert "<code>s.example.com</code>" in html and "Created https://s.example.com/abc" in html
+    assert "localhost" not in html
+
+
+@pytest.mark.parametrize("bad", ["s.example.com", "ftp://s.example.com", "https://s.example.com/x", "https://s.example.com/?a=1"])
+def test_invalid_base_url_is_rejected(tmp_path, bad):
+    with pytest.raises(RuntimeError):
+        create_app({"DATABASE": str(tmp_path / "u.db"), "SECRET_KEY": "t", "AUTH_MODE": "proxy", "BASE_URL": bad})
+
+
+def test_base_url_defaults_to_request_host(client):
+    post(client, "/admin/links", USER, target="https://example.com", slug="abc")
+    assert 'data-copy="http://localhost/abc"' in client.get("/admin/", headers=USER).get_data(as_text=True)
+
+
+def test_row_layout_copy_beside_link_delete_in_details(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
+    detail = html[html.index('<tr class="detail"'):html.index("</tbody>")]
+    assert row.count("data-copy") == 1 and 'class="actions"' not in row and "/delete" not in row
+    assert row.count('aria-label="Open short link"') == 1 and row.count('aria-label="Open target"') == 1
+    assert "/delete" in detail and "Delete link" in detail
+    assert 'id="links-results"' in html and 'id="filter-live"' in html
+
+
+def test_cannot_create_an_already_expired_link(client):
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone.utc).date()
+    r = post(client, "/admin/links", USER, target="https://example.com/x", slug="late",
+             expires_at=(today - timedelta(days=1)).isoformat())
+    html = r.get_data(as_text=True)
+    assert r.status_code == 400 and "already passed" in html
+    assert re.search(r'name="expires_at"[^>]*aria-invalid="true"', html) and 'value="https://example.com/x"' in html
+    assert client.get("/late").status_code == 404
+    # today still works (the link lasts until the end of that day, UTC) and so does a later day
+    for slug, day in (("today", today), ("later", today + timedelta(days=30))):
+        assert post(client, "/admin/links", USER, target="https://example.com/y", slug=slug,
+                    expires_at=day.isoformat()).status_code == 302
+        assert client.get(f"/{slug}").status_code == 302
+    assert f'min="{today.isoformat()}"' in client.get("/admin/", headers=USER).get_data(as_text=True)
+
+
+# ---------------------------------------------------------------- regressions: Clear button / swapped fragment
+def test_swapped_fragment_contains_no_style(client):
+    """The page JS swaps #links-results into the live page; a <noscript><style> in it would open every details row."""
+    post(client, "/admin/links", USER, target="https://example.com", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    fragment = html[html.index('id="links-results"'):html.index("</section>", html.index('id="links-results"'))]
+    assert "<style" not in fragment
+    assert "tr.detail[hidden]" in html and html.index("<noscript><style>") < html.index('id="links-results"')
+
+
+def test_clear_button_is_disabled_not_hidden(client):
+    post(client, "/admin/links", USER, target="https://example.com", slug="abc")
+    plain = client.get("/admin/", headers=USER).get_data(as_text=True)
+    filtered = client.get("/admin/?q=abc", headers=USER).get_data(as_text=True)
+    for html, state in ((plain, "true"), (filtered, "false")):
+        tag = re.search(r'<a class="btn" id="clear-filters"[^>]*>', html).group(0)
+        assert f'aria-disabled="{state}"' in tag and " hidden" not in tag
+
+
+def test_delete_uses_the_custom_dialog_not_window_confirm(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    post(client, "/admin/rules", ADMIN, pattern="gh/*", target="https://github.com/{1}")
+    links = client.get("/admin/", headers=USER).get_data(as_text=True)
+    rules = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    for html in (links, rules):
+        assert "confirm(" not in html and "onsubmit" not in html
+        assert '<dialog id="confirm"' in html and html.index('id="confirm-yes"') < html.index('value="no"')  # accept first (left)
+    assert 'data-confirm-name="/abc"' in links and 'data-confirm-name="gh/*"' in rules

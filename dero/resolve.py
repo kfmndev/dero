@@ -16,7 +16,9 @@ REGEX_TIMEOUT = 0.05  # seconds
 
 
 class ValidationError(ValueError):
-    pass
+    def __init__(self, message, field=None):
+        super().__init__(message)
+        self.field = field  # name of the form field the message belongs to, if any
 
 
 def validate_slug(slug: str) -> str:

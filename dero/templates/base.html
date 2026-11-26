@@ -23,11 +23,21 @@
     <span class="who">{{ g.user.username }}<span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span></span>
   </nav>
 
-  {% for category, message in get_flashed_messages(with_categories=true) %}
+  {% for category, message in get_flashed_messages(with_categories=true) if category != 'link' %}
     <p class="flash {{ category }}">{{ icon('alert' if category == 'error' else 'check') }}<span>{{ message }}</span></p>
   {% endfor %}
   {% block content %}{% endblock %}
 </main>
+<dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"><code id="confirm-name"></code> <span id="confirm-detail"></span></p>
+    <div class="dialog-actions">
+      <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">{{ icon('trash') }}<span>Delete</span></button>
+      <button type="submit" value="no" class="btn" autofocus>Cancel</button>
+    </div>
+  </form>
+</dialog>
 <footer>
   <a href="{{ build.repo_url }}" target="_blank" rel="noopener">{{ icon('github') }}dero v{{ build.version }}</a>
   {%- if build.commit %}
