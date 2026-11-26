@@ -1514,7 +1514,9 @@ def test_generate_button_and_settings_dialog(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     options = html[html.index('for="slug-source"') : html.index('id="new-link-slug"')]
     assert 'id="new-link-generate"' in options and 'data-when-source="default letters chars"' in options
-    assert ">Generator</label>" in options and 'for="new-link-slug-input">Slug</label>' in html  # not offered with Custom
+    assert (
+        ">Generator</label>" in options and 'for="new-link-slug-input">Slug</label>' in html
+    )  # not offered with Custom
     assert re.search(
         r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S
     )  # the user name opens the settings
@@ -1978,7 +1980,9 @@ def test_every_notice_is_a_toast(client):
 def test_the_live_toast_is_pinned_and_follows_the_latest_visit(client):
     js = flat_js(js_source(client))
     assert 'toast("live"' in js and "‹${names[0]}›" in js and 'key: "live"' in js and 'textContent = "Live"' in js
-    assert 'if (kind !== "live" && live) toastHost().insertBefore(el, live)' in js  # the others go above it, it stays below
+    assert (
+        'if (kind !== "live" && live) toastHost().insertBefore(el, live)' in js
+    )  # the others go above it, it stays below
     assert 'if (kind === "ok") {' in js and "const arm = " in js  # only a success fades by itself
     assert 'else dismissToast("live", true)' in js  # switching Live off removes it
 
