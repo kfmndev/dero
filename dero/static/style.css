@@ -122,8 +122,9 @@
 
 /* ---- Base ---- */
 [hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: classes like .btn must not undo the hidden attribute */
   display: none !important;
-} /* classes like .btn must not undo the hidden attribute */
+}
 
 * {
   box-sizing: border-box;
@@ -1540,14 +1541,17 @@ th.col-target {
 }
 
 /* ---- dero: the upgraded <select>s share the look of the checkbox dropdowns ---- */
-select.native-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  min-width: 0 !important;
-  height: 1px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
+/* The native <select> stays in the page (it holds the value, is submitted and fires the change events) but is
+   taken out of sight. ":root" lifts this rule above every other select rule, whatever their order, so no
+   !important is needed. */
+:root select.native-hidden {
+  position: absolute;
+  width: 1px;
+  min-width: 0;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   opacity: 0;
   overflow: hidden;
   clip-path: inset(50%);
