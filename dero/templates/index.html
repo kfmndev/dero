@@ -1,8 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon, link_actions, notices, link_notices %}
+{% from "_macros.html" import icon, link_actions, notices, link_notices, check_option, created_time, expiry_day, expired_mark, syntax %}
 {% block content %}
 {% set slug_error = error_field in ('slug', 'slug_source', 'alphabet', 'alphabet_custom', 'length') %}
-{% set err_box %}<p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error|rich }}</span>{% endif %}</p>{% endset %}
+{% set err_box %}
+  <p class="form-error" id="new-link-error" role="alert">
+    {%- if error %}{{ icon('alert') }}<span>{{ error|rich }}</span>{% endif -%}
+  </p>
+{%- endset %}
 {% set host = base | replace("https://", "") | replace("http://", "") %}
 <section>
   <h2>New link</h2>
@@ -14,18 +18,22 @@
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <div class="nl-row">
       <label class="grow">Target URL
-        <input name="target" type="url" placeholder="https://example.com/a/long/url" value="{{ form.get('target', '') }}" required
-               {% if error_field == 'target' %}aria-invalid="true" autofocus{% endif %}>
+        <input name="target" type="url" placeholder="https://example.com/a/long/url"
+          value="{{ form.get('target', '') }}" required {% if error_field == 'target' %}aria-invalid="true"
+          autofocus{% endif %}>
       </label>
       <div class="field nl-expires">
         <span class="field-label">Expires</span>
         <span class="nl-expires-row">
         <label class="switch small" title="Expires on a date (UTC)">
-          <input type="checkbox" role="switch" id="new-expiry-switch" aria-label="Link expires"{% if form.get('expires_at') %} checked{% endif %}>
+          <input type="checkbox" role="switch" id="new-expiry-switch"
+            aria-label="Link expires"{% if form.get('expires_at') %} checked{% endif %}>
           <span class="track"></span>
         </label>
-        <input name="expires_at" type="date" value="{{ form.get('expires_at', '') }}" title="Last day the link works (UTC)" aria-label="Expiry date (UTC)"
-               {% if not form.get('expires_at') %}disabled{% endif %} {% if error_field == 'expires_at' %}aria-invalid="true" autofocus{% endif %}>
+        <input name="expires_at" type="date" value="{{ form.get('expires_at', '') }}"
+          title="Last day the link works (UTC)" aria-label="Expiry date (UTC)"
+          {% if not form.get('expires_at') %}disabled{% endif %}
+          {% if error_field == 'expires_at' %}aria-invalid="true" autofocus{% endif %}>
         </span>
       </div>
       <button class="btn primary" id="new-link-submit">{{ icon('plus') }}Create</button>
@@ -34,25 +42,30 @@
     <div class="nl-row nl-slug">
       <div class="field">
         <label class="field-label" for="slug-source">Slug</label>
-        <select name="slug_source" id="slug-source"{% if error_field in ('slug_source', 'alphabet') %} aria-invalid="true" autofocus{% endif %}>
+        <select name="slug_source" id="slug-source"{% if error_field in ('slug_source', 'alphabet') %}
+          aria-invalid="true" autofocus{% endif %}>
           <option value="default"{% if slug_source == 'default' %} selected{% endif %}>Random · default</option>
           <option value="letters"{% if slug_source == 'letters' %} selected{% endif %}>Random · letters only</option>
           <option value="chars"{% if slug_source == 'chars' %} selected{% endif %}>Random · own characters</option>
           <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom slug</option>
         </select>
       </div>
-      <button type="button" class="btn" id="new-link-generate" title="Generate a slug of the selected type, then edit or create it">{{ icon('refresh') }}Generate</button>
+      <button type="button" class="btn" id="new-link-generate"
+        title="Generate a slug of the selected type, then edit or create it">{{ icon('refresh') }}Generate</button>
       <label class="nl-chars" data-when-source="chars">Characters
-        <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}" placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
-               {% if error_field == 'alphabet_custom' %}aria-invalid="true" autofocus{% endif %}>
+        <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}"
+          placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
+          {% if error_field == 'alphabet_custom' %}aria-invalid="true" autofocus{% endif %}>
       </label>
       <label class="nl-length" data-when-source="default letters chars">Length
-        <input name="length" type="number" value="{{ form.get('length', default_length) }}" min="{{ length_range[0] }}" max="{{ length_range[1] }}"
-               {% if error_field == 'length' %}aria-invalid="true" autofocus{% endif %}>
+        <input name="length" type="number" value="{{ form.get('length', default_length) }}"
+          min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
+          autofocus{% endif %}>
       </label>
       <label class="grow" data-when-source="slug">Slug
-        <input name="slug" type="text" placeholder="my-link" value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
-               pattern="[A-Za-z0-9._~\-]{1,64}" {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
+        <input name="slug" type="text" placeholder="my-link" value="{{ form.get('slug', '') }}" maxlength="64"
+          autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9._~\-]{1,64}"
+          {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
       </label>
       <p class="alphabet-hint" aria-live="polite"></p>
       {% if slug_error %}{{ err_box }}{% endif %}
@@ -60,7 +73,8 @@
   </form>
   <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span>Created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}
+    <span>Created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
   {% endfor %}
   </div>
 </section>
@@ -69,28 +83,31 @@
   <h2>{{ 'All links' if g.user.is_admin else 'Your links' }}</h2>
   <p class="hint">Slugs are served from <code>{{ host.rstrip('/') }}</code>. Click a row for details.</p>
 
-  <form method="get" action="{{ url_for('admin.index') }}" class="filters" id="filters" role="search" data-live-url="{{ url_for('admin.visit_stream') }}"
-        data-statuses="{{ statuses|map(attribute=0)|list|tojson|forceescape }}"
-        data-sort-keys="{{ sort_keys|tojson|forceescape }}"
-        data-sort-default-desc="{{ {'created': true, 'visits': true, 'slug': false, 'target': false, 'creator': false, 'expires': false}|tojson|forceescape }}">
+  <form method="get" action="{{ url_for('admin.index') }}" class="filters" id="filters" role="search"
+    data-live-url="{{ url_for('admin.visit_stream') }}"
+    data-statuses="{{ statuses|map(attribute=0)|list|tojson|forceescape }}"
+    data-sort-keys="{{ sort_keys|tojson|forceescape }}"
+    data-sort-default-desc="{{ sort_defaults|tojson|forceescape }}">
     <div class="field grow">
       <span class="field-label">
         <label for="q">Search</label>
-        <button type="button" class="mini" id="q-help-toggle" aria-expanded="false" aria-controls="q-help" title="Search syntax" aria-label="Search syntax">{{ icon('help') }}</button>
+        <button type="button" class="mini" id="q-help-toggle" aria-expanded="false" aria-controls="q-help"
+          title="Search syntax" aria-label="Search syntax">{{ icon('help') }}</button>
       </span>
       <div class="qfield">
         <div class="qhighlight" aria-hidden="true"><span class="qhl"></span></div>
-        <input type="text" name="q" id="q" class="qinput" value="{{ query }}" autocomplete="off" spellcheck="false" autocapitalize="off"
-               placeholder="Search…  e.g. status=expired created_by=julian sort_by=-visits">
+        <input type="text" name="q" id="q" class="qinput" value="{{ query }}" autocomplete="off" spellcheck="false"
+          autocapitalize="off" placeholder="Search…  e.g. status=expired created_by=julian sort_by=-visits">
         <div class="qx-layer"></div>
       </div>
     </div>
     <div class="field">
       <span class="field-label" id="status-label">Status</span>
-      <details class="multi" id="filter-status" data-key="status" data-all="{{ statuses|map(attribute=0)|list|tojson|forceescape }}">
+      <details class="multi" id="filter-status" data-key="status"
+        data-all="{{ statuses|map(attribute=0)|list|tojson|forceescape }}">
         <summary aria-labelledby="status-label"><span class="multi-label">All</span></summary>
         <div class="multi-panel" role="group" aria-labelledby="status-label">
-          {% for value, label in statuses %}<label><input type="checkbox" value="{{ value }}" checked><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
+          {% for value, label in statuses %}{{ check_option(value, label) }}{% endfor %}
         </div>
       </details>
     </div>
@@ -100,7 +117,7 @@
       <details class="multi" id="filter-creator" data-key="creator" data-all="{{ owners|tojson|forceescape }}">
         <summary aria-labelledby="creator-label"><span class="multi-label">Everyone</span></summary>
         <div class="multi-panel" role="group" aria-labelledby="creator-label">
-          {% for o in owners %}<label><input type="checkbox" value="{{ o }}" checked><span>{{ o }}</span>{{ icon('check') }}</label>{% endfor %}
+          {% for o in owners %}{{ check_option(o, o) }}{% endfor %}
         </div>
       </details>
     </div>
@@ -115,74 +132,99 @@
     </div>
     <div class="field">
       <span class="field-label" id="columns-label">Columns</span>
-      <details class="multi" id="filter-columns" data-default="{{ default_cols|join(',') }}" data-cookie="dero_cols" data-cookie-path="{{ admin_path }}" data-all="{{ column_choices|map(attribute=0)|list|tojson|forceescape }}">
-        <summary aria-labelledby="columns-label"><span class="multi-label">{{ cols|length }} of {{ column_choices|length }}</span></summary>
+      <details class="multi" id="filter-columns" data-default="{{ default_cols|join(',') }}" data-cookie="dero_cols"
+        data-cookie-path="{{ admin_path }}" data-all="{{ column_choices|map(attribute=0)|list|tojson|forceescape }}">
+        <summary aria-labelledby="columns-label">
+          <span class="multi-label">{{ cols|length }} of {{ column_choices|length }}</span>
+        </summary>
         <div class="multi-panel multi-right" role="group" aria-labelledby="columns-label">
-          {% for value, label in column_choices %}<label><input type="checkbox" value="{{ value }}"{% if value in cols %} checked{% endif %}{% if cols|length == 1 and value in cols %} disabled{% endif %}><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
+          {% for value, label in column_choices %}
+            {{- check_option(value, label, value in cols, cols|length == 1 and value in cols) -}}
+          {% endfor %}
         </div>
       </details>
     </div>
-    <a class="btn" id="reset-filters" href="{{ url_for('admin.index') }}" aria-disabled="{{ 'false' if (query or cols != default_cols) else 'true' }}"{% if not (query or cols != default_cols) %} tabindex="-1"{% endif %}>{{ icon('rotate') }}Reset</a>
+    {% set can_reset = query or cols != default_cols %}
+    <a class="btn" id="reset-filters" href="{{ url_for('admin.index') }}"
+       aria-disabled="{{ 'false' if can_reset else 'true' }}"{% if not can_reset %} tabindex="-1"{% endif %}>
+      {{- icon('rotate') }}Reset</a>
     <noscript><button class="btn">{{ icon('check') }}Apply</button></noscript>
     <span class="live" id="filter-live">{{ icon('refresh') }}<span>Applies as you change it</span></span>
     <div class="qhelp" id="q-help" hidden>
-      <p><span class="url mono">free text</span> searches slug, target and creator · <span class="url mono">"exact phrase"</span></p>
-      <p><span class="url mono">status=expired,disabled</span> · <span class="url mono">created_by=julian</span> · <span class="url mono">slug=abc</span> · <span class="url mono">target=github</span> · a comma means or</p>
-      <p><span class="url mono">created=2026-11</span> · <span class="url mono">expires=&lt;2027-01-01</span> · <span class="url mono">expires=none</span> dates: a year, month or day (UTC), with <span class="url mono">&lt; &lt;= &gt; &gt;=</span></p>
-      <p><span class="url mono">sort_by=visits</span> · <span class="url mono">sort_by=-visits</span> reverses the usual order (also created, slug, target, creator, expires)</p>
-      <p><span class="url mono">!status=expired</span> or <span class="url mono">status!=expired</span> negates · <span class="url mono">created_by="Anna Maria"</span> for spaces</p>
-      <p><span class="url mono">and</span> <span class="url mono">&amp;&amp;</span> · <span class="url mono">or</span> <span class="url mono">||</span> · <span class="url mono">( )</span> to group, e.g. <span class="url mono">(created_by=julian or created_by=anna) status=active</span></p>
+      <p>{{ syntax('free text') }} searches slug, target and creator · {{ syntax('"exact phrase"') }}</p>
+      <p>{{ syntax('status=expired,disabled') }} · {{ syntax('created_by=julian') }} · {{ syntax('slug=abc') }}
+         · {{ syntax('target=github') }} · a comma means or</p>
+      <p>{{ syntax('created=2026-11') }} · {{ syntax('expires=<2027-01-01') }} · {{ syntax('expires=none') }}
+         dates: a year, month or day (UTC), with {{ syntax('< <= > >=') }}</p>
+      <p>{{ syntax('sort_by=visits') }} · {{ syntax('sort_by=-visits') }} reverses the usual order
+         (also created, slug, target, creator, expires)</p>
+      <p>{{ syntax('!status=expired') }} or {{ syntax('status!=expired') }} negates
+         · {{ syntax('created_by="Anna Maria"') }} for spaces</p>
+      <p>{{ syntax('and') }} {{ syntax('&&') }} · {{ syntax('or') }} {{ syntax('||') }} · {{ syntax('( )') }} to group,
+         e.g. {{ syntax('(created_by=julian or created_by=anna) status=active') }}</p>
     </div>
   </form>
 
   {{ notices('links') }}
 
   {% macro th(key, label, cls='') %}
-  <th class="{{ cls }}"{% if sort == key %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
-    <a href="{{ sort_url(key) }}">{{ label }}{% if sort == key %}<span class="arrow" aria-hidden="true">{{ icon('chevron') }}</span>{% endif %}</a>
+  <th class="{{ cls }}"{% if sort == key %}
+    aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
+    <a href="{{ sort_url(key) }}">{{ label }}
+      {%- if sort == key %}<span class="arrow" aria-hidden="true">{{ icon('chevron') }}</span>{% endif %}</a>
   </th>
   {% endmacro %}
 
   <noscript><style>tr.detail[hidden] { display: table-row !important; }</style></noscript>
 
   <div id="links-results" data-count="{{ links|length }}" data-overall="{{ overall }}">
-  {% if problems %}<p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|join(' · ') }}</span></p>{% endif %}
+  {% if problems %}
+  <p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|join(' · ') }}</span></p>
+  {% endif %}
   <div class="table-wrap">
   <table class="{{ 'no-target' if 'target' not in cols else '' }}">
     <thead><tr>
-      <th></th><th></th>{% for c in cols %}{{ th(c, column_labels[c], 'col-' ~ c ~ (' num' if c == 'visits' else '')) }}{% endfor %}
+      <th></th><th></th>
+      {%- for c in cols %}{{ th(c, column_labels[c], 'col-' ~ c ~ (' num' if c == 'visits' else '')) }}{% endfor %}
     </tr></thead>
     <tbody>
     {% for l in links %}
       {% set expired = l.expires_at and l.expires_at <= now %}
-      <tr class="item {{ '' if l.enabled and not expired else 'off' }}" data-id="{{ l.id }}" data-visits="{{ l.visits }}">
+      <tr class="item {{ '' if l.enabled and not expired else 'off' }}" data-id="{{ l.id }}"
+        data-visits="{{ l.visits }}">
         <td class="narrow lead">
-          <button type="button" class="mini expand" aria-expanded="false" aria-controls="d{{ l.id }}" title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
+          <button type="button" class="mini expand" aria-expanded="false" aria-controls="d{{ l.id }}"
+            title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
         </td>
         <td class="narrow">
           <form method="post" action="{{ url_for('admin.toggle_link', link_id=l.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <input type="hidden" name="back" value="{{ back }}">
-            <label class="switch" title="{{ 'Enabled: click to disable' if l.enabled else 'Disabled: click to enable' }}">
-              <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if l.enabled %} checked{% endif %}>
+            <label class="switch"
+              title="{{ 'Enabled: click to disable' if l.enabled else 'Disabled: click to enable' }}">
+              <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if l.enabled %}
+                checked{% endif %}>
               <span class="track"></span>
             </label>
-            <noscript><button class="btn small">{{ icon('power') }}{{ 'Disable' if l.enabled else 'Enable' }}</button></noscript>
+            <noscript><button class="btn small">
+              {{- icon('power') }}{{ 'Disable' if l.enabled else 'Enable' }}</button></noscript>
           </form>
         </td>
         {% for c in cols %}
         {% if c == 'slug' %}
-        <td class="col-slug nowrap"><span class="cell">{{ l.slug|slug_box }}{{ link_actions(base ~ l.slug, 'slug') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}</span></td>
+        <td class="col-slug nowrap"><span class="cell">{{ l.slug|slug_box }}{{ link_actions(base ~ l.slug, 'slug') }}
+          {{- expired_mark(l.expires_at) if expired }}</span></td>
         {% elif c == 'target' %}
         <td class="col-target target">
-          <span class="cell"><span class="url truncate" title="{{ l.target }}">{{ l.target }}</span>{{ link_actions(l.target, 'target') }}</span>
+          <span class="cell"><span class="url truncate" title="{{ l.target }}">{{ l.target }}</span>
+            {{- link_actions(l.target, 'target') }}</span>
         </td>
         {% elif c == 'creator' %}
         <td class="col-creator nowrap">{{ l.created_by }}</td>
         {% elif c == 'created' %}
-        <td class="col-created nowrap mono"><time class="localtime" datetime="{{ l.created_at }}" title="{{ l.created_at.replace('T', ' ').replace('Z', ' UTC') }}">{{ l.created_at[:16].replace('T', ' ') }}</time></td>
+        <td class="col-created nowrap mono">{{ created_time(l.created_at) }}</td>
         {% elif c == 'expires' %}
-        <td class="col-expires nowrap mono">{% if l.expires_at %}<time class="localtime" data-day datetime="{{ l.expires_at }}" title="{{ l.expires_at[:10] }} UTC">{{ l.expires_at[:10] }}</time>{% else %}–{% endif %}</td>
+        <td class="col-expires nowrap mono">{{ expiry_day(l.expires_at[:10]) if l.expires_at else '–' }}</td>
         {% elif c == 'visits' %}
         <td class="col-visits num mono">{{ l.visits }}</td>
         {% endif %}
@@ -193,30 +235,44 @@
           <div class="details">
             <dl class="details-row">
               {% if 'creator' not in cols %}<div><dt>Created by</dt><dd>{{ l.created_by }}</dd></div>{% endif %}
-              {% if 'created' not in cols %}<div><dt>Created</dt><dd class="mono"><time class="localtime" datetime="{{ l.created_at }}" title="{{ l.created_at.replace('T', ' ').replace('Z', ' UTC') }}">{{ l.created_at[:16].replace('T', ' ') }}</time></dd></div>{% endif %}
+              {% if 'created' not in cols %}
+              <div><dt>Created</dt><dd class="mono">{{ created_time(l.created_at) }}</dd></div>
+              {% endif %}
               <div><dt>Expires</dt>
                 <dd>
-                  <form id="x{{ l.id }}" method="post" action="{{ url_for('admin.update_link', link_id=l.id) }}" class="inline-form edit-form" novalidate
-                        data-reserved="{{ reserved|join(',') }}" data-lookup="{{ url_for('admin.lookup_target') }}" data-exclude="{{ l.id }}">
+                  <form id="x{{ l.id }}" method="post" action="{{ url_for('admin.update_link', link_id=l.id) }}"
+                    class="inline-form edit-form" novalidate data-reserved="{{ reserved|join(',') }}"
+                    data-lookup="{{ url_for('admin.lookup_target') }}" data-exclude="{{ l.id }}">
                     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
                     <input type="hidden" name="back" value="{{ back }}">
                     <label class="switch small" title="Expires on a date (UTC)">
-                      <input type="checkbox" role="switch" class="expiry-switch" aria-label="Link expires"{% if l.expires_at %} checked{% endif %}>
+                      <input type="checkbox" role="switch" class="expiry-switch"
+                        aria-label="Link expires"{% if l.expires_at %} checked{% endif %}>
                       <span class="track"></span>
                     </label>
-                    <input type="date" name="expires_at" value="{{ l.expires_at[:10] if l.expires_at else '' }}" aria-label="Expiry date (UTC)" {{ 'required' if l.expires_at else 'disabled' }}>
+                    <input type="date" name="expires_at" value="{{ l.expires_at[:10] if l.expires_at else '' }}"
+                      aria-label="Expiry date (UTC)" {{ 'required' if l.expires_at else 'disabled' }}>
                   </form>
                 </dd></div>
             </dl>
             <dl class="details-row">
               <div class="grow-2"><dt>Target</dt>
                 <dd class="field-row">
-                  <input type="url" name="target" form="x{{ l.id }}" class="url-input" value="{{ l.target }}" required maxlength="2048" spellcheck="false" aria-label="Target URL">
+                  <input type="url" name="target" form="x{{ l.id }}" class="url-input" value="{{ l.target }}" required
+                    maxlength="2048" spellcheck="false" aria-label="Target URL">
                   {{ link_actions(l.target, 'target') }}
                 </dd></div>
               <div class="grow-1"><dt>Short link</dt>
                 <dd class="field-row">
-                  <span class="slug-group"><span class="slug-prefix">{{ base }}</span><span class="slug-edit"><span class="slug-hl" aria-hidden="true"></span><input type="text" name="slug" form="x{{ l.id }}" class="url-input" value="{{ l.slug }}" required maxlength="64" pattern="[A-Za-z0-9._~\-]{1,64}" autocomplete="off" spellcheck="false" aria-label="Slug slug"></span></span>
+                  <span class="slug-group">
+                    <span class="slug-prefix">{{ base }}</span>
+                    <span class="slug-edit">
+                      <span class="slug-hl" aria-hidden="true"></span>
+                      <input type="text" name="slug" form="x{{ l.id }}" class="url-input" value="{{ l.slug }}"
+                             required maxlength="64" pattern="[A-Za-z0-9._~\-]{1,64}" autocomplete="off"
+                             spellcheck="false" aria-label="Slug">
+                    </span>
+                  </span>
                   {{ link_actions(base ~ l.slug, 'slug') }}
                 </dd></div>
             </dl>
@@ -229,20 +285,30 @@
                 <input type="hidden" name="back" value="{{ back }}">
                 <button class="btn small danger">{{ icon('trash') }}Delete</button>
               </form>
-              <button type="button" class="btn small" data-discard="x{{ l.id }}" hidden disabled>{{ icon('rotate') }}Discard</button>
+              <button type="button" class="btn small" data-discard="x{{ l.id }}" hidden disabled>
+                {{- icon('rotate') }}Discard</button>
               <button type="submit" form="x{{ l.id }}" class="btn small" disabled>{{ icon('check') }}Update</button>
             </div>
           </div>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="{{ 2 + cols|length }}" class="empty">{{ 'No links match.' if filtered else 'No links yet.' }}</td></tr>
+      <tr><td colspan="{{ 2 + cols|length }}" class="empty">
+        {{- 'No links match.' if filtered else 'No links yet.' }}</td></tr>
     {% endfor %}
     </tbody>
-    {% if 'visits' in cols %}<tfoot><tr><td colspan="{{ 2 + cols.index('visits') }}">Total visits</td><td class="num mono">{{ total }}</td>{% for c in cols[cols.index('visits') + 1:] %}<td></td>{% endfor %}</tr></tfoot>{% endif %}
+    {% if 'visits' in cols %}
+    <tfoot><tr>
+      <td colspan="{{ 2 + cols.index('visits') }}">Total visits</td><td class="num mono">{{ total }}</td>
+      {%- for c in cols[cols.index('visits') + 1:] %}<td></td>{% endfor %}
+    </tr></tfoot>
+    {% endif %}
   </table>
   </div>
-  <p class="meta">{% if filtered %}Showing {{ links|length }} of {{ overall }} links{% else %}{{ overall }} link{{ '' if overall == 1 else 's' }}{% endif %}</p>
+  <p class="meta">
+    {%- if filtered %}Showing {{ links|length }} of {{ overall }} links
+    {%- else %}{{ overall }} link{{ '' if overall == 1 else 's' }}{% endif -%}
+  </p>
   </div>
 </section>
 {% endblock %}

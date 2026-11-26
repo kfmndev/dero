@@ -106,7 +106,7 @@ def render_index(form=None, error=None, error_field=None):
         "index.html", links=links, total=sum(l["visits"] for l in links), overall=overall,
         base=base_url(), query=text, problems=parsed.problems, owners=owners,
         statuses=[(v, STATUS_LABELS[v]) for v in query.STATUSES], sort_options=sort_options,
-        sort_value=query.sort_value(sort_key, reverse), sort_keys=list(query.SORT_KEYS),
+        sort_value=query.sort_value(sort_key, reverse), sort_keys=list(query.SORT_KEYS), sort_defaults=query.DESC_BY_DEFAULT,
         sort=sort_key, direction=direction, sort_url=sort_url, now=now,
         cols=_visible_columns(), default_cols=DEFAULT_COLUMNS, column_choices=COLUMNS, column_labels=dict(COLUMNS),
         admin_path=current_app.config["ADMIN_PATH"],

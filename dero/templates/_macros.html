@@ -3,17 +3,29 @@
 {%- endmacro -%}
 
 {%- macro link_actions(url, what='link') -%}
-<span class="link-actions"><a class="mini" href="{{ url }}" target="_blank" rel="noopener noreferrer" title="Open {{ what }}" aria-label="Open {{ what }}">{{ icon('external') }}</a><button type="button" class="mini copy" data-copy="{{ url }}" title="Copy {{ what }}" aria-label="Copy {{ what }}">{{ icon('copy') }}</button></span>
+<span class="link-actions">
+  <a class="mini" href="{{ url }}" target="_blank" rel="noopener noreferrer"
+     title="Open {{ what }}" aria-label="Open {{ what }}">{{ icon('external') }}</a>
+  <button type="button" class="mini copy" data-copy="{{ url }}"
+          title="Copy {{ what }}" aria-label="Copy {{ what }}">{{ icon('copy') }}</button>
+</span>
 {%- endmacro -%}
 
 {%- macro link_notices(id) -%}
 <div class="notices" id="link-{{ id }}-notices">
-{%- for category, message in get_flashed_messages(with_categories=true) if category == 'link:' ~ id or category == 'link:' ~ id ~ ':error' %}
+{%- for category, message in get_flashed_messages(with_categories=true) if category in ('link:' ~ id, 'link:' ~ id ~ ':error') %}
   {%- if category.endswith(':error') %}
   <p class="form-error" role="alert">{{ icon('alert') }}<span>{{ message|rich }}</span></p>
   {%- else %}{% set m = message|fromjson %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span class="note-line">{{ m.slug|slug_box }}<span>{{ 'updated' if m.changes else 'is up to date' }}</span>
-    {%- for label, value in m.changes %}<span>· {{ label }}</span>{% if value and label == 'expires' %}<time class="localtime" data-day datetime="{{ value }}T23:59:59Z" title="{{ value }} UTC">{{ value }}</time>{% elif value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}{% endfor %}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}
+    <span class="note-line">
+      {{- m.slug|slug_box }}<span>{{ 'updated' if m.changes else 'is up to date' }}</span>
+      {%- for label, value in m.changes %}<span>· {{ label }}</span>
+        {%- if value and label == 'expires' %}{{ expiry_day(value) }}
+        {%- elif value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}
+      {%- endfor -%}
+    </span>
+  </p>
   {%- endif %}
 {%- endfor %}
 </div>
@@ -21,8 +33,41 @@
 
 {%- macro notices(scope) -%}
 <div class="notices" id="{{ scope }}-notices">
-{%- for category, message in get_flashed_messages(with_categories=true) if category == scope or category == scope ~ ':error' %}
-  <p class="{{ 'form-error' if category.endswith(':error') else 'form-ok' }}" role="{{ 'alert' if category.endswith(':error') else 'status' }}">{{ icon('alert' if category.endswith(':error') else 'check') }}<span>{{ message }}</span></p>
+{%- for category, message in get_flashed_messages(with_categories=true) if category in (scope, scope ~ ':error') %}
+  {% set failed = category.endswith(':error') %}
+  <p class="{{ 'form-error' if failed else 'form-ok' }}" role="{{ 'alert' if failed else 'status' }}">
+    {{- icon('alert' if failed else 'check') }}<span>{{ message }}</span></p>
 {%- endfor %}
 </div>
+{%- endmacro -%}
+
+{#- one tick-box option of a dropdown panel (status, created by, columns) #}
+{%- macro check_option(value, label, checked=true, disabled=false) -%}
+<label>
+  <input type="checkbox" value="{{ value }}"{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}>
+  <span>{{ label }}</span>{{ icon('check') }}
+</label>
+{%- endmacro -%}
+
+{#- a moment (created): the viewer's local date and time, the UTC original on hover #}
+{%- macro created_time(ts) -%}
+<time class="localtime" datetime="{{ ts }}" title="{{ ts.replace('T', ' ').replace('Z', ' UTC') }}">
+  {{- ts[:16].replace('T', ' ') -}}
+</time>
+{%- endmacro -%}
+
+{#- a day that was picked (expiry): shown as that day, whatever the viewer's zone #}
+{%- macro expiry_day(day) -%}
+<time class="localtime" data-day datetime="{{ day }}T23:59:59Z" title="{{ day }} UTC">{{ day }}</time>
+{%- endmacro -%}
+
+{#- the small clock after an expired link #}
+{%- macro expired_mark(ts) -%}
+<span class="expired-mark" data-expired="{{ ts }}" role="img"
+      aria-label="Expired on {{ ts[:10] }}" title="Expired on {{ ts[:10] }}">{{ icon('clock') }}</span>
+{%- endmacro -%}
+
+{#- a piece of query syntax in the search help #}
+{%- macro syntax(text) -%}
+<span class="url mono">{{ text }}</span>
 {%- endmacro -%}

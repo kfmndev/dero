@@ -31,9 +31,16 @@ Examples: `feat(rules): add regex match type`, `fix: reject javascript: targets`
 
 ## Code layout
 
-- `dero/__init__.py` – the app factory and the admin routes; `query.py` – the search language; `resolve.py` – slugs, URLs
-  and rules; `auth.py`, `db.py`, `passwd.py` – users and storage.
-- `dero/templates/` – Jinja pages; `dero/static/style.css` – one stylesheet, in commented sections.
+- `dero/__init__.py` – the app factory only. Around it: `forms.py` (reading the New link and edit forms: slugs,
+  expiry), `display.py` (how slugs and short links are drawn: the template filters), `urls.py` (the public base
+  address), `query.py` (the search language), `resolve.py` (slugs, URLs and rules), `auth.py`, `db.py`, `passwd.py`
+  (users and storage).
+- `dero/admin/` – the admin UI as a blueprint: `links.py` (list, create, edit, delete), `live.py` (the live-visits
+  stream), `rules.py` (pattern rules and the fallback), `listing.py` (building the links page), `helpers.py`.
+- `dero/templates/` – Jinja pages. Lines stay under about 120 characters: attributes wrap one per line, and
+  repeated markup lives in macros (`_macros.html`). Where a template breaks a line between inline elements it uses
+  `{{-` / `{%-` so no stray space appears in the page.
+- `dero/static/style.css` – one stylesheet in commented sections (see the note at its top: the order of rules matters).
 - `dero/static/js/` – the page's scripts. They are plain scripts that share one scope and are listed in
   `templates/base.html`, **in load order** (later files use the functions of earlier ones):
 

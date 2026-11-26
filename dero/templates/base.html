@@ -30,9 +30,16 @@
   </header>
 
   <nav class="topnav">
-    <a href="{{ url_for('admin.index') }}"{% if request.endpoint == 'admin.index' %} aria-current="page"{% endif %}>Links</a>
-    {% if g.user.is_admin %}<a href="{{ url_for('admin.rules') }}"{% if request.endpoint == 'admin.rules' %} aria-current="page"{% endif %}>Rules &amp; fallback</a>{% endif %}
-    <button type="button" class="who" id="settings-open" aria-haspopup="dialog" title="Settings">{{ icon('sliders') }}<span>{{ g.user.username }}</span><span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span>{{ icon('chevron') }}</button>
+    <a href="{{ url_for('admin.index') }}"
+       {%- if request.endpoint == 'admin.index' %} aria-current="page"{% endif %}>Links</a>
+    {% if g.user.is_admin %}
+    <a href="{{ url_for('admin.rules') }}"
+       {%- if request.endpoint == 'admin.rules' %} aria-current="page"{% endif %}>Rules &amp; fallback</a>
+    {% endif %}
+    <button type="button" class="who" id="settings-open" aria-haspopup="dialog" title="Settings">
+      {{ icon('sliders') }}<span>{{ g.user.username }}</span>
+      <span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span>{{ icon('chevron') }}
+    </button>
   </nav>
 
   {% block content %}{% endblock %}
@@ -40,9 +47,12 @@
 <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
   <form method="dialog">
     <h2 id="confirm-title"></h2>
-    <p id="confirm-text" class="confirm-urls"><span id="confirm-name"></span>{{ icon('arrow') }}<span id="confirm-detail"></span></p>
+    <p id="confirm-text" class="confirm-urls">
+      <span id="confirm-name"></span>{{ icon('arrow') }}<span id="confirm-detail"></span>
+    </p>
     <div class="dialog-actions">
-      <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">{{ icon('trash') }}<span>Delete</span></button>
+      <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">
+        {{- icon('trash') }}<span>Delete</span></button>
       <button type="submit" value="no" class="btn" autofocus>{{ icon('x') }}Cancel</button>
     </div>
   </form>
@@ -53,17 +63,25 @@
     <h2 id="settings-title">Settings</h2>
     <div class="setting">
       <label class="switch small">
-        <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %} checked{% endif %}>
+        <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %}
+          checked{% endif %}>
         <span class="track"></span>
       </label>
-      <div><strong id="hl-name">Colour slugs</strong><span>Digits blue and symbols red, like Bitwarden shows passwords.</span></div>
+      <div>
+        <strong id="hl-name">Colour slugs</strong>
+        <span>Digits blue and symbols red, like Bitwarden shows passwords.</span>
+      </div>
     </div>
     <div class="setting">
       <label class="switch small">
         <input type="checkbox" role="switch" id="live-switch" aria-labelledby="live-name">
         <span class="track"></span>
       </label>
-      <div><strong id="live-name">Live visits</strong><span>Marks a slug when it is visited and keeps the counts current. Only the counter changes: no visit is recorded.</span></div>
+      <div>
+        <strong id="live-name">Live visits</strong>
+        <span>Marks a slug when it is visited and keeps the counts current.
+              Only the counter changes: no visit is recorded.</span>
+      </div>
     </div>
     <p class="setting-note">Saved in this browser.</p>
   </form>
@@ -72,7 +90,8 @@
   <a href="{{ build.repo_url }}" target="_blank" rel="noopener">{{ icon('github') }}dero v{{ build.version }}</a>
   {%- if build.commit %}
   <span aria-hidden="true">&middot;</span>
-  <a href="{{ build.commit_url }}" target="_blank" rel="noopener" title="Commit {{ build.commit }}"><code>{{ build.short_commit }}</code></a>
+  <a href="{{ build.commit_url }}" target="_blank" rel="noopener"
+     title="Commit {{ build.commit }}"><code>{{ build.short_commit }}</code></a>
   {%- if build.dirty %} <span title="Running with uncommitted changes">(modified)</span>{% endif %}
   {%- endif %}
 </footer>

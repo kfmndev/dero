@@ -18,6 +18,16 @@ def js_source(client):
     return "\n".join(client.get(path).get_data(as_text=True) for path in paths)
 
 
+def flat_css(css):
+    """The stylesheet on one line per rule, whatever its formatting, for assertions about exact declarations."""
+    return re.sub(r"\s+", " ", css)
+
+
+def flat(html):
+    """Page markup with the template's line breaks and indentation removed, for assertions about exact tags."""
+    return re.sub(r">\s+<", "><", re.sub(r"\s+", " ", html))
+
+
 @pytest.fixture
 def app(tmp_path):
     return create_app({"DATABASE": str(tmp_path / "t.db"), "SECRET_KEY": "test", "TESTING": True,
@@ -400,7 +410,7 @@ def test_an_already_expired_link_can_be_created(client):
     r = post(client, "/admin/links", USER, target="https://example.com/x", slug="late", expires_at=yesterday)
     assert r.status_code == 302
     assert client.get("/late").status_code == 404                                  # expired, so it doesn't redirect
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert re.search(r'<span class="expired-mark" data-expired="[^"]+" role="img" aria-label="Expired on \d{4}-\d\d-\d\d"', html) and 'class="badge"' not in html
     assert not any(" min=" in tag for tag in re.findall(r'<input[^>]*type="date"[^>]*>', html))     # past days are selectable
 
@@ -547,7 +557,7 @@ def test_icons_share_one_wrapper_and_header_has_tagline(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert html.count('class="link-actions"') == html.count('data-copy="') >= 4
     assert '<span class="tagline">URL Shortener</span>' in html
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(r"\.tagline \{ font: 600 10px/1 var\(--font-text\);", css)      # 10px Geist
 
 
@@ -753,7 +763,7 @@ def test_past_expiry_dates_are_accepted_when_editing(client, app):
 
 # ---------------------------------------------------------------- delete dialog
 def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     p = html[html.index('id="confirm-text"'):html.index("</p>", html.index('id="confirm-text"'))]
     assert re.search(r'<span id="confirm-name"></span><svg class="icon"[^>]*><use href="[^"]*#arrow"/></svg><span id="confirm-detail"></span>', p)
     css = client.get("/static/style.css").get_data(as_text=True)
@@ -847,7 +857,7 @@ def test_generator_gives_up_politely_when_the_alphabet_is_exhausted(client):
 
 
 def test_new_link_form_markup_and_remembered_choice(client):
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert "slug_mode" not in html and "segmented" not in html                              # the two-way toggle is gone
     assert re.search(r'<select name="slug_source" id="slug-source">\s*<option value="default" selected>Random · default</option>'
                      r'\s*<option value="letters">Random · letters only</option>\s*<option value="chars">Random · own characters</option>'
@@ -1004,7 +1014,7 @@ def test_problems_are_shown_briefly_above_the_table(client, app):
 
 def test_filter_bar_markup(client, app):
     seed_query_links(client, app)
-    html = client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired sortby=-visits"}).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired sortby=-visits"}).get_data(as_text=True))
     assert 'value="status=expired sortby=-visits"' in html and 'class="qhighlight"' in html and 'id="q-help"' in html
     assert re.search(r'<details class="multi" id="filter-status" data-key="status"', html)
     assert re.findall(r'<input type="checkbox" value="(\w+)" checked><span>(\w+)</span>', html[html.index('id="filter-status"'):html.index('id="filter-creator"')]) == [
@@ -1055,7 +1065,7 @@ def table_columns(html):
 
 def test_default_columns_are_the_current_ones(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert table_columns(html) == ["col-slug", "col-target", "col-visits"]
     assert 'id="filter-columns"' in html and '<span class="multi-label">3 of 6</span>' in html
     assert re.findall(r'<input type="checkbox" value="(\w+)"( checked)?><span>([^<]+)</span>', html[html.index('id="filter-columns"'):html.index('id="reset-filters"')]) == [
@@ -1081,10 +1091,10 @@ def test_the_cookie_chooses_the_columns(client, app):
 def test_columns_can_be_reduced_and_the_footer_follows(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     client.set_cookie("dero_cols", "target")
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert table_columns(html) == ["col-target"] and "<tfoot>" not in html                      # no visits column, no total row
     client.set_cookie("dero_cols", "creator,visits")
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert re.search(r'<tfoot><tr><td colspan="3">Total visits</td><td class="num mono">0</td></tr></tfoot>', html)   # the total sits under Visits
     client.delete_cookie("dero_cols")
     assert table_columns(client.get("/admin/", headers=USER).get_data(as_text=True)) == ["col-slug", "col-target", "col-visits"]
@@ -1099,7 +1109,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     assert "sort_by%3D-created" in html                                                           # (created is the current sort, so its link reverses it)
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')                           # the clock comes after the open/copy icons
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert "--control-h: 30px" in css and re.search(r"td\.col-target \{ width: 100%; max-width: 0; \}", css)
 
 
@@ -1119,7 +1129,7 @@ def test_selects_are_plain_in_the_html_and_upgraded_by_the_script(client):
 def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
     js = js_source(client)
     assert 'q-term q-k-${t.key}' in js and 'q-term q-k-text' in js                               # every term kind gets its own class
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     for kind in ("text", "status", "creator", "slug", "target", "sortby"):
         assert re.search(rf"\.q-k-{kind} \{{ --c: var\(--q-{kind}\); \}}", css), kind
     colours = re.search(r":root \{ --q-text: var\(--muted\); --q-status: (#\w+); --q-creator: (#\w+); --q-slug: (#\w+); --q-target: (#\w+);", css).groups()
@@ -1170,7 +1180,7 @@ def test_search_bar_has_a_layer_for_the_remove_buttons(client):
 def test_expired_mark_is_a_clock_with_the_date_not_a_text_badge(client, app):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     expire(app, "abc")
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     mark = re.search(r'<span class="expired-mark" data-expired="[^"]+" role="img" aria-label="([^"]+)" title="([^"]+)">(<svg.*?</svg>)</span>', html)
     assert mark and mark.group(1) == mark.group(2) == "Expired on 2000-01-01" and "#clock" in mark.group(3)
     assert "badge" not in html.split("<tbody>")[1].split("</tbody>")[0]
@@ -1192,16 +1202,16 @@ def test_slug_colour_option_and_small_expiry_switch(client):
     js = js_source(client)
     assert "dero_hl=" in js and "function coloredSlug" in js and "new-expiry-switch" in js
 def test_detail_inputs_use_card_background(client):
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(r"tr\.detail input\[type=\"text\"\][^{]*tr\.detail \.slug-group \{ background: var\(--card\)", css)
 
 
 
 def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(r"code, \.url, \.mono, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
     assert "padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px;" in css                                          # chips: the x sits in the padding
-    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    html = flat(client.get("/admin/", headers=USER).get_data(as_text=True))
     assert re.search(r'<label><input type="checkbox" value="active" checked><span>[^<]*</span><svg', html)       # checkbox dropdowns tick like the single ones
 
 
@@ -1328,7 +1338,7 @@ def test_detail_buttons_are_the_last_thing_in_the_details(client):
 
 
 def test_operators_are_pills_with_the_same_padding_as_terms_and_visits_are_mono(client):
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(r"\.q-op \{ padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px;", css)
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
@@ -1358,13 +1368,13 @@ def test_operators_stuck_to_other_tokens_are_not_highlighted(client):
 
 
 def test_operators_are_outlined_and_groups_are_not_tinted(client):
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(r"\.q-op \{ padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px; border-radius: 4px; background: none; box-shadow: 0 0 0 1px", css)
     assert ".q-group {" not in css and ".q-group .q-group" not in css                 # parentheses and groups carry no highlight
 
 
 def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert "label, .label, .field-label { font-family: var(--font-head); }" in css
     assert "input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary { font-family: var(--font-text); }" in css
 
@@ -1378,7 +1388,7 @@ def test_row_cells_centre_their_content(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(r'<td class="col-slug nowrap"><span class="cell"><code class="slug">abc</code>', html)
-    css = client.get("/static/style.css").get_data(as_text=True)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert ".col-slug .cell" in css and "td.narrow form { margin: 0; display: flex; align-items: center; }" in css
 
 

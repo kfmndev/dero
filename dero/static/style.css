@@ -1,3 +1,11 @@
+/* dero stylesheet.
+   Layout of this file: fonts, theme tokens (light and dark), the base styles shared with the podutils project,
+   then one commented section per component ("---- dero: ..."), and at the end the sections that refine
+   earlier ones (search chips, the slug editor, settings, live visits, labels).
+   The order matters: rules of equal weight are decided by their position, so a later section is allowed to
+   override an earlier one, and a rule should not be moved above something it overrides.
+   Search for "---- " to jump between sections. */
+
 /* ---- Fonts (same as kfmn.it) ----
    Geist for text, Hubot Sans for headings/buttons, JetBrains Mono for code.
    Hubot Sans takes "I" and "J" from Mona Sans, as on kfmn.it. */
@@ -237,14 +245,13 @@ textarea {
   resize: vertical;
 }
 
-select { height: var(--control-h); padding: 0 8px; cursor: pointer; }
+select { height: var(--control-h); cursor: pointer; }
 
 input[type="color"] { padding: 3px; cursor: pointer; }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
 input[type="color"]::-moz-color-swatch { border: 0; border-radius: 3px; }
 
-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 input[type="checkbox"] { accent-color: var(--accent); }
 
@@ -277,7 +284,13 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 
 /* ---- dero: navigation ---- */
-.topnav { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
 
 .topnav a {
   padding: 8px 14px;
@@ -291,7 +304,20 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 .topnav a:hover { color: var(--text); }
 .topnav a[aria-current="page"] { color: var(--text); border-color: var(--accent-2-ink); }
-.topnav .who { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.topnav .who {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
 .topnav .who:hover, .topnav .who:focus-visible { border-color: var(--border); color: var(--text); }
 .topnav .who .icon { width: 14px; height: 14px; vertical-align: 0; }
 .topnav .who .role { margin-left: 4px; font-family: var(--font-mono); font-size: 12px; }
@@ -326,7 +352,11 @@ input[type="url"], input[type="date"], input[type="number"], input[type="text"] 
   border-radius: 6px;
 }
 
-input[type="url"]:focus, input[type="date"]:focus { outline: none; border-color: var(--accent-2-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
+input[type="url"]:focus, input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent-2-ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent);
+}
 
 @media (max-width: 760px) {
   .form-grid, .form-grid.rules { grid-template-columns: 1fr; }
@@ -344,13 +374,13 @@ input[type="url"]:focus, input[type="date"]:focus { outline: none; border-color:
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
 th {
-  text-align: left; padding: 8px 8px;
+  text-align: left;
   font: 600 12px/1.4 var(--font-head);
   text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
-td { padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+td { border-bottom: 1px solid var(--border); vertical-align: middle; }
 tbody tr:last-child td { border-bottom: 0; }
 tfoot td { border-top: 1px solid var(--border); border-bottom: 0; color: var(--muted); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -377,10 +407,44 @@ tr.off td:last-child { opacity: 1; }
 .hint + form { margin-top: 12px; }
 
 /* ---- dero: switch (enable/disable) ---- */
-.switch { position: relative; display: inline-block; width: 30px; height: 18px; margin: 0; vertical-align: middle; cursor: pointer; }
-.switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
-.switch .track { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--field); transition: background-color .15s, border-color .15s; }
-.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s, background-color .15s; }
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.switch .track {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--field);
+  transition: background-color .15s, border-color .15s;
+}
+.switch .track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform .15s, background-color .15s;
+}
 .switch input:checked + .track { background: var(--accent-2); border-color: var(--accent-2); }
 .switch input:checked + .track::after { transform: translateX(12px); background: var(--on-accent-2); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
@@ -399,20 +463,38 @@ th a:hover { color: var(--text); }
 th[aria-sort] a { color: var(--text); }
 th .arrow { color: var(--accent-ink); margin-left: 4px; }
 th .arrow .icon { width: 12px; height: 12px; vertical-align: -1px; }
-th[aria-sort="ascending"] .arrow .icon { transform: rotate(180deg); }   /* chevron points down for descending, up for ascending */
+th[aria-sort="ascending"] .arrow .icon {
+  transform: rotate(180deg);
+}  /* chevron points down for descending, up for ascending */
 
 /* ---- dero: small icon buttons next to links ---- */
 .mini {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; padding: 0; vertical-align: middle;
-  border: 0; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; text-decoration: none;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: none;
 }
 .mini:hover { color: var(--accent-2-ink); }
 .mini .icon { width: 14px; height: 14px; vertical-align: 0; }
 .mini.done { color: var(--accent-2-ink); }
 
 /* ---- dero: live filter indicator (like podutils) ---- */
-.live { flex: 0 0 100%; display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 18px; margin: -4px 0 0; color: var(--muted); font-size: 12px; transition: color .15s; }
+.live {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 18px;
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  transition: color .15s;
+}
 .live.updated { color: var(--accent-2-ink); }
 .live.busy .icon { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -424,7 +506,11 @@ tr.item:hover td { background: color-mix(in srgb, var(--field) 70%, transparent)
 .narrow { width: 1%; }
 .expand { margin: 0; }
 td.lead { padding-right: 0; }
-td.narrow form { margin: 0; display: flex; align-items: center; }   /* the switch is centred in the row like everything else */
+td.narrow form {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}  /* the switch is centred in the row like everything else */
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
@@ -435,21 +521,47 @@ tr.detail[hidden] { display: none; }
 .details-row > div { min-width: 0; }
 .details-row .grow-2 { flex: 2 1 22rem; }
 .details-row .grow-1 { flex: 1 1 17rem; }
-.details dt { color: var(--muted); font: 600 11px/1.4 var(--font-head); text-transform: uppercase; letter-spacing: .05em; }
+.details dt {
+  color: var(--muted);
+  font: 600 11px/1.4 var(--font-head);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
 .details dd { margin: 2px 0 0; word-break: break-word; }
 .details .wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: form feedback ---- */
-.form-error, .form-warn, .form-ok { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.form-error, .form-warn, .form-ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 14px;
+}
 .form-error { color: var(--err); }
 .form-warn { color: var(--warn); }
 .form-error:empty, .form-warn:empty { display: none; }
 .form-ok { color: var(--accent-2-ink); }
-input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 18%, transparent); }
+input[aria-invalid="true"], input[aria-invalid="true"]:focus {
+  border-color: var(--err);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 18%, transparent);
+}
 
 .target .cell { display: flex; align-items: center; }
-.target .truncate { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }   /* always the last thing in the details */
+.target .truncate {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}  /* always the last thing in the details */
 .detail-actions form { margin: 0; }
 tr.detail .btn:not(.primary) { background: var(--card); }
 
@@ -501,7 +613,14 @@ option { background: var(--card); color: var(--text); }
   select, ::picker(select) { appearance: base-select; }
 
   /* a flex box keeps the text left and the arrow right on one line (the filters and form grids set display: block) */
-  select, .filters select, .form-grid select { display: flex; align-items: center; justify-content: space-between; gap: 8px; background-image: none; padding: 0 8px 0 10px; }
+  select, .filters select, .form-grid select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background-image: none;
+    padding: 0 8px 0 10px;
+  }
 
   select::picker-icon {
     content: "";
@@ -544,7 +663,14 @@ code.slug { font-size: 13px; color: var(--text); }   /* the compact short link k
 .url.wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: the open + copy icons: same grouping and spacing everywhere ---- */
-.link-actions { display: inline-flex; align-items: center; gap: 1px; margin-left: 4px; vertical-align: middle; flex: none; }
+.link-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 4px;
+  vertical-align: middle;
+  flex: none;
+}
 .link-actions .mini { width: 18px; height: 18px; color: var(--muted); }
 .link-actions .mini:hover, .link-actions .mini.done { color: var(--accent-2-ink); }
 
@@ -553,22 +679,58 @@ input:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---- dero: brand ---- */
 .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.tagline { font: 600 10px/1 var(--font-text); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
+.tagline {
+  font: 600 10px/1 var(--font-text);
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: var(--muted);
+  white-space: nowrap;
+}
 
 /* rules table: switch and delete button side by side */
 .actions .switch { margin-right: 6px; }
-input[data-warn], input[data-warn]:focus { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
+input[data-warn], input[data-warn]:focus {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent);
+}
 
 /* ---- dero: editable target and short link in the details ---- */
 .field-row { display: flex; align-items: center; min-width: 0; }
 .url-input { min-width: 0; }
 input.url-input { font-size: 13px; }
-.slug-group input.url-input { font-family: var(--font-mono); }   /* only the short link is mono */
 .field-row > input.url-input { flex: 1 1 auto; width: 100%; }
-.slug-group { display: flex; flex: 1 1 auto; min-width: 0; align-items: stretch; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
-.slug-group:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
-.slug-prefix { display: flex; align-items: center; padding: 0 4px 0 10px; font: 13px var(--font-text); color: var(--muted); white-space: nowrap; }
-.slug-group input.url-input { flex: 1 1 6rem; width: 100%; height: auto; border: 0; border-radius: 0; background: transparent; padding-left: 0; box-shadow: none; }
+.slug-group {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: stretch;
+  height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--field);
+}
+.slug-group:focus-within {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent);
+}
+.slug-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 10px;
+  font: 13px var(--font-text);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.slug-group input.url-input {
+  flex: 1 1 6rem;
+  width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding-left: 0;
+  box-shadow: none;
+}
 .slug-group input.url-input:focus { outline: none; box-shadow: none; }
 .details input[aria-invalid="true"], .slug-group:has(input[aria-invalid="true"]) { border-color: var(--err); }
 
@@ -576,10 +738,22 @@ input.url-input { font-size: 13px; }
 .confirm-urls { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .confirm-urls { font-size: 13px; }
 .confirm-urls #confirm-name { display: flex; align-items: center; flex-wrap: wrap; max-width: 100%; }
-.confirm-base { color: var(--muted); margin-right: 3px; overflow-wrap: anywhere; }     /* the base address: normal font, like in the details */
+.confirm-base {
+  color: var(--muted);
+  margin-right: 3px;
+  overflow-wrap: anywhere;
+}  /* the base address: normal font, like in the details */
 .confirm-urls code.slug { font-size: 13px; }
-.confirm-urls #confirm-detail { color: var(--text); overflow-wrap: anywhere; }          /* the target: a plain URL */
-.confirm-urls .icon { flex: none; margin-left: 12px; color: var(--muted); transform: rotate(90deg); }   /* points down, from the short link to its target */
+.confirm-urls #confirm-detail {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}  /* the target: a plain URL */
+.confirm-urls .icon {
+  flex: none;
+  margin-left: 12px;
+  color: var(--muted);
+  transform: rotate(90deg);
+}  /* points down, from the short link to its target */
 
 /* ---- dero: localized times (the original UTC text is the tooltip) ---- */
 time.localtime { cursor: help; text-decoration: underline dotted var(--border); text-underline-offset: 4px; }
@@ -592,7 +766,6 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 .nl-row label input, .nl-row label select { margin-top: 4px; }
 .nl-row input[type="date"] { width: auto; }
 .nl-length input { width: 5.5rem; }
-.nl-chars input { width: 13rem; }
 .field-label { display: block; margin: 0 0 4px; font-weight: 600; font-size: 13px; }
 
 
@@ -602,35 +775,91 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 
 /* ---- dero: search bar with a highlighted query, checkbox dropdowns ---- */
 .filters .field { margin: 0; }
-.filters .field-label { display: flex; align-items: center; gap: 4px; margin: 0 0 4px; font-weight: 600; font-size: 13px; line-height: 1.5; }
+.filters .field-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.5;
+}
 .filters .field-label label { margin: 0; font: inherit; }
 .filters select { margin-top: 0; }
 
-.qfield { position: relative; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
-.qfield:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
+.qfield {
+  position: relative;
+  height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--field);
+  overflow: hidden;
+}
+.qfield:focus-within {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent);
+}
 /* the coloured copy sits behind the real input, whose own text is invisible; both use the same font so they line up */
-.qhighlight { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 11px; overflow: hidden; pointer-events: none; white-space: pre; font: 400 13px/1 var(--font-text); letter-spacing: normal; color: var(--text); }
+.qhighlight {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font: 400 13px/1 var(--font-text);
+  letter-spacing: normal;
+  color: var(--text);
+}
 .qhl { display: inline-block; white-space: pre; }
 .qfield input.qinput, .qfield input.qinput:focus {
   position: relative; display: block; width: 100%; height: 100%; margin: 0; padding: 0 11px;
   border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none;
-  color: transparent; caret-color: var(--text); font: 400 13px/1 var(--font-text); letter-spacing: normal; white-space: pre;
+  color: transparent;
+  caret-color: var(--text);
+  font: 400 13px/1 var(--font-text);
+  letter-spacing: normal;
+  white-space: pre;
 }
 .qfield input.qinput::placeholder { color: var(--muted); }
-.qfield input.qinput::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); color: transparent; }
+.qfield input.qinput::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: transparent;
+}
 
 /* pieces of the query */
 .q-eq, .q-op, .q-op-tight { color: var(--muted); }
-/* and / or / && / || are outlined like a chip without its background, with the same padding as the terms, so the space is the same on both sides */
-.q-op { padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px; border-radius: 4px; background: none; box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent); }   /* same size as a chip, outline only */
+/* and / or / && / || are outlined like a chip, without its background, with the same padding as the terms,
+   so the space is the same on both sides */
+.q-op {
+  padding: 1px 12px 1px 5px;
+  margin: 0 -12px 0 -5px;
+  border-radius: 4px;
+  background: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--muted) 45%, transparent);
+}  /* same size as a chip, outline only */
 .q-not { color: var(--err); }
 .q-invalid { text-decoration: underline wavy var(--err); text-underline-offset: 3px; }
 
 /* checkbox dropdown (status, created by): looks like the selects */
 details.multi { position: relative; }
 details.multi > summary {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 9.5rem; height: var(--control-h); padding: 0 8px 0 10px;
-  border: 1px solid var(--border); border-radius: 6px; background: var(--field); cursor: pointer; list-style: none; font: 400 13px var(--font-text); user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 9.5rem;
+  height: var(--control-h);
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--field);
+  cursor: pointer;
+  list-style: none;
+  font: 400 13px var(--font-text);
+  user-select: none;
 }
 details.multi > summary::-webkit-details-marker { display: none; }
 details.multi > summary::after {
@@ -642,17 +871,47 @@ details.multi[open] > summary::after { rotate: 180deg; }
 details.multi.custom .multi-label { color: var(--muted); font-style: italic; }
 .multi-panel {
   position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 100%; padding: 4px;
-  border: 1px solid var(--border); border-radius: 8px; background: var(--card); box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
 }
-.multi-panel label { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 5px 10px; border-radius: 6px; font-weight: 400; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.multi-panel label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 400;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .multi-panel label:hover { background: var(--field); }
-.multi-panel input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }   /* the tick on the right is the indicator, as in the single dropdowns */
+.multi-panel input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  pointer-events: none;
+}  /* the tick on the right is the indicator, as in the single dropdowns */
 .multi-panel label .icon { flex: none; visibility: hidden; }
 .multi-panel label:has(input:checked) { color: var(--accent-ink); }
 .multi-panel label:has(input:checked) .icon { visibility: visible; }
 .multi-panel label:has(input:focus-visible) { background: var(--field); }
 
-.qhelp { flex: 1 0 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); font-size: 13px; color: var(--muted); }
+.qhelp {
+  flex: 1 0 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--field);
+  font-size: 13px;
+  color: var(--muted);
+}
 .qhelp p { margin: 3px 0; }
 .query-problems { margin: 0 0 10px; }
 
@@ -661,20 +920,50 @@ code, .url, .mono, .url-input { font-variant-ligatures: none; font-feature-setti
 /* ---- dero: compact rows and shrink-to-fit columns ---- */
 td { padding: 6px 8px; }
 th { padding: 7px 8px; }
-.col-slug, .col-creator, .col-created, .col-expires, .col-visits { width: 1%; white-space: nowrap; }   /* as narrow as their content */
-td.col-target { width: 100%; max-width: 0; }              /* the target takes what is left and is cut with an ellipsis */
+.col-slug, .col-creator, .col-created, .col-expires, .col-visits {
+  width: 1%;
+  white-space: nowrap;
+}  /* as narrow as their content */
+td.col-target {
+  width: 100%;
+  max-width: 0;
+}  /* the target takes what is left and is cut with an ellipsis */
 th.col-target { width: 100%; }
 .multi-panel.multi-right { left: auto; right: 0; min-width: 11rem; }
 
 /* ---- dero: the upgraded <select>s share the look of the checkbox dropdowns ---- */
-select.native-hidden { position: absolute !important; width: 1px !important; min-width: 0 !important; height: 1px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; opacity: 0; overflow: hidden; clip-path: inset(50%); pointer-events: none; }
+select.native-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  min-width: 0 !important;
+  height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
 .nl-row label details.multi, .form-grid details.multi { margin-top: 4px; }
 .form-grid details.multi { width: 100%; }
 .form-grid details.multi > summary { min-width: 0; }
 .single-panel { max-height: 22rem; overflow-y: auto; }
 .multi-panel .option {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 5px 10px; border: 0; border-radius: 6px;
-  background: none; color: var(--text); font: 400 13px var(--font-text); text-align: left; white-space: nowrap; cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: 400 13px var(--font-text);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
 }
 .multi-panel .option:hover, .multi-panel .option:focus-visible { background: var(--field); outline: none; }
 .multi-panel .option .icon { flex: none; visibility: hidden; }
@@ -682,12 +971,35 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 .multi-panel .option[aria-selected="true"] .icon { visibility: visible; }
 
 /* ---- dero: search bar -- every kind of term has its own colour, and the terms get some air ---- */
-.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 17px; }    /* in both layers, so the text stays aligned */
-:root { --q-text: var(--muted); --q-status: #0b7a4b; --q-creator: #6d28d9; --q-slug: #b45309; --q-target: #0e7490; --q-sortby: var(--accent-2-ink); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; } }
-:root[data-theme="dark"] { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; }
-.q-term { --c: var(--accent-ink); padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px; border-radius: 4px;   /* the x lives in the right padding; the margins keep the text where the input has it */
-  background: color-mix(in srgb, var(--c) 13%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent); }
+.qhighlight, .qfield input.qinput, .qfield input.qinput:focus {
+  word-spacing: 17px;
+}  /* in both layers, so the text stays aligned */
+:root {
+  --q-text: var(--muted);
+  --q-status: #0b7a4b;
+  --q-creator: #6d28d9;
+  --q-slug: #b45309;
+  --q-target: #0e7490;
+  --q-sortby: var(--accent-2-ink);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; }
+}
+:root[data-theme="dark"] {
+  --q-status: #34d399;
+  --q-creator: #a78bfa;
+  --q-slug: #fb923c;
+  --q-target: #22d3ee;
+}
+/* the x lives in the right padding; the negative margins keep the text where the input has it */
+.q-term {
+  --c: var(--accent-ink);
+  padding: 1px 12px 1px 5px;
+  margin: 0 -12px 0 -5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);
+}
 .q-term .q-key { color: var(--c); }
 .q-k-text { --c: var(--q-text); }
 .q-k-status { --c: var(--q-status); }
@@ -720,7 +1032,15 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 .nl-slug .grow { flex: 1 1 14rem; min-width: 0; }
 .nl-chars { flex: 1 1 14rem; max-width: 26rem; min-width: 0; }
 .nl-chars input { width: 100%; }
-.alphabet-hint { flex: 1 0 100%; margin: -4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px/1.4 var(--font-mono); color: var(--muted); }
+.alphabet-hint {
+  flex: 1 0 100%;
+  margin: -4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px/1.4 var(--font-mono);
+  color: var(--muted);
+}
 
 /* ---- dero: slug colouring is a stored user option (cookie dero_hl, html[data-hl]) ---- */
 html[data-hl="off"] .hl-digit, html[data-hl="off"] .hl-symbol { color: inherit; }
@@ -729,25 +1049,51 @@ html[data-hl="off"] .hl-digit, html[data-hl="off"] .hl-symbol { color: inherit; 
 /* with no target column the short link takes the slack, so chevron, switch and link stay together */
 table.no-target td.col-slug, table.no-target th.col-slug { width: 100%; }
 
-/* inputs in the detail row use the surface behind the row (the card), so they stand out from the row's own background */
-tr.detail input[type="text"], tr.detail input[type="url"], tr.detail input[type="date"], tr.detail .slug-group { background: var(--card); }
+/* inputs in the detail row use the surface behind the row (the card),
+   so they stand out from the row's own background */
+tr.detail input[type="text"], tr.detail input[type="url"], tr.detail input[type="date"], tr.detail .slug-group {
+  background: var(--card);
+}
 tr.detail .slug-group input.url-input { background: transparent; }
 
 /* ---- inline notices: in the row of the field, or in the details of the link ---- */
 .nl-row > .form-error, .nl-row > .form-warn { flex: 1 0 100%; margin: 0; }
 tr.detail .notices { margin-top: 2px; }
-tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notices .form-ok { margin: 6px 0 0; }
+tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notices .form-ok {
+  margin: 6px 0 0;
+}
 .note-line { display: flex; align-items: baseline; gap: 0 .45em; min-width: 0; }
 .note-line > span { flex: 0 0 auto; }
-.note-line > .cut { flex: 0 1 auto; min-width: 0; max-width: 44ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-line > .cut {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 44ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-/* ---- dero: the slug being edited is coloured like everywhere else: a coloured copy behind the (transparent) input text ---- */
+/* ---- dero: the slug being edited is coloured like everywhere else ----
+   a coloured copy sits behind the (transparent) input text */
 .slug-edit { position: relative; display: flex; flex: 1 1 6rem; min-width: 0; }
 .slug-edit input.url-input { position: relative; flex: 1 1 auto; }
-.slug-hl { display: none; position: absolute; inset: 0; align-items: center; overflow: hidden; pointer-events: none; white-space: pre; font: 13px var(--font-mono); color: var(--text); }
+.slug-hl {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font: 13px var(--font-mono);
+  color: var(--text);
+}
 .slug-edit.hl-ready .slug-hl { display: flex; }
 .slug-edit.hl-ready input.url-input { color: transparent; caret-color: var(--text); }
-.slug-edit.hl-ready input.url-input::selection { color: var(--text); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.slug-edit.hl-ready input.url-input::selection {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
 
 /* ---- dero: settings dialog (opens from the user name) ---- */
 .setting { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
@@ -759,8 +1105,14 @@ dialog p.setting-note { margin: 0; font-size: 12px; }
 .dialog-close { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; }
 #settings h2 { padding-right: 28px; }
 #settings { min-width: min(24rem, 92vw); }
-.alphabet-hint { min-height: 1.4em; }   /* keeps its line, so changing the short link type does not move the form */
-.nl-slug > label { display: flex; flex-direction: column; gap: 4px; }   /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
+.alphabet-hint {
+  min-height: 1.4em;
+}  /* keeps its line, so changing the short link type does not move the form */
+.nl-slug > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}  /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
 .nl-slug > label input { margin-top: 0; }
 .nl-slug > label, .nl-slug .field-label { line-height: 1.3; }
 .nl-slug > .field { display: flex; flex-direction: column; gap: 4px; }
@@ -768,7 +1120,14 @@ dialog p.setting-note { margin: 0; font-size: 12px; }
 
 /* the slug being edited sits in the usual code box; the (transparent) input text lines up with the text inside it */
 .slug-hl { padding: 0; }
-.slug-hl code.slug { display: inline-flex; align-items: center; height: 22px; margin: 0; padding: 0 5px; font-size: 13px; }
+.slug-hl code.slug {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  margin: 0;
+  padding: 0 5px;
+  font-size: 13px;
+}
 .slug-edit input.url-input { padding-left: 6px; }                 /* 5px box padding + 1px border */
 .slug-group { overflow: visible; }
 .slug-hl { right: 0; }
@@ -779,22 +1138,45 @@ dialog p.setting-note { margin: 0; font-size: 12px; }
 .details .notices .form-ok, .details .notices .form-error, .details .notices .form-warn { margin: 0; }
 
 /* ---- dero: live visits: a visited row lights up for a moment ---- */
-@keyframes visited { from { background-color: color-mix(in srgb, var(--accent-2) 30%, transparent); } to { background-color: transparent; } }
+@keyframes visited {
+  from { background-color: color-mix(in srgb, var(--accent-2) 30%, transparent); }
+  to { background-color: transparent; }
+}
 tr.item.visited td { animation: visited 2.4s ease-out; }
 tr.item.visited td.col-visits { font-weight: 700; color: var(--accent-2-ink); }
-@media (prefers-reduced-motion: reduce) { tr.item.visited td { animation: none; background-color: color-mix(in srgb, var(--accent-2) 14%, transparent); } }
-.live.is-live::before { content: ""; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--accent-2); align-self: center; }   /* a dot while Live visits is on */
-.multi-panel label:has(input:disabled) { opacity: .6; cursor: not-allowed; }   /* the last column that is on */
-.q-paren { position: relative; z-index: 1; color: inherit; }   /* a ( or ) next to a term stays readable on top of its padding */
+@media (prefers-reduced-motion: reduce) {
+  tr.item.visited td { animation: none; background-color: color-mix(in srgb, var(--accent-2) 14%, transparent); }
+}
+.live.is-live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  align-self: center;
+}  /* a dot while Live visits is on */
+.multi-panel label:has(input:disabled) {
+  opacity: .6;
+  cursor: not-allowed;
+}  /* the last column that is on */
+.q-paren {
+  position: relative;
+  z-index: 1;
+  color: inherit;
+}  /* a ( or ) next to a term stays readable on top of its padding */
 
 /* the date keys: created and expires have their own colours */
 :root { --q-created: #be185d; --q-expires: #4d7c0f; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-created: #f472b6; --q-expires: #a3e635; } }
 :root[data-theme="dark"] { --q-created: #f472b6; --q-expires: #a3e635; }
 
-/* ---- dero: labels use Hubot Sans; what is typed into the fields (and the options of a dropdown) stays in the text font ---- */
+/* ---- dero: labels use Hubot Sans ----
+   what is typed into the fields (and the options of a dropdown) stays in the text font */
 label, .label, .field-label { font-family: var(--font-head); }
-input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary { font-family: var(--font-text); }
+input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary {
+  font-family: var(--font-text);
+}
 .slug-group input.url-input { font-family: var(--font-mono); }   /* the slug field is the one mono input */
 
 /* every cell of a row centres what it holds, so the switch, slug, icons and clock share one middle line */
