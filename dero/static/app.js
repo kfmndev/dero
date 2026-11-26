@@ -498,10 +498,10 @@ function applyEdits(text, edits) {
 const appendTerm = (text, term) => (text.trim() ? `${text.trimEnd()} ${term}` : term);
 
 // Set (values = array) or remove (values = null) the key=... term of a query.
-function editQuery(text, key, values) {
+function editQuery(text, key, values, negated = false) {
   const parsed = parseQuery(text);
   const name = { creator: "created_by", sortby: "sort_by" }[key] || key;                 // the dropdowns' names, in snake case
-  const term = values && values.length ? `${name}=${values.map(quoteValue).join(",")}` : "";
+  const term = values && values.length ? `${name}${negated ? "!=" : "="}${values.map(quoteValue).join(",")}` : "";
   if (key === "sortby") {                                          // a directive: replaced wherever it stands
     const edits = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby").map((t) => ({ start: t.removeStart, end: t.end, text: "" }));
     return appendTerm(applyEdits(text, edits), term).trim();
@@ -524,7 +524,7 @@ function deriveSet(parsed, key, all) {
   const wanted = mine[0].values.map((v) => v.toLowerCase());
   const hit = all.filter((v) => wanted.includes(v.toLowerCase()));
   const set = mine[0].negated ? all.filter((v) => !hit.includes(v)) : hit;
-  return set.length ? { set } : { custom: true };
+  return set.length || mine[0].negated ? { set } : { custom: true };        // everything excluded = nothing ticked
 }
 
 // The sort the query asks for, as the value of the "Sort by" dropdown ("" = the default, newest first)
@@ -571,16 +571,23 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       top().append(span("q-paren", ")"));
       if (stack.length > 1) { top().dataset.to = t.end; stack.pop(); }
     } else if (t.kind === "and" || t.kind === "or") {
-      const op = span("q-op", raw);
-      op.dataset.from = t.start;
-      op.dataset.to = t.end;
+      // only an operator with space (or the end of the text) on both sides is shown as a pill with its own x;
+      // one stuck to a parenthesis, as in (a)or(b), stays plain
+      const gap = (other) => !other || other.kind === "ws";
+      const apart = gap(parsed.toks[idx - 1]) && gap(parsed.toks[idx + 1]);
+      const op = span(apart ? "q-op" : "q-op-tight", raw);
+      if (apart) { op.dataset.from = t.start; op.dataset.to = t.end; }
       top().append(op);
     }
     else if (t.kind === "not") top().append(span("q-not", "!"));
     else if (!t.key) {
-      const word = span("q-term q-k-text", raw);
+      const word = span("q-term q-k-text", "");
       word.dataset.from = t.removeStart;
       word.dataset.to = t.end;
+      const before = parsed.toks[idx - 1], last = top().lastChild;
+      const negated = before && before.kind === "not" && last && last.classList && last.classList.contains("q-not");
+      if (negated) { word.classList.add("q-neg"); word.append(last); }        // the "!" belongs to the chip, as with key=value terms
+      word.append(raw);
       top().append(word);
     }
     else {
@@ -728,6 +735,7 @@ function removePart(text, from, to) {
     const names = boxes.filter((box) => box.checked).map((box) => box.nextElementSibling.textContent);
     if (derived.custom) label.textContent = "Custom";
     else if (derived.set.length === boxes.length) label.textContent = details.dataset.allLabel;
+    else if (!names.length) label.textContent = "None";
     else if (names.length <= 2) label.textContent = names.join(", ");
     else label.textContent = `${names.length} selected`;
   }
@@ -753,8 +761,9 @@ function removePart(text, from, to) {
     details.addEventListener("change", () => {
       const all = JSON.parse(details.dataset.all || "[]");
       const checked = [...details.querySelectorAll("input[type=checkbox]:checked")].map((b) => b.value);
-      const everything = checked.length === 0 || checked.length === all.length;      // none or all = no filter
-      setQuery(editQuery(input.value, details.dataset.key, everything ? null : all.filter((v) => checked.includes(v))));
+      // all = no filter; none = everything excluded (key!=a,b,c), so nothing is shown
+      const everything = checked.length === all.length, none = checked.length === 0 && all.length > 0;
+      setQuery(editQuery(input.value, details.dataset.key, everything ? null : none ? all : all.filter((v) => checked.includes(v)), none));
     });
   });
 
@@ -812,7 +821,35 @@ function removePart(text, from, to) {
     }
   }
 
-  input.addEventListener("input", () => {
+  // A parenthesis (or an operator next to one) typed against a term gets a space on each side, so the chips and
+  // their x never run into it. Only while typing or pasting: deleting a space must stay possible.
+  function spaceOut() {
+    const text = input.value;
+    const toks = parseQuery(text).toks.filter((t) => t.kind !== "ws");
+    const special = (t) => ["lpar", "rpar", "and", "or"].includes(t.kind);
+    const paren = (t) => t.kind === "lpar" || t.kind === "rpar";
+    const at = [];
+    for (let i = 0; i < toks.length - 1; i++) {
+      const a = toks[i], b = toks[i + 1];
+      if (a.end !== b.start || a.kind === "not") continue;       // already apart, or a "!" that belongs to the next term
+      if (!special(a) && !special(b)) continue;
+      if (paren(a) && paren(b)) continue;                        // ((a)) stays as typed
+      at.push(a.end);
+    }
+    if (!at.length) return false;
+    let caret = input.selectionStart, out = "", last = 0;
+    for (const p of at) {
+      out += text.slice(last, p) + " ";
+      last = p;
+      if (p <= input.selectionStart) caret++;
+    }
+    input.value = out + text.slice(last);
+    input.setSelectionRange(caret, caret);
+    return true;
+  }
+
+  input.addEventListener("input", (event) => {
+    if (event.inputType && event.inputType.startsWith("insert")) spaceOut();
     draw();
     syncControls();
     clearTimeout(typing);

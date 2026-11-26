@@ -1115,7 +1115,7 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
         assert re.search(rf"\.q-k-{kind} \{{ --c: var\(--q-{kind}\); \}}", css), kind
     colours = re.search(r":root \{ --q-text: var\(--muted\); --q-status: (#\w+); --q-creator: (#\w+); --q-slug: (#\w+); --q-target: (#\w+);", css).groups()
     assert len(set(colours)) == 4                                                                # four different hues (plus muted and the secondary colour)
-    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 19px; \}", css)   # same spacing in both layers
+    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 17px; \}", css)   # same spacing in both layers
     assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)                    # the search bar has its own row
 
 
@@ -1191,7 +1191,7 @@ def test_detail_inputs_use_card_background(client):
 def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"code, \.url, \.mono, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
-    assert "padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px;" in css                                          # chips: the x sits in the padding
+    assert "padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px;" in css                                          # chips: the x sits in the padding
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(r'<label><input type="checkbox" value="active" checked><span>[^<]*</span><svg', html)       # checkbox dropdowns tick like the single ones
 
@@ -1320,7 +1320,7 @@ def test_detail_buttons_are_the_last_thing_in_the_details(client):
 
 def test_operators_are_pills_with_the_same_padding_as_terms_and_visits_are_mono(client):
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.q-op \{ padding: 1px 14px 1px 5px; margin: 0 -14px 0 -5px;", css)
+    assert re.search(r"\.q-op \{ padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px;", css)
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert '<td class="col-visits num mono">' in html
@@ -1340,3 +1340,49 @@ def test_operators_get_a_remove_button_too(client):
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function removeOperator" in js and 'dataset.kind = "operator"' in js and '.q-term, .q-group, .q-op' in js
     assert "#x" in js and 'button.textContent = "×"' not in js                       # an icon, not a text glyph
+
+
+def test_operators_stuck_to_other_tokens_are_not_highlighted(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'span(apart ? "q-op" : "q-op-tight", raw)' in js and "const gap = (other) => !other || other.kind === \"ws\"" in js
+    assert ".q-op-tight" in client.get("/static/style.css").get_data(as_text=True)
+
+
+def test_operators_are_outlined_and_groups_are_not_tinted(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.q-op \{ padding: 1px 12px 1px 5px; margin: 0 -12px 0 -5px; border-radius: 4px; background: none; box-shadow: 0 0 0 1px", css)
+    assert ".q-group {" not in css and ".q-group .q-group" not in css                 # parentheses and groups carry no highlight
+
+
+def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert "label, .label, .field-label { font-family: var(--font-head); }" in css
+    assert "input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary { font-family: var(--font-text); }" in css
+
+
+def test_spaces_are_added_around_parentheses_while_typing(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function spaceOut" in js and 'event.inputType.startsWith("insert")' in js        # not when deleting
+
+
+def test_row_cells_centre_their_content(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert re.search(r'<td class="col-slug nowrap"><span class="cell"><code class="slug">abc</code>', html)
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert ".col-slug .cell" in css and "td.narrow form { margin: 0; display: flex; align-items: center; }" in css
+
+
+def test_a_negated_word_keeps_its_exclamation_mark_inside_its_chip(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'word.classList.add("q-neg"); word.append(last);' in js
+
+
+def test_all_options_of_status_and_created_by_can_be_deselected(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert 'none = checked.length === 0 && all.length > 0' in js and 'label.textContent = "None"' in js
+    assert 'negated ? "!=" : "="' in js and "set.length || mine[0].negated" in js
+    # what such a selection sends: everything excluded, so nothing matches
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER, query_string={"q": "status!=active,disabled,expired"}).get_data(as_text=True)
+    assert "No links match." in html

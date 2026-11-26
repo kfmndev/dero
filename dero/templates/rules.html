@@ -44,8 +44,8 @@
           </form>
         </td>
         <td class="mono">{{ r.pattern }}</td>
-        <td><span class="badge">{{ r.match_type }}</span></td>
-        <td class="target mono" title="{{ r.target }}">{{ r.target }}</td>
+        <td><span class="cell"><span class="badge">{{ r.match_type }}</span></span></td>
+        <td class="target" title="{{ r.target }}">{{ r.target }}</td>
         <td class="num">{{ r.visits }}</td>
         <td class="actions">
           <form method="post" action="{{ url_for('admin.rule_toggle', rule_id=r.id) }}">

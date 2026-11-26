@@ -172,9 +172,7 @@
         </td>
         {% for c in cols %}
         {% if c == 'slug' %}
-        <td class="col-slug nowrap">
-          {{ l.slug|slug_box }}{{ link_actions(base ~ l.slug, 'slug') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}
-        </td>
+        <td class="col-slug nowrap"><span class="cell">{{ l.slug|slug_box }}{{ link_actions(base ~ l.slug, 'slug') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}</span></td>
         {% elif c == 'target' %}
         <td class="col-target target">
           <span class="cell"><span class="url truncate" title="{{ l.target }}">{{ l.target }}</span>{{ link_actions(l.target, 'target') }}</span>

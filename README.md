@@ -60,8 +60,10 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | --- | --- |
 | `github "exact phrase"` | free text: searches slug, target and creator; terms are joined with *and* |
 | `status=expired,disabled` | status (`active`, `disabled`, `expired`); a comma means *or* |
+| Status / Created by dropdowns | tick all = no filter; untick all = nothing is shown (`status!=active,disabled,expired`) |
 | `created_by=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
 | *×* behind a term | removes that term (and its *and*/*or*); the × behind an operator (`and`, `or`, `&&`, `||`) removes just the operator |
+| `( … )` | group; typing or pasting a parenthesis against a term adds a space on each side |
 | `created=2026-11` · `expires=<2027-01-01` · `expires=none` | creation or expiry date: a year, month or day (UTC), optionally with `<` `<=` `>` `>=`; `expires=none` = never expires |
 | `sort_by=visits` · `sort_by=-visits` | sort by `created`, `visits`, `slug`, `target`, `creator` or `expires`; a minus reverses the usual order |
 | `!status=expired` · `status!=expired` | negation |
