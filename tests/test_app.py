@@ -488,7 +488,7 @@ def test_reset_button_is_disabled_not_hidden(client):
     plain = client.get("/admin/", headers=USER).get_data(as_text=True)
     filtered = client.get("/admin/?q=abc", headers=USER).get_data(as_text=True)
     for html, state in ((plain, "true"), (filtered, "false")):
-        tag = re.search(r'<a class="btn icon-only" id="reset-filters"[^>]*>', html).group(0)
+        tag = re.search(r'<a class="btn reset-right" id="reset-filters"[^>]*>', html).group(0)
         assert f'aria-disabled="{state}"' in tag and " hidden" not in tag
 
 
@@ -805,7 +805,7 @@ def test_every_button_has_an_icon_and_a_single_verb(client):
             words = re.sub(r"<[^>]+>", " ", inner).split()
             assert len(words) <= 1, words  # ... and a single word (icon-only buttons have none)
             seen.update(words)
-    assert {"Create", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
+    assert {"Create", "Reset", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
     assert (
         "Discard changes" not in "".join(pages)
         and "Delete link</button>" not in "".join(pages)

@@ -810,20 +810,9 @@ th[aria-sort="ascending"] .arrow .icon {
 .live-field .field-label {
   margin-bottom: var(--label-gap);
 }
-/* Reset: an icon, at the right end of the row */
-.filters .btn.icon-only {
+/* Reset: at the right end of the row */
+.filters .btn.reset-right {
   margin-left: auto;
-  width: var(--control-h);
-  padding: 0;
-}
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 /* ---- dero: expandable rows ---- */
@@ -2090,7 +2079,8 @@ dialog p.setting-note {
 #new-link-slug .slug-hl code.slug:empty {
   display: inline-block;
   min-width: 6ch;
-  min-height: 1.6em;
+  height: 1.5em; /* an empty box is as tall as one with text, and the text sits in the middle of it */
+  line-height: 1.5;
   box-sizing: content-box;
 }
 .nl-type > .field,
@@ -2099,6 +2089,10 @@ dialog p.setting-note {
   flex-direction: column;
   gap: var(--label-gap);
 }
+.nl-type > .field:first-child {
+  flex: 0 0 14rem;
+  width: 14rem;
+} /* the generator keeps its width whichever option is chosen: nothing beside it moves */
 .nl-type .field-label,
 .nl-slug .field-label {
   margin: 0;

@@ -217,9 +217,9 @@
         </label>
       </span>
     </div>
-    <a class="btn icon-only" id="reset-filters" href="{{ url_for('admin.index') }}" title="Reset the search and the columns"
+    <a class="btn reset-right" id="reset-filters" href="{{ url_for('admin.index') }}" title="Reset the search and the columns"
        aria-disabled="{{ 'false' if can_reset else 'true' }}"{% if not can_reset %} tabindex="-1"{% endif %}>
-      {{- icon('rotate') }}<span class="visually-hidden">Reset</span></a>
+      {{- icon('rotate') }}Reset</a>
     <noscript><button class="btn">{{ icon('check') }}Apply</button></noscript>
   </form>
 
