@@ -49,6 +49,8 @@ function placeToast(el, kind, key) {
   if (same && same.dataset.kind === kind) {
     // the same place speaks again: its toast changes in place, with a small nudge
     same.querySelector("span:not(.toast-icon)").replaceWith(body);
+    const icon = el.querySelector("svg"); // (the message may come with another icon)
+    if (icon) same.querySelector("svg")?.replaceWith(icon);
     same.classList.remove("bump");
     void same.offsetWidth;
     same.classList.add("bump");
@@ -89,11 +91,18 @@ function placeToast(el, kind, key) {
   return el;
 }
 
-// kind: "ok", "warn", "error" or "live". content: text (a ‹slug› is drawn as a slug box) or a node.
-function toast(kind, content, { key = "" } = {}) {
+// The name of the icon an element (a server-rendered notice) shows.
+function iconNameOf(el) {
+  return el?.querySelector("svg use")?.getAttribute("href")?.split("#")[1] || null;
+}
+
+// kind: "ok", "warn", "error" or "live". content: text (‹slug› and ⟨code⟩ are drawn as boxes) or a node. icon: the
+// name of an icon of the sprite, instead of the one of the kind.
+function toast(kind, content, { key = "", icon = null } = {}) {
   const el = document.createElement("p");
-  el.innerHTML = TOAST_KINDS[kind].icon
-    ? `<svg class="icon" aria-hidden="true"><use href="${toastSprite()}#${TOAST_KINDS[kind].icon}"/></svg>`
+  const name = icon || TOAST_KINDS[kind].icon;
+  el.innerHTML = name
+    ? `<svg class="icon" aria-hidden="true"><use href="${toastSprite()}#${name}"/></svg>`
     : '<span class="live-dot toast-icon" aria-hidden="true"></span>';
   const span = document.createElement("span");
   if (typeof content === "string") setRich(span, content);

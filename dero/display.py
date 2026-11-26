@@ -85,9 +85,34 @@ def highlight_url(url: str) -> Markup:
     return escape(url)
 
 
+_MARKED = re.compile(r"‹([^›]*)›|⟨([^⟩]*)⟩")
+_ICON = re.compile(r"^⟦([a-z-]+)⟧ ?")
+
+
 def rich(text: str) -> Markup:
-    """A message with ‹slugs› marked: those parts are shown as slugs (a slug can't contain these marks)."""
-    return Markup(re.sub(r"‹([^›]*)›", lambda m: str(slug_box(m.group(1))), str(escape(text))))
+    """A message with marked parts: ‹a slug› is shown in its coloured slug box, ⟨anything else⟩ (an example, a pattern,
+    a character) in a plain code box. (None of these marks can occur in a slug or in what a user types in the forms.)"""
+
+    def box(m: re.Match[str]) -> str:
+        """The box of one marked part."""
+        if m.group(1) is not None:
+            return str(slug_box(m.group(1)))
+
+        return f"<code>{m.group(2)}</code>"
+
+    return Markup(_MARKED.sub(box, str(escape(text))))
+
+
+def with_icon(icon: str, text: str) -> str:
+    """A message that says which icon its toast shows: the icon goes in front as ⟦name⟧."""
+    return f"⟦{icon}⟧ {text}"
+
+
+def split_icon(message: str) -> tuple[str | None, str]:
+    """(icon, text) of a message made with with_icon; the icon is None for a plain message."""
+    m = _ICON.match(message)
+
+    return (m.group(1), message[m.end() :]) if m else (None, message)
 
 
 def register(app: Flask) -> None:
@@ -97,4 +122,5 @@ def register(app: Flask) -> None:
     app.add_template_filter(slug_box, "slug_box")
     app.add_template_filter(target_box, "target_box")
     app.add_template_filter(rich, "rich")
+    app.add_template_filter(split_icon, "split_icon")
     app.add_template_filter(json.loads, "fromjson")

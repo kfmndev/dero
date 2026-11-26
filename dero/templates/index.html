@@ -4,7 +4,7 @@
 {% set slug_error = error_field in ('slug', 'slug_source', 'alphabet', 'alphabet_custom', 'length') %}
 {% set err_box %}
   <p class="form-error" id="new-link-error" role="alert">
-    {%- if error %}{{ icon('alert') }}<span>{{ error|rich }}</span>{% endif -%}
+    {%- if error %}{{ icon(error_icon or 'alert') }}<span>{{ error|rich }}</span>{% endif -%}
   </p>
 {%- endset %}
 {% set host = base | replace("https://", "") | replace("http://", "") %}
@@ -82,7 +82,7 @@
   </form>
   <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
-  <p class="form-ok" role="status">{{ icon('check') }}
+  <p class="form-ok" role="status">{{ icon('plus') }}
     <span>Link created {{ message|hl_url }}{{ link_actions(message, 'slug') }}</span></p>
   {% endfor %}
   </div>
@@ -238,7 +238,7 @@
   <div id="links-results" data-count="{{ links|length }}" data-overall="{{ overall }}"
        data-problems="{{ problems|join(' ') }}">
   {% if problems %}
-  <p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|join(' · ') }}</span></p>
+  <p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|map('rich')|join(' ') }}</span></p>
   {% endif %}
   <div class="table-wrap">
   <table class="{{ 'no-target' if 'target' not in cols else '' }}">

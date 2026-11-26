@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from flask import flash, g, jsonify, redirect, request, url_for
 
 from .. import db, resolve
+from ..display import with_icon
 from ..forms import SlugPlan, parse_expiry, random_slug, reserved_slugs, slug_plan, validated
 from ..types import ViewResult
 from ..urls import base_url
@@ -40,7 +41,7 @@ def _save_new_link(conn: sqlite3.Connection, plan: SlugPlan, target: str, expire
             conn.commit()
         except sqlite3.IntegrityError:
             if not drawn:
-                raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug")
+                raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug", "ban")
             continue
 
         return slug
@@ -61,7 +62,7 @@ def create_link() -> ViewResult:
         return redirect(url_for("admin.index"))
     except resolve.ValidationError as exc:
         # Show the form again with everything the user typed, and the error inside it.
-        return render_index(form=f, error=str(exc), error_field=exc.field), 400
+        return render_index(form=f, error=str(exc), error_field=exc.field, error_icon=exc.icon), 400
 
 
 @bp.post("/links/<int:link_id>/toggle")
@@ -72,7 +73,10 @@ def toggle_link(link_id: int) -> ViewResult:
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
     conn.commit()
     link = conn.execute("SELECT slug, enabled FROM links WHERE id = ?", (link_id,)).fetchone()
-    flash(f"Link ‹{link['slug']}› {'enabled' if link['enabled'] else 'disabled'}", "links")  # shown as a toast
+    on = bool(link["enabled"])
+    flash(
+        with_icon("power" if on else "power-off", f"Link ‹{link['slug']}› {'enabled' if on else 'disabled'}"), "links"
+    )
 
     return back()
 
@@ -131,7 +135,7 @@ def update_link(link_id: int) -> ViewResult:
         validated("slug", resolve.validate_slug, slug)
 
         if slug != row["slug"] and slug in reserved_slugs():
-            raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug", "lock")
         expires = parse_expiry(f.get("expires_at", ""))
         conn = db.get_db()
 
@@ -141,9 +145,11 @@ def update_link(link_id: int) -> ViewResult:
             )
             conn.commit()
         except sqlite3.IntegrityError:
-            raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug")
+            raise resolve.ValidationError(f"‹{slug}› is already taken. Choose another slug.", "slug", "ban")
     except resolve.ValidationError as exc:
-        flash(str(exc), f"link:{link_id}:error")  # shown in that link's details, next to the fields
+        flash(
+            with_icon(exc.icon, str(exc)), f"link:{link_id}:error"
+        )  # shown in that link's details, next to the fields
         return back()
 
     changes = _changes(row, slug, target, expires)
@@ -159,6 +165,6 @@ def delete_link(link_id: int) -> ViewResult:
     conn = db.get_db()
     conn.execute("DELETE FROM links WHERE id = ?", (link_id,))
     conn.commit()
-    flash(f"Link ‹{row['slug']}› deleted", "links")
+    flash(with_icon("trash", f"Link ‹{row['slug']}› deleted"), "links")
 
     return back()

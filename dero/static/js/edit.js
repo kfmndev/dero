@@ -72,13 +72,15 @@ document.addEventListener("submit", (event) => {
       lookupThenResubmit(form);
       return;
     }
-    warnFirst(form, event, "Update", (message) => showNotice(`link-${form.id.slice(1)}-notices`, message, "warn"));
+    warnFirst(form, event, "Update", (message, _field, icon) =>
+      showNotice(`link-${form.id.slice(1)}-notices`, message, "warn", icon),
+    );
     return;
   }
   event.preventDefault();
   const [field, message] = found;
   field.setAttribute("aria-invalid", "true");
-  showNotice(`link-${form.id.slice(1)}-notices`, message);
+  showNotice(`link-${form.id.slice(1)}-notices`, message, "error", problemIcon(field, message));
   field.focus();
 });
 syncAllEdit();

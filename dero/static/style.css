@@ -1142,8 +1142,10 @@ option {
 }
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
-/* the text of a slug is centred in its box by the box (flex), not by a line height */
-code.slug {
+/* the text of a slug is centred in its box by the box (flex), not by a line height. The same box for every other
+   highlighted part of a notification: an example, a pattern, a character (⟨x⟩ in the message). */
+code.slug,
+:where(.toast, .notices, .query-problems) code:not(.urlbox) {
   display: inline-flex;
   align-items: center;
   line-height: normal;

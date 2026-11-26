@@ -153,13 +153,16 @@ def _unencoded_plus(raw_query: bytes) -> list[str]:
         name, _, value = part.partition("=")
 
         if name == "q" and _PLUS_AFTER_OPERATOR.search(value):
-            return ["In an address, + means a space. To search for a plus sign, write %2B."]
+            return ["In an address, ⟨+⟩ means a space. To search for a plus sign, write ⟨%2B⟩."]
 
     return []
 
 
 def render_index(
-    form: Mapping[str, str] | None = None, error: str | None = None, error_field: str | None = None
+    form: Mapping[str, str] | None = None,
+    error: str | None = None,
+    error_field: str | None = None,
+    error_icon: str | None = None,
 ) -> str:
     """Render the links page: the filtered and sorted links, the search state and, after a rejected form, its error."""
     conn = db.get_db()
@@ -205,6 +208,7 @@ def render_index(
         form=form or {},
         error=error,
         error_field=error_field,
+        error_icon=error_icon,
         slug_source=_slug_source_of(form or {}),
         alphabets=ALPHABETS,
         default_length=DEFAULT_LENGTH,

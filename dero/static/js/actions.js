@@ -20,14 +20,11 @@ document.addEventListener("change", (event) => {
     }
   }
 
-  function showFailure(form) {
-    const box = (form.closest("section") || document).querySelector(".notices");
-    if (!box) return;
-    const p = document.createElement("p");
-    p.className = "form-error";
-    p.setAttribute("role", "alert");
-    p.textContent = "That didn't work. Reload the page and try again.";
-    box.replaceChildren(p);
+  function showFailure() {
+    toast("error", "Something went wrong and your change wasn't saved. Reload the page and try again.", {
+      key: "failure",
+      icon: "wifi-off",
+    });
   }
 
   async function currentView() {
@@ -55,7 +52,10 @@ document.addEventListener("change", (event) => {
         // keep the typed values on an error, clear them on success
         const theirs = doc.getElementById("new-link-error");
         if (theirs?.textContent.trim())
-          toast("error", theirs.querySelector("span")?.cloneNode(true) || theirs.textContent, { key: "new-link" });
+          toast("error", theirs.querySelector("span")?.cloneNode(true) || theirs.textContent, {
+            key: "new-link",
+            icon: iconNameOf(theirs),
+          });
         else dismissToast("new-link");
         form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
         if (res.ok) {
@@ -83,7 +83,7 @@ document.addEventListener("change", (event) => {
 
       if (form.dataset.resetOnSuccess !== undefined && !doc.querySelector(".notices .form-error")) form.reset();
     } catch {
-      showFailure(form);
+      showFailure();
     } finally {
       delete form.dataset.confirmed;
       form.removeAttribute("aria-busy");

@@ -1086,7 +1086,14 @@ def test_warning_texts_are_brief(client):
     assert (
         "doesn't look like a usual" not in js and "dead on arrival" not in js and "Check it, or press" not in js
     )  # the long wordings are gone
-    for reason in ("uses http", "has no domain ending", "is an IP address", "has a port", "has a login", "has spaces"):
+    for reason in (
+        "uses ⟨http⟩",
+        "has no domain ending",
+        "is an IP address",
+        "has a port",
+        "has a login",
+        "has spaces",
+    ):
         assert reason in js
 
 
@@ -1229,7 +1236,8 @@ def test_problems_are_shown_briefly_above_the_table(client, app):
             "</p>", html.index('class="form-warn query-problems"')
         )
     ]
-    assert "nonsense isn&#39;t a status" in line and "sort by colour" in line and "never closed" in line
+    assert "<code>nonsense</code> isn&#39;t a status" in line and "sort by <code>colour</code>" in line
+    assert "never closed" in line and "<code>(</code>" in line  # the examples are in code boxes
     assert "query-problems" not in client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired"}).get_data(
         as_text=True
     )
@@ -1295,7 +1303,7 @@ def test_slugs_may_use_any_character_a_url_does_not_need_to_escape(client, app):
     assert (
         html.count('pattern="[A-Za-z0-9._~\\-]{1,64}"') == html.count('name="slug"') >= 2
     )  # the browser pattern agrees
-    assert "A slug can use letters, digits and - _ . ~, up to 64 characters." in js_source(client)
+    assert "A slug can use letters, digits and ⟨- _ . ~⟩, up to 64 characters." in js_source(client)
 
 
 # ---------------------------------------------------------------- columns the user can switch on and off
@@ -1640,7 +1648,7 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert 'document.execCommand("insertText", false, inserted)' in js and "if (rewriting) return;" in js
     assert "rewriteBox(fixed);" in js and "rewriteBox(out + text.slice(last));" in js
     # a ! in front of sort_by (or in !=) does nothing: it is marked, with the same text the server reports
-    assert 'NO_NEGATED_SORT = "! does nothing on sort_by. Use - for descending and + for ascending."' in js
+    assert 'NO_NEGATED_SORT = "⟨!⟩ does nothing on ⟨sort_by⟩. Use ⟨-⟩ for descending and ⟨+⟩ for ascending."' in js
     assert 't.key === "sortby" && (t.nots > 0 || t.op === "!=")' in js and "marks.forEach(flagIdle)" in js
     # the share button copies the address of the search; the copy handler puts back whatever icon the button had
     assert 'document.getElementById("q-share")' in js and "share.dataset.copy = q ? new URL(addressFor(q)" in js
@@ -1684,7 +1692,7 @@ def test_targets_lose_https_and_keep_their_end_when_the_middle_is_cut():
 
 def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
     def warned(address):
-        return "+ means a space" in client.get(address, headers=USER).get_data(as_text=True)
+        return "</code> means a space" in client.get(address, headers=USER).get_data(as_text=True)
 
     assert (
         warned("/admin/?q=sort_by=+visits") and warned("/admin/?q=expires%3C+30d") and warned("/admin/?q=created>+7d")
@@ -1770,14 +1778,14 @@ def test_custom_characters_errors_name_the_problem(client):
         return html_lib.unescape(r.get_data(as_text=True))
 
     page = error("1Il|")
-    assert "'|' can&#39;t" not in page and "'|' can't be used in a slug. Allowed: letters, digits and - _ . ~" in page
-    assert "'space' " not in error("ab c") and "space can't be used in a slug" in error("ab c")
-    assert "'|' and '?' can't be used" in error("ab|?")  # two: and
-    assert "'|', '?' and '#' can't be used" in error("ab|?#")  # more: commas, and before the last
-    assert "'|', '?', '#', '%', '\"', '<', … can't be used" in error('ab|?#%"<>')  # more than six are cut
+    assert "<code>|</code> can't be used in a slug. Allowed: letters, digits and <code>- _ . ~</code>" in page
+    assert "<code> </code>" not in error("ab c") and "space can't be used in a slug" in error("ab c")
+    assert "<code>|</code> and <code>?</code> can't be used" in error("ab|?")  # two: and
+    assert "<code>|</code>, <code>?</code> and <code>#</code> can't be used" in error("ab|?#")  # more: commas, and
+    assert "<code>%</code>, <code>\"</code>, <code><</code>, … can't be used" in error('ab|?#%"<>')  # six at most
     assert "Use at least 2 different characters." in error("aaaa")
     js = js_source(client)
-    assert "can't be used in a slug. Allowed: letters, digits and - _ . ~" in js and "Use at least 2 different" in js
+    assert "can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩" in js and "Use at least 2 different" in js
 
 
 def test_slugs_look_the_same_in_every_message(client, app):
@@ -2029,7 +2037,7 @@ def test_slugs_share_one_smaller_mono_size_everywhere(client):
     size = re.search(r"--slug-size: ([\d.]+rem)", css)
     assert size and float(size.group(1)[:-3]) < 0.8125  # mono looks bigger than the text at the same size
     # the box, the coloured copy behind the input and the input itself must have the very same size
-    assert css_rule(css, "code.slug")["font-size"] == "var(--slug-size)"
+    assert re.search(r"code\.slug, :where\([^)]*\) code:not\(\.urlbox\) \{[^}]*font-size: var\(--slug-size\)", css)
     assert css_rule(css, ".slug-group input.url-input")["font-size"] == "var(--slug-size)"
     assert css_rule(css, ".slug-hl code.slug")["font-size"] == "var(--slug-size)" and "font: var(--slug-size)" in css
 
@@ -2056,8 +2064,11 @@ def test_base_addresses_are_displayed_without_their_protocol(client):
 
 def test_slug_boxes_centre_their_text_with_the_box_not_a_line_height(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    rule = css_rule(css, "code.slug")
     # measured: with a numeric line height the text sat up to 1px high in some boxes; a flex box with the font's
-    # own (normal) line height centres it in every one of them
-    assert rule["display"] == "inline-flex" and rule["align-items"] == "center" and rule["line-height"] == "normal"
+    # own (normal) line height centres it in every one of them (the slug boxes and the other boxes of a notification)
+    assert re.search(
+        r"code\.slug, :where\([^)]*\) code:not\(\.urlbox\) \{ display: inline-flex; align-items: center; "
+        r"line-height: normal;",
+        css,
+    )
     assert css_rule(css, "code.urlbox > code.slug")["display"] == "inline-flex"

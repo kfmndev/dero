@@ -1,9 +1,9 @@
 // ---- Checks shared by the "New link" form and the edit form in a link's details ----
 const SLUG_RE = /^[A-Za-z0-9._~-]{1,64}$/; // what a URL path never needs to escape
-const BAD_SLUG = "A slug can use letters, digits and - _ . ~, up to 64 characters.";
+const BAD_SLUG = "A slug can use letters, digits and ⟨- _ . ~⟩, up to 64 characters.";
 const DOTS_ONLY = "A slug needs at least one character that isn't a dot.";
 const slugProblem = (value) => (!SLUG_RE.test(value) ? BAD_SLUG : /^\.+$/.test(value) ? DOTS_ONLY : null);
-const BAD_URL = "Enter a full web address starting with http:// or https://.";
+const BAD_URL = "Enter a full web address starting with ⟨http://⟩ or ⟨https://⟩.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
 // `generator` = the "New link" form (slug mode, alphabet and length); otherwise a plain slug field is checked.
@@ -52,14 +52,14 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
       chars = [...field.value];
     const bad = [...new Set(chars.filter((c) => !/[A-Za-z0-9._~-]/.test(c)))];
     if (bad.length) {
-      const names = bad.slice(0, 6).map((c) => (c === " " ? "space" : `'${c}'`));
+      const names = bad.slice(0, 6).map((c) => (c === " " ? "space" : `⟨${c}⟩`));
       const shown =
         bad.length > 6
           ? `${names.join(", ")}, …` // too many: cut
           : names.length === 1
             ? names[0]
             : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`; // "and" before the last
-      return [field, `${shown} can't be used in a slug. Allowed: letters, digits and - _ . ~`];
+      return [field, `${shown} can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩`];
     }
     if (new Set(chars).size < 2) return [field, "Use at least 2 different characters."];
   }
@@ -83,14 +83,32 @@ function slugBox(slug) {
   return code;
 }
 
-// Text in which ‹slugs› are marked becomes text with slug boxes.
+// Text in which ‹slugs› are marked becomes text with slug boxes, and ⟨anything else⟩ (an example, a character) text
+// with plain code boxes.
 function setRich(element, text) {
   element.replaceChildren();
-  text.split(/‹([^›]*)›/).forEach((part, i) => element.append(i % 2 ? slugBox(part) : part));
+  text.split(/(‹[^›]*›|⟨[^⟩]*⟩)/).forEach((part) => {
+    if (part.startsWith("‹")) element.append(slugBox(part.slice(1, -1)));
+    else if (part.startsWith("⟨")) {
+      const code = document.createElement("code");
+      code.textContent = part.slice(1, -1);
+      element.append(code);
+    } else element.append(part);
+  });
+}
+
+// The icon of a problem found in a form, by the field and the message (the server says the same).
+function problemIcon(field, message) {
+  const name = field?.name || "";
+  if (name === "target") return "link-off";
+  if (name === "slug") return /reserved/.test(message) ? "lock" : "type";
+  if (["slug_source", "alphabet_custom", "length"].includes(name)) return "type";
+  if (name === "expires_at") return "calendar";
+  return "alert";
 }
 
 // Put a message into a card's .notices container (same markup the server renders).
-function showNotice(id, message, kind = "error") {
+function showNotice(id, message, kind = "error", icon = null) {
   // kind: "error", "warn" or "ok"
   const box = document.getElementById(id);
   if (!box) return;
@@ -100,7 +118,7 @@ function showNotice(id, message, kind = "error") {
   const p = document.createElement("p");
   p.className = kind === "error" ? "form-error" : kind === "warn" ? "form-warn" : "form-ok";
   p.setAttribute("role", kind === "ok" ? "status" : "alert");
-  p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${kind === "ok" ? "check" : "alert"}"/></svg>`;
+  p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${icon || (kind === "ok" ? "check" : "alert")}"/></svg>`;
   const span = document.createElement("span");
   setRich(span, message);
   p.append(span);
@@ -119,7 +137,7 @@ function unusualUrl(value) {
   } // invalid URLs are errors, handled elsewhere
   const reasons = [];
   const host = url.hostname;
-  if (url.protocol === "http:") reasons.push("uses http");
+  if (url.protocol === "http:") reasons.push("uses ⟨http⟩");
   if (/\s/.test(text)) reasons.push("has spaces");
   if (url.username || url.password) reasons.push("has a login");
   if (host.startsWith("[") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
@@ -175,18 +193,21 @@ async function lookupThenResubmit(form) {
 // Things worth a second look but not wrong: an unusual address and an expiry in the past. Unchanged values stay quiet.
 function linkWarnings(form) {
   const notes = [],
+    icons = [], // the icon of each note; the toast shows the first
     fields = [];
   const target = form.elements.target,
     expires = form.elements.expires_at;
   const url = target.value.trim();
   if (url !== target.defaultValue.trim() && form.dataset.dupFor === url && Number(form.dataset.dupCount) > 0) {
     notes.push(alreadyShortened(JSON.parse(form.dataset.dupSlugs || "[]"), Number(form.dataset.dupCount)));
+    icons.push("link");
     fields.push(target);
   }
   if (url !== target.defaultValue.trim()) {
     const reasons = unusualUrl(url);
     if (reasons.length) {
       notes.push(`This address looks unusual: it ${joinList(reasons)}.`);
+      icons.push("alert");
       fields.push(target);
     }
   }
@@ -197,21 +218,26 @@ function linkWarnings(form) {
     expires.value < new Date().toISOString().slice(0, 10)
   ) {
     notes.push("This expiry date has already passed, so the link would be expired at once.");
+    icons.push("clock");
     fields.push(expires);
   }
-  return { notes, fields };
+  return { notes, fields, icon: icons[0] };
 }
 
 // Warn once per combination of values; sending the same thing again goes through. True = the submit was stopped.
 function warnFirst(form, event, verb, show) {
   [...form.elements].forEach((el) => el.removeAttribute("data-warn"));
-  const { notes, fields } = linkWarnings(form);
+  const { notes, fields, icon } = linkWarnings(form);
   const signature = JSON.stringify([form.elements.target.value.trim(), form.elements.expires_at.value]);
   if (!notes.length || form.dataset.warned === signature) return false;
   event.preventDefault();
   form.dataset.warned = signature;
   fields.forEach((el) => el.setAttribute("data-warn", ""));
-  show(`${notes.join(" ")} Press ${verb} again to ${verb === "Create" ? "create it" : "save it"} anyway.`, fields[0]);
+  show(
+    `${notes.join(" ")} Press ${verb} again to ${verb === "Create" ? "create it" : "save it"} anyway.`,
+    fields[0],
+    icon,
+  );
   fields[0].focus();
   return true;
 }

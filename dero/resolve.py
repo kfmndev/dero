@@ -19,19 +19,36 @@ PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 REGEX_TIMEOUT = 0.05  # seconds
 
 
+FIELD_ICONS = {  # the icon of an error toast, by the field it is about
+    "target": "link-off",
+    "slug": "type",
+    "slug_source": "type",
+    "alphabet": "type",
+    "alphabet_custom": "type",
+    "length": "type",
+    "expires_at": "calendar",
+}
+
+
 class ValidationError(ValueError):
     """A value the user sent is not acceptable; `field` names the form field the message belongs to."""
 
-    def __init__(self, message: str, field: str | None = None) -> None:
-        """Keep the message and the name of the field it is about."""
+    def __init__(self, message: str, field: str | None = None, icon: str | None = None) -> None:
+        """Keep the message, the name of the field it is about and, if it has one of its own, its icon."""
         super().__init__(message)
         self.field = field  # name of the form field the message belongs to, if any
+        self.own_icon = icon
+
+    @property
+    def icon(self) -> str:
+        """The icon of the message: its own, else the one of its field, else the plain alert."""
+        return self.own_icon or FIELD_ICONS.get(self.field or "", "alert")
 
 
 def validate_slug(slug: str) -> str:
     """The slug, if it only uses URL-safe characters and is not just dots; else a ValidationError."""
     if not SLUG_RE.fullmatch(slug):
-        raise ValidationError("A slug can use letters, digits and - _ . ~, up to 64 characters.")
+        raise ValidationError("A slug can use letters, digits and ⟨- _ . ~⟩, up to 64 characters.")
     if not slug.strip("."):
         raise ValidationError(
             "A slug needs at least one character that isn't a dot."
@@ -46,7 +63,7 @@ def validate_url(url: str) -> str:
     parts = urlsplit(url)
 
     if parts.scheme not in ("http", "https") or not parts.netloc or len(url) > 2048:
-        raise ValidationError("Enter a full web address starting with http:// or https://.")
+        raise ValidationError("Enter a full web address starting with ⟨http://⟩ or ⟨https://⟩.")
 
     return url
 
@@ -97,7 +114,7 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
 
     if bad is not None:
         captures = {0: "nothing", 1: "only 1 part"}.get(compiled.groups, f"only {compiled.groups} parts")
-        raise ValidationError(f"The target uses {{{bad}}}, but the pattern captures {captures}.")
+        raise ValidationError(f"The target uses ⟨{{{bad}}}⟩, but the pattern captures {captures}.")
     validate_url(PLACEHOLDER_RE.sub("x", target))
 
 

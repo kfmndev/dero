@@ -8,9 +8,10 @@ document.addEventListener("click", async (event) => {
     await navigator.clipboard.writeText(button.dataset.copy);
   } catch {
     // clipboard needs HTTPS or localhost
-    return toast("error", "Couldn't copy. Copying needs a secure (https) address.", { key: "copy" });
+    return toast("error", "Couldn't copy. Copying needs a secure (https) address.", { key: "copy", icon: "copy" });
   }
-  toast("ok", button.id === "q-share" ? "Link to this search copied" : "Copied to clipboard");
+  const search = button.id === "q-share";
+  toast("ok", search ? "Link to this search copied" : "Copied to clipboard", { icon: search ? "share" : "copy" });
   const use = button.querySelector("use");
   const sprite = use.getAttribute("href").split("#")[0];
   button.dataset.icon ??= use.getAttribute("href"); // the button's own icon, put back below

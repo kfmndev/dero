@@ -14,10 +14,10 @@
 {%- macro link_notices(id) -%}
 <div class="notices" id="link-{{ id }}-notices">
 {%- for category, message in get_flashed_messages(with_categories=true) if category in ('link:' ~ id, 'link:' ~ id ~ ':error') %}
-  {%- if category.endswith(':error') %}
-  <p class="form-error" role="alert">{{ icon('alert') }}<span>{{ message|rich }}</span></p>
+  {%- if category.endswith(':error') %}{% set ic, text = message|split_icon %}
+  <p class="form-error" role="alert">{{ icon(ic or 'alert') }}<span>{{ text|rich }}</span></p>
   {%- else %}{% set m = message|fromjson %}
-  <p class="form-ok" role="status">{{ icon('check') }}
+  <p class="form-ok" role="status">{{ icon('save' if m.changes else 'equal') }}
     <span class="note-line">
       {%- if m.changes %}<span>Link</span>{{ m.slug|slug_box }}<span>updated</span>
       {%- else %}<span>Nothing to update</span><span>·</span>{{ m.slug|slug_box }}<span>is unchanged</span>{% endif %}
@@ -35,9 +35,9 @@
 {%- macro notices(scope) -%}
 <div class="notices" id="{{ scope }}-notices">
 {%- for category, message in get_flashed_messages(with_categories=true) if category in (scope, scope ~ ':error') %}
-  {% set failed = category.endswith(':error') %}
+  {% set failed = category.endswith(':error') %}{% set ic, text = message|split_icon %}
   <p class="{{ 'form-error' if failed else 'form-ok' }}" role="{{ 'alert' if failed else 'status' }}">
-    {{- icon('alert' if failed else 'check') }}<span>{{ message|rich }}</span></p>
+    {{- icon(ic or ('alert' if failed else 'check')) }}<span>{{ text|rich }}</span></p>
 {%- endfor %}
 </div>
 {%- endmacro -%}

@@ -22,9 +22,9 @@ MIN_LENGTH, MAX_LENGTH, DEFAULT_LENGTH = 3, 32, 5
 
 
 def _quoted(chars: str) -> str:
-    """The offending characters for a message: '|'  or  '|' and '?'  or  '|', '?' and '#'.
-    A space is named, since it is invisible. More than six are cut: '|', '?', '#', '%', '"', '<', …"""
-    shown = ["space" if c == " " else f"'{c}'" for c in chars[:6]]
+    """The offending characters for a message, each in a code box: |  or  | and ?  or  |, ? and #.
+    A space is named, since it is invisible. More than six are cut: |, ?, #, %, ", <, …"""
+    shown = ["space" if c == " " else f"⟨{c}⟩" for c in chars[:6]]
 
     if len(chars) > 6:
         return ", ".join(shown) + ", …"
@@ -64,7 +64,7 @@ def _typed_slug(slug: str) -> str:
     validated("slug", resolve.validate_slug, slug)
 
     if slug in reserved_slugs():
-        raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug")
+        raise resolve.ValidationError(f"‹{slug}› is reserved by dero. Choose another slug.", "slug", "lock")
 
     return slug
 
@@ -76,7 +76,7 @@ def _own_characters(f: Mapping[str, str]) -> str:
 
     if bad:
         raise resolve.ValidationError(
-            f"{_quoted(bad)} can't be used in a slug. Allowed: letters, digits and - _ . ~", "alphabet_custom"
+            f"{_quoted(bad)} can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩", "alphabet_custom"
         )
 
     if len(set(chars)) < 2:
@@ -145,7 +145,7 @@ def parse_expiry(text: str) -> str | None:
     try:
         day = datetime.strptime(text, "%Y-%m-%d").date()
     except ValueError:
-        raise resolve.ValidationError("Enter the expiry as a date, like 2026-12-31.", "expires_at")
+        raise resolve.ValidationError("Enter the expiry as a date, like ⟨2026-12-31⟩.", "expires_at")
 
     return day.strftime("%Y-%m-%dT23:59:59Z")
 
@@ -156,4 +156,4 @@ def validated[T](field: str, fn: Callable[..., T], *args: Any) -> T:
     try:
         return fn(*args)
     except resolve.ValidationError as exc:
-        raise resolve.ValidationError(str(exc), field) from exc
+        raise resolve.ValidationError(str(exc), field, exc.own_icon) from exc

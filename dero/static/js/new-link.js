@@ -12,13 +12,16 @@
   const lengthField = () => form.elements.namedItem("length");
 
   // The message is a toast; the field it is about is marked (aria-invalid or data-warn) and focused by the caller.
-  function show(message, kind = "error") {
-    if (message) toast(kind, message, { key: "new-link" });
+  function show(message, kind = "error", icon = null) {
+    if (message) toast(kind, message, { key: "new-link", icon });
     else dismissToast("new-link");
   }
   // an error the server rendered into the form (a post without the script) is shown the same way
   if (box?.textContent.trim()) {
-    toast("error", box.querySelector("span")?.cloneNode(true) || box.textContent.trim(), { key: "new-link" });
+    toast("error", box.querySelector("span")?.cloneNode(true) || box.textContent.trim(), {
+      key: "new-link",
+      icon: iconNameOf(box),
+    });
     box.replaceChildren();
   }
 
@@ -67,7 +70,7 @@
     const found = generatorProblem(form, reserved, kind);
     if (found) {
       found[0].setAttribute("aria-invalid", "true");
-      show(found[1], "error");
+      show(found[1], "error", problemIcon(found[0], found[1]));
       found[0].focus();
       return;
     }
@@ -136,13 +139,13 @@
         lookupThenResubmit(form);
         return;
       }
-      if (warnFirst(form, event, "Create", (message) => show(message, "warn"))) return;
+      if (warnFirst(form, event, "Create", (message, _field, icon) => show(message, "warn", icon))) return;
       return show(""); // let the browser send it
     }
     event.preventDefault(); // invalid: nothing is sent, nothing is cleared
     const [field, message] = found;
     field.setAttribute("aria-invalid", "true");
-    show(message, "error");
+    show(message, "error", problemIcon(field, message));
     field.focus();
   });
 
