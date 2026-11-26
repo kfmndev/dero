@@ -1,3 +1,15 @@
 {%- macro icon(name) -%}
 <svg class="icon" aria-hidden="true"><use href="{{ url_for('static', filename='icons.svg') }}#{{ name }}"/></svg>
 {%- endmacro -%}
+
+{%- macro link_actions(url, what='link') -%}
+<span class="link-actions"><a class="mini" href="{{ url }}" target="_blank" rel="noopener noreferrer" title="Open {{ what }}" aria-label="Open {{ what }}">{{ icon('external') }}</a><button type="button" class="mini copy" data-copy="{{ url }}" title="Copy {{ what }}" aria-label="Copy {{ what }}">{{ icon('copy') }}</button></span>
+{%- endmacro -%}
+
+{%- macro notices(scope) -%}
+<div class="notices" id="{{ scope }}-notices">
+{%- for category, message in get_flashed_messages(with_categories=true) if category == scope or category == scope ~ ':error' %}
+  <p class="{{ 'form-error' if category.endswith(':error') else 'form-ok' }}" role="{{ 'alert' if category.endswith(':error') else 'status' }}">{{ icon('alert' if category.endswith(':error') else 'check') }}<span>{{ message }}</span></p>
+{%- endfor %}
+</div>
+{%- endmacro -%}

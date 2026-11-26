@@ -13,7 +13,7 @@
 <body>
 <main>
   <header>
-    <h1>dero<span class="dot">.</span></h1>
+    <div class="brand"><h1>dero<span class="dot">.</span></h1><span class="tagline">URL Shortener</span></div>
     <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch theme">{{ icon('moon') }}</button>
   </header>
 
@@ -23,15 +23,12 @@
     <span class="who">{{ g.user.username }}<span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span></span>
   </nav>
 
-  {% for category, message in get_flashed_messages(with_categories=true) if category != 'link' %}
-    <p class="flash {{ category }}">{{ icon('alert' if category == 'error' else 'check') }}<span>{{ message }}</span></p>
-  {% endfor %}
   {% block content %}{% endblock %}
 </main>
 <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
   <form method="dialog">
     <h2 id="confirm-title"></h2>
-    <p id="confirm-text"><code id="confirm-name"></code> <span id="confirm-detail"></span></p>
+    <p id="confirm-text"><span id="confirm-name" class="url"></span> <span id="confirm-detail"></span></p>
     <div class="dialog-actions">
       <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">{{ icon('trash') }}<span>Delete</span></button>
       <button type="submit" value="no" class="btn" autofocus>Cancel</button>

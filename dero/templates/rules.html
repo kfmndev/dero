@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon %}
+{% from "_macros.html" import icon, notices %}
 {% block content %}
 <section>
   <h2>Fallback</h2>
@@ -9,6 +9,7 @@
     <input name="fallback_url" type="url" value="{{ fallback }}" placeholder="https://example.com/oops" aria-label="Fallback URL">
     <button class="btn primary">Save</button>
   </form>
+  {{ notices('fallback') }}
 </section>
 
 <section>
@@ -16,7 +17,7 @@
   <p class="hint">Tried after exact links, lowest priority number first.
     Glob: <code>*</code> anything except <code>/</code>, <code>**</code> anything, <code>?</code> one character.
     Captures are available in the target as <code>{1}</code>, <code>{2}</code>, … Example: <code>gh/*</code> → <code>https://github.com/{1}</code>.</p>
-  <form method="post" action="{{ url_for('admin.create_rule') }}" class="form-grid rules">
+  <form method="post" action="{{ url_for('admin.create_rule') }}" class="form-grid rules" data-reset-on-success>
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <label>Pattern <input name="pattern" type="text" placeholder="gh/*" required autocomplete="off"></label>
     <label>Type
@@ -26,7 +27,9 @@
     <label>Priority <input name="priority" type="number" value="100"></label>
     <button class="btn primary">{{ icon('plus') }}Add rule</button>
   </form>
+  {{ notices('rules') }}
 
+  <div id="rules-results">
   <div class="table-wrap" style="margin-top: 16px">
   <table>
     <thead><tr><th>Priority</th><th>Pattern</th><th>Type</th><th>Target</th><th class="num">Visits</th><th></th></tr></thead>
@@ -47,7 +50,12 @@
         <td class="actions">
           <form method="post" action="{{ url_for('admin.rule_toggle', rule_id=r.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-            <button class="btn small icon-only" title="{{ 'Disable' if r.enabled else 'Enable' }}" aria-label="{{ 'Disable' if r.enabled else 'Enable' }}">{{ icon('power') }}</button></form>
+            <label class="switch" title="{{ 'Enabled: click to disable' if r.enabled else 'Disabled: click to enable' }}">
+              <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if r.enabled %} checked{% endif %}>
+              <span class="track"></span>
+            </label>
+            <noscript><button class="btn small">{{ 'Disable' if r.enabled else 'Enable' }}</button></noscript>
+          </form>
           <form method="post" action="{{ url_for('admin.rule_delete', rule_id=r.id) }}"
                 data-confirm-title="Delete this rule?" data-confirm-name="{{ r.pattern }}"
                 data-confirm-detail="{{ r.target }}" data-confirm-yes="Delete rule">
@@ -60,6 +68,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </div>
   </div>
 </section>
 {% endblock %}

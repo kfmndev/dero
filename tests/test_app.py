@@ -258,7 +258,7 @@ def seed_links(client, app):
 
 def slugs(client, headers, query=""):
     html = client.get("/admin/" + query, headers=headers).get_data(as_text=True)
-    return re.findall(r'class="slug">/([a-z]+)</span>', html)
+    return re.findall(r'class="slug">([a-z0-9]+)</code>', html)
 
 
 def test_sorting(client, app):
@@ -356,7 +356,7 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     r = post(c, "/admin/links", USER, target="https://example.com", slug="abc")
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
-    assert "<code>s.example.com</code>" in html and "Created https://s.example.com/abc" in html
+    assert "<code>s.example.com</code>" in html and "Created <span class=\"url\">https://s.example.com/abc</span>" in html
     assert "localhost" not in html
 
 
@@ -376,8 +376,11 @@ def test_row_layout_copy_beside_link_delete_in_details(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
     detail = html[html.index('<tr class="detail"'):html.index("</tbody>")]
-    assert row.count("data-copy") == 1 and 'class="actions"' not in row and "/delete" not in row
-    assert row.count('aria-label="Open short link"') == 1 and row.count('aria-label="Open target"') == 1
+    assert row.count("data-copy") == 2 and 'class="actions"' not in row and "/delete" not in row
+    # every link gets "open" first, then "copy"
+    for what in ("short link", "target"):
+        assert row.count(f'aria-label="Open {what}"') == 1 and row.count(f'aria-label="Copy {what}"') == 1
+        assert row.index(f'aria-label="Open {what}"') < row.index(f'aria-label="Copy {what}"')
     assert "/delete" in detail and "Delete link" in detail
     assert 'id="links-results"' in html and 'id="filter-live"' in html
 
@@ -426,4 +429,189 @@ def test_delete_uses_the_custom_dialog_not_window_confirm(client):
     for html in (links, rules):
         assert "confirm(" not in html and "onsubmit" not in html
         assert '<dialog id="confirm"' in html and html.index('id="confirm-yes"') < html.index('value="no"')  # accept first (left)
-    assert 'data-confirm-name="/abc"' in links and 'data-confirm-name="gh/*"' in rules
+    assert 'data-confirm-name="http://localhost/abc"' in links and 'data-confirm-name="gh/*"' in rules
+
+
+# ---------------------------------------------------------------- open + copy icons everywhere, expiry editing
+def test_every_link_has_open_then_copy(tmp_path):
+    app = create_app({"DATABASE": str(tmp_path / "l.db"), "SECRET_KEY": "t", "AUTH_MODE": "proxy", "BASE_URL": "https://s.example.com"})
+    c = app.test_client()
+    r = post(c, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = c.get("/admin/", headers=USER).get_data(as_text=True)
+    # the "created" notification, the row, and the details panel
+    notice = html[html.index('class="form-ok"'):html.index("</p>", html.index('class="form-ok"'))]
+    assert '<span class="url">https://s.example.com/abc</span>' in notice
+    sections = {"notice": notice, "row": html[html.index('<tr class="item'):html.index('<tr class="detail"')],
+                "details": html[html.index('<tr class="detail"'):html.index("</tbody>")]}
+    for name, part in sections.items():
+        opens = [m.start() for m in re.finditer(r'class="mini" href="[^"]+" target="_blank"', part)]
+        copies = [m.start() for m in re.finditer(r'class="mini copy" data-copy="', part)]
+        assert opens and len(opens) == len(copies), name
+        assert all(o < c_ for o, c_ in zip(opens, copies)), name   # open, then copy
+        assert all(c_ - o < 400 for o, c_ in zip(opens, copies)), name  # directly next to each other
+    assert len(re.findall(r'data-copy="', sections["notice"])) == 1
+    assert len(re.findall(r'data-copy="', sections["row"])) == 2 and len(re.findall(r'data-copy="', sections["details"])) == 2
+
+
+def link_row(app, slug):
+    from dero.db import get_db
+    with app.app_context():
+        return get_db().execute("SELECT * FROM links WHERE slug = ?", (slug,)).fetchone()
+
+
+def test_change_expiry_of_an_existing_link(client, app):
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone.utc).date()
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    link_id = link_row(app, "abc")["id"]
+    day = (today + timedelta(days=10)).isoformat()
+    r = post(client, f"/admin/links/{link_id}/expires", USER, expires_at=day, back="/admin/?status=active")
+    assert r.status_code == 302 and r.headers["Location"] == "/admin/?status=active"
+    assert link_row(app, "abc")["expires_at"] == f"{day}T23:59:59Z"
+    assert day in client.get("/admin/", headers=USER).get_data(as_text=True)
+    # empty value removes the expiry again
+    post(client, f"/admin/links/{link_id}/expires", USER, expires_at="")
+    assert link_row(app, "abc")["expires_at"] is None
+
+
+def test_expiry_edit_reactivates_an_expired_link(client, app):
+    from datetime import datetime, timedelta, timezone
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    expire(app, "abc")
+    assert client.get("/abc").status_code == 404
+    day = (datetime.now(timezone.utc).date() + timedelta(days=3)).isoformat()
+    post(client, f"/admin/links/{link_row(app, 'abc')['id']}/expires", USER, expires_at=day)
+    assert client.get("/abc").status_code == 302
+
+
+def test_expiry_edit_rejects_bad_dates_and_other_users(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    link_id = link_row(app, "abc")["id"]
+    before = link_row(app, "abc")["expires_at"]
+    for bad, message in (("2000-01-01", "already passed"), ("31/12/2030", "must be a date"), ("tomorrow", "must be a date")):
+        r = post(client, f"/admin/links/{link_id}/expires", USER, expires_at=bad)
+        assert r.status_code == 302
+        assert link_row(app, "abc")["expires_at"] == before
+        assert message in client.get("/admin/", headers=USER).get_data(as_text=True)   # shown once, then gone
+    assert post(client, f"/admin/links/{link_id}/expires", USER2, expires_at="2099-01-01").status_code == 404
+    assert post(client, f"/admin/links/{link_id}/expires", ADMIN, expires_at="2099-01-01").status_code == 302
+    assert link_row(app, "abc")["expires_at"] == "2099-01-01T23:59:59Z"
+
+
+# ---------------------------------------------------------------- details layout, brand, icon spacing
+def test_details_order_full_url_and_expiry_switch(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="plain")
+    post(client, "/admin/links", USER, target="https://example.com/u", slug="dated", expires_at="2099-01-01")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    details = {m.group(1): m.group(0) for m in re.finditer(r'<tr class="detail" id="d(\d+)".*?</tr>', html, re.S)}
+    plain, dated = details["1"], details["2"]
+    order = [plain.index(f"<dt>{t}</dt>") for t in ("Created by", "Created", "Expires", "Short link", "Target")]
+    assert order == sorted(order)                                          # what the collapsed row doesn't show comes first
+    assert '<span class="url">http://localhost/plain</span>' in plain                  # fully qualified, no leading slash
+    assert "hint-inline" not in plain and "Never expires" not in plain     # no explanation text any more
+    # the switch controls the date field: off = disabled (and therefore not sent), on = required
+    assert 'class="expiry-switch"' in plain and re.search(r'name="expires_at"[^>]*\bdisabled\b', plain)
+    assert 'class="expiry-switch"' in dated and "checked" in dated and re.search(r'name="expires_at"[^>]*\brequired\b', dated)
+
+
+def test_collapsed_row_shows_slug_without_slash_as_code(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    row = client.get("/admin/", headers=USER).get_data(as_text=True)
+    row = row[row.index('<tr class="item'):row.index('<tr class="detail"')]
+    assert '<code class="slug">abc</code>' in row and '<span class="url truncate"' in row
+    assert ">/abc<" not in row
+
+
+def test_disabled_date_clears_the_expiry(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc", expires_at="2099-01-01")
+    link_id = link_row(app, "abc")["id"]
+    assert link_row(app, "abc")["expires_at"]
+    post(client, f"/admin/links/{link_id}/expires", USER)                  # a disabled field is not submitted at all
+    assert link_row(app, "abc")["expires_at"] is None
+
+
+def test_icons_share_one_wrapper_and_header_has_tagline(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert html.count('class="link-actions"') == html.count('data-copy="') >= 4
+    assert '<span class="tagline">URL Shortener</span>' in html
+
+
+# ---------------------------------------------------------------- column order, no-reload hooks
+def test_row_columns_chevron_first_switch_last(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    head = html[html.index("<thead>"):html.index("</thead>")]
+    assert re.match(r"<thead><tr>\s*<th></th>.*<th></th>\s*</tr>", head, re.S)           # empty first and last header
+    row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
+    cells = re.findall(r"<td class=\"([^\"]*)\">", row)
+    assert cells == ["narrow lead", "nowrap", "target", "num", "narrow end"]
+    first, last = row.split("</td>")[0], row.split("</td>")[-2]
+    assert 'class="mini expand"' in first and 'class="slug"' not in first                   # chevron alone in the first column
+    assert 'class="row-switch"' in last and "toggle" in last                                # enable switch in the last one
+    assert 'class="slug"' in row.split("</td>")[1]
+
+
+def test_forms_are_wired_for_updates_without_reloads(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    post(client, "/admin/rules", ADMIN, pattern="gh/*", target="https://github.com/{1}")
+    links = client.get("/admin/", headers=USER).get_data(as_text=True)
+    rules = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    for html in (links, rules):
+        assert 'id="flashes"' not in html and ".submit()" not in html and "onchange" not in html
+    assert 'id="links-results"' in links and 'id="new-link-notices"' in links and 'id="new-link-error"' in links
+    assert 'id="rules-results"' in rules and "data-reset-on-success" in rules
+    app_js = client.get("/static/app.js").get_data(as_text=True)
+    assert "requestSubmit" in app_js and "swapRegion" in app_js and "form.submit()" not in app_js
+
+
+# ---------------------------------------------------------------- notices live in their own card
+def notice_box(html, scope):
+    start = html.index(f'id="{scope}-notices"')
+    return html[start:html.index("</div>", start)]
+
+
+def test_messages_appear_in_the_card_they_belong_to(client, app):
+    from datetime import datetime, timedelta, timezone
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    link_id = link_row(app, "abc")["id"]
+    day = (datetime.now(timezone.utc).date() + timedelta(days=5)).isoformat()
+
+    post(client, f"/admin/links/{link_id}/expires", USER, expires_at=day)
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert "now expires on" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
+    assert 'id="flashes"' not in html and 'class="flash' not in html
+    assert "now expires on" not in notice_box(html, "new-link")
+
+    post(client, f"/admin/links/{link_id}/expires", USER, expires_at="2000-01-01")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert "already passed" in notice_box(html, "links") and 'class="form-error"' in notice_box(html, "links")
+
+    post(client, "/admin/rules", ADMIN, pattern="x", target="javascript:alert(1)")
+    html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    assert "http" in notice_box(html, "rules") and 'class="form-error"' in notice_box(html, "rules")
+    assert notice_box(html, "fallback").count("<p") == 0
+
+    post(client, "/admin/settings/fallback", ADMIN, fallback_url="https://example.com/oops")
+    html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    assert "Fallback saved." in notice_box(html, "fallback") and notice_box(html, "rules").count("<p") == 0
+    post(client, "/admin/settings/fallback", ADMIN, fallback_url="nope")
+    html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
+    assert 'class="form-error"' in notice_box(html, "fallback")
+
+
+def test_only_the_compact_short_link_is_highlighted(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    table = html[html.index("<tbody>"):html.index("</tbody>")]
+    assert table.count("<code") == 1 and '<code class="slug">' in table      # chip for the compact slug only
+    assert '<span class="url' in table
+
+
+def test_unusual_url_warning_is_wired(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert '<span class="label">Create</span>' in html and "novalidate" in html
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function unusualUrl" in js and "anyway" in js and "data-warn" in js
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert ".form-warn" in css and "--warn" in css and "input[data-warn]:focus" in css

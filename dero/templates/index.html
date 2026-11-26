@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon %}
+{% from "_macros.html" import icon, link_actions, notices %}
 {% block content %}
 {% set host = base | replace("https://", "") | replace("http://", "") %}
 <section>
@@ -19,12 +19,14 @@
       <input name="expires_at" type="date" min="{{ today }}" value="{{ form.get('expires_at', '') }}" title="Last day the link works (UTC)"
              {% if error_field == 'expires_at' %}aria-invalid="true" autofocus{% endif %}>
     </label>
-    <button class="btn primary">{{ icon('plus') }}Create</button>
+    <button class="btn primary">{{ icon('plus') }}<span class="label">Create</span></button>
   </form>
   <p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error }}</span>{% endif %}</p>
+  <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span>{{ message }}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}<span>Created <span class="url">{{ message }}</span>{{ link_actions(message, 'short link') }}</span></p>
   {% endfor %}
+  </div>
 </section>
 
 <section>
@@ -63,6 +65,8 @@
     <span class="live" id="filter-live">{{ icon('refresh') }}<span>Applies as you change it</span></span>
   </form>
 
+  {{ notices('links') }}
+
   {% macro th(key, label, cls='') %}
   <th class="{{ cls }}"{% if sort == key %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
     <a href="{{ sort_url(key) }}">{{ label }}{% if sort == key %}<span class="arrow" aria-hidden="true">{{ '↑' if direction == 'asc' else '↓' }}</span>{% endif %}</a>
@@ -75,47 +79,58 @@
   <div class="table-wrap">
   <table>
     <thead><tr>
-      <th></th>{{ th('slug', 'Short link') }}{{ th('target', 'Target') }}{{ th('visits', 'Visits', 'num') }}
+      <th></th>{{ th('slug', 'Short link') }}{{ th('target', 'Target') }}{{ th('visits', 'Visits', 'num') }}<th></th>
     </tr></thead>
     <tbody>
     {% for l in links %}
       {% set expired = l.expires_at and l.expires_at <= now %}
       <tr class="item {{ '' if l.enabled and not expired else 'off' }}">
-        <td class="narrow">
+        <td class="narrow lead">
+          <button type="button" class="mini expand" aria-expanded="false" aria-controls="d{{ l.id }}" title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
+        </td>
+        <td class="nowrap">
+          <code class="slug">{{ l.slug }}</code>{% if expired %} <span class="badge">expired</span>{% endif %}{{ link_actions(base ~ l.slug, 'short link') }}
+        </td>
+        <td class="target">
+          <span class="cell"><span class="url truncate" title="{{ l.target }}">{{ l.target }}</span>{{ link_actions(l.target, 'target') }}</span>
+        </td>
+        <td class="num">{{ l.visits }}</td>
+        <td class="narrow end">
           <form method="post" action="{{ url_for('admin.toggle_link', link_id=l.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <input type="hidden" name="back" value="{{ back }}">
             <label class="switch" title="{{ 'Enabled: click to disable' if l.enabled else 'Disabled: click to enable' }}">
-              <input type="checkbox" role="switch" aria-label="Enabled"{% if l.enabled %} checked{% endif %} onchange="this.form.submit()">
+              <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if l.enabled %} checked{% endif %}>
               <span class="track"></span>
             </label>
             <noscript><button class="btn small">{{ 'Disable' if l.enabled else 'Enable' }}</button></noscript>
           </form>
         </td>
-        <td class="mono nowrap">
-          <button type="button" class="mini expand" aria-expanded="false" aria-controls="d{{ l.id }}" title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
-          <span class="slug">/{{ l.slug }}</span>{% if expired %} <span class="badge">expired</span>{% endif %}
-          <button type="button" class="mini copy" data-copy="{{ base }}{{ l.slug }}" title="Copy short link" aria-label="Copy short link">{{ icon('copy') }}</button>
-          <a class="mini" href="{{ base }}{{ l.slug }}" target="_blank" rel="noopener" title="Open short link" aria-label="Open short link">{{ icon('external') }}</a>
-        </td>
-        <td class="target">
-          <span class="cell"><span class="truncate" title="{{ l.target }}">{{ l.target }}</span>
-            <a class="mini" href="{{ l.target }}" target="_blank" rel="noreferrer noopener" title="Open target" aria-label="Open target">{{ icon('external') }}</a></span>
-        </td>
-        <td class="num">{{ l.visits }}</td>
       </tr>
       <tr class="detail" id="d{{ l.id }}" hidden>
         <td></td>
         <td colspan="3">
           <dl class="details">
-            <div><dt>Short link</dt><dd class="mono">{{ host }}{{ l.slug }}</dd></div>
             <div><dt>Created by</dt><dd>{{ l.created_by }}</dd></div>
             <div><dt>Created</dt><dd class="mono">{{ l.created_at.replace('T', ' ').replace('Z', ' UTC') }}</dd></div>
-            <div><dt>Expires</dt><dd class="mono">{% if l.expires_at %}{{ l.expires_at[:10] }}{% if expired %} (expired){% endif %}{% else %}never{% endif %}</dd></div>
-            <div class="wide"><dt>Target</dt><dd class="mono wrap">{{ l.target }}</dd></div>
+            <div class="wide"><dt>Expires</dt>
+              <dd>
+                <form method="post" action="{{ url_for('admin.set_expiry', link_id=l.id) }}" class="inline-form">
+                  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                  <input type="hidden" name="back" value="{{ back }}">
+                  <label class="switch small" title="Expires on a date (UTC)">
+                    <input type="checkbox" role="switch" class="expiry-switch" aria-label="Link expires"{% if l.expires_at %} checked{% endif %}>
+                    <span class="track"></span>
+                  </label>
+                  <input type="date" name="expires_at" min="{{ today }}" value="{{ l.expires_at[:10] if l.expires_at else '' }}" aria-label="Expiry date (UTC)" {{ 'required' if l.expires_at else 'disabled' }}>
+                  <button class="btn small">Save</button>
+                </form>
+              </dd></div>
+            <div class="wide"><dt>Short link</dt><dd><span class="url">{{ base ~ l.slug }}</span>{{ link_actions(base ~ l.slug, 'short link') }}</dd></div>
+            <div class="wide"><dt>Target</dt><dd><span class="url wrap">{{ l.target }}</span>{{ link_actions(l.target, 'target') }}</dd></div>
             <div class="wide detail-actions">
               <form method="post" action="{{ url_for('admin.delete_link', link_id=l.id) }}"
-                    data-confirm-title="Delete this link?" data-confirm-name="/{{ l.slug }}"
+                    data-confirm-title="Delete this link?" data-confirm-name="{{ base ~ l.slug }}"
                     data-confirm-detail="{{ l.target }}" data-confirm-yes="Delete link">
                 <input type="hidden" name="csrf" value="{{ csrf_token() }}">
                 <input type="hidden" name="back" value="{{ back }}">
@@ -124,12 +139,13 @@
             </div>
           </dl>
         </td>
+        <td></td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">{{ 'No links match.' if filtered else 'No links yet.' }}</td></tr>
+      <tr><td colspan="5" class="empty">{{ 'No links match.' if filtered else 'No links yet.' }}</td></tr>
     {% endfor %}
     </tbody>
-    <tfoot><tr><td colspan="3">Total visits</td><td class="num">{{ total }}</td></tr></tfoot>
+    <tfoot><tr><td colspan="3">Total visits</td><td class="num">{{ total }}</td><td></td></tr></tfoot>
   </table>
   </div>
   <p class="meta">{% if filtered %}Showing {{ links|length }} of {{ overall }} links{% else %}{{ overall }} link{{ '' if overall == 1 else 's' }}{% endif %}</p>

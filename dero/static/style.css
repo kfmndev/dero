@@ -38,9 +38,9 @@
 /* ---- Theme tokens ----
    Primary: #05f (white text on it, 5.6:1). --accent-ink is the primary for thin text on the page
    background: #05f on white, a lighter #6b9bff on dark (6.6:1).
-   Secondary: spring green (hue 158), analogous to the blue and still reads as "on"/"ok". Used for
-   hover, focus, the enable switch and success messages. --accent-2-ink is its text-safe variant
-   (#008554 on white, 4.7:1).
+   Secondary: a variant of the primary -- darker on light backgrounds, lighter on dark ones -- used
+   for hover, focus, the enable switch and success messages. --accent-2-ink is its text-safe
+   variant, --on-accent-2 the knob/text colour on it.
    Dark applies when the browser prefers it, unless the user switched to light;
    or when the user switched to dark. theme.js sets data-theme. */
 :root {
@@ -58,10 +58,12 @@
   --border: #d9dde3;
   --accent: #05f;
   --accent-ink: #05f;
-  --accent-2: #00c27b;
-  --accent-2-ink: #008554;
+  --accent-2: #0038b8;
+  --accent-2-ink: #0038b8;
   --on-accent: #ffffff;
+  --on-accent-2: #ffffff;
   --err: #c0362c;
+  --warn: #b45309;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -75,10 +77,12 @@
     --border: #2a2e37;
     --accent: #05f;
     --accent-ink: #6b9bff;
-    --accent-2: #00d688;
-    --accent-2-ink: #00d688;
+    --accent-2: #9dbbff;
+    --accent-2-ink: #9dbbff;
     --on-accent: #ffffff;
+    --on-accent-2: #0b0c0f;
     --err: #ff7b72;
+    --warn: #fbbf24;
   }
 }
 
@@ -92,10 +96,12 @@
   --border: #2a2e37;
   --accent: #05f;
   --accent-ink: #6b9bff;
-  --accent-2: #00d688;
-  --accent-2-ink: #00d688;
+  --accent-2: #9dbbff;
+  --accent-2-ink: #9dbbff;
   --on-accent: #ffffff;
+  --on-accent-2: #0b0c0f;
   --err: #ff7b72;
+  --warn: #fbbf24;
 }
 
 /* ---- Base ---- */
@@ -327,13 +333,6 @@ input[type="url"]:focus, input[type="date"]:focus { outline: none; border-color:
 .btn.icon-only { width: var(--control-h); padding: 0; }
 
 /* ---- dero: flash messages ---- */
-.flash {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 0 16px; padding: 10px 14px;
-  border: 1px solid var(--border); border-left: 3px solid var(--accent-2);
-  border-radius: 8px; background: var(--card);
-}
-.flash.error { border-left-color: var(--err); color: var(--err); }
 
 /* ---- dero: tables ---- */
 .table-wrap { overflow-x: auto; }
@@ -353,8 +352,6 @@ tfoot td { border-top: 1px solid var(--border); border-bottom: 0; color: var(--m
 .mono { font-family: var(--font-mono); font-size: 13px; }
 .nowrap, th { white-space: nowrap; }
 .target { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.target a { color: inherit; text-decoration: none; }
-.target a:hover { color: var(--accent-2-ink); }
 tr.off td { opacity: 0.5; }
 tr.off td:last-child { opacity: 1; }
 .actions { white-space: nowrap; text-align: right; }
@@ -381,7 +378,7 @@ tr.off td:last-child { opacity: 1; }
 .switch .track { position: absolute; inset: 0; border: 1px solid var(--border); border-radius: 999px; background: var(--field); transition: background-color .15s, border-color .15s; }
 .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .15s, background-color .15s; }
 .switch input:checked + .track { background: var(--accent-2); border-color: var(--accent-2); }
-.switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent); }
+.switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent-2); }
 .switch input:focus-visible + .track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .switch:hover .track { border-color: var(--accent-2-ink); }
 
@@ -419,7 +416,10 @@ th .arrow { color: var(--accent-ink); margin-left: 4px; }
 tr.item { cursor: pointer; }
 tr.item:hover td { background: color-mix(in srgb, var(--field) 70%, transparent); }
 .narrow { width: 1%; }
-.expand { margin: 0 4px 0 -4px; }
+.expand { margin: 0; }
+td.lead { padding-right: 0; }
+td.end { text-align: right; padding-left: 4px; }
+td.end form { margin: 0; }
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
@@ -432,20 +432,21 @@ tr.detail[hidden] { display: none; }
 .details .wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: form feedback ---- */
-.form-error, .form-ok { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.form-error, .form-warn, .form-ok { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
 .form-error { color: var(--err); }
-.form-error:empty { display: none; }
+.form-warn { color: var(--warn); }
+.form-error:empty, .form-warn:empty { display: none; }
 .form-ok { color: var(--accent-2-ink); }
 input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 18%, transparent); }
 
-.target .cell { display: flex; align-items: center; gap: 4px; }
-.target .truncate { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target .cell { display: flex; align-items: center; }
+.target .truncate { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-actions { display: flex; justify-content: flex-end; }
 .detail-actions form { margin: 0; }
 tr.detail .btn { background: var(--card); }
 
-/* ---- dero: inputs are regular weight (labels around them are bold, and inputs inherit that) ---- */
-input[type], input:not([type]), select, textarea { font-weight: 400; }
+/* ---- dero: inputs are regular weight and 13px (labels around them are bold, and inputs inherit that) ---- */
+input[type], input:not([type]), select, textarea { font-weight: 400; font-size: 13px; }
 
 /* ---- dero: confirmation dialog ---- */
 dialog {
@@ -467,3 +468,88 @@ dialog p { margin: 0 0 18px; color: var(--muted); overflow-wrap: anywhere; }
 .btn.solid-danger:hover { background: transparent; color: var(--err); border-color: var(--err); }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { dialog[open] { animation: none; } }
+
+/* ---- dero: expiry editor in the details ---- */
+.inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0; }
+.inline-form input[type="date"] { width: auto; min-width: 9.5rem; }
+
+/* ---- dero: dropdowns ----
+   Fallback (all browsers): our font on the closed box and on the options, and our own chevron.
+   Browsers with customizable selects (appearance: base-select) also get a styled option list. */
+select, option, optgroup { font-family: var(--font-text); font-size: 13px; font-weight: 400; }
+
+select {
+  appearance: none;
+  padding: 0 30px 0 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f9a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 14px;
+}
+
+option { background: var(--card); color: var(--text); }
+
+@supports (appearance: base-select) {
+  select, ::picker(select) { appearance: base-select; }
+
+  /* a flex box keeps the text left and the arrow right on one line (the filters and form grids set display: block) */
+  select, .filters select, .form-grid select { display: flex; align-items: center; justify-content: space-between; gap: 8px; background-image: none; padding: 0 8px 0 10px; }
+
+  select::picker-icon {
+    content: "";
+    width: 14px; height: 14px;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    color: var(--muted);
+    transition: rotate .15s;
+  }
+  select:open::picker-icon { rotate: 180deg; }
+  select:hover::picker-icon { color: var(--text); }
+
+  ::picker(select) {
+    min-width: anchor-size(width);
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  }
+
+  option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  option:hover, option:focus-visible { background: var(--field); outline: none; }
+  option:checked { color: var(--accent-ink); }
+  option::checkmark { order: 1; margin-left: auto; color: var(--accent-ink); }
+}
+
+/* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
+code.slug { font-size: 13px; color: var(--text); }   /* the compact short link keeps the highlight */
+.url { font-family: var(--font-mono); font-size: 13px; }   /* every other URL: mono, no box */
+.url.wrap { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---- dero: the open + copy icons: same grouping and spacing everywhere ---- */
+.link-actions { display: inline-flex; align-items: center; gap: 0; margin-left: 4px; vertical-align: middle; flex: none; }
+.link-actions .mini { width: 18px; height: 18px; color: var(--muted); }
+.link-actions .mini:hover, .link-actions .mini.done { color: var(--accent-2-ink); }
+
+/* ---- dero: smaller switch ---- */
+.switch.small { width: 30px; height: 18px; }
+.switch.small .track::after { width: 12px; height: 12px; }
+.switch.small input:checked + .track::after { transform: translateX(12px); }
+input:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---- dero: brand ---- */
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.tagline { font: 600 12px/1 var(--font-head); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
+
+/* rules table: switch and delete button side by side */
+.actions .switch { margin-right: 6px; }
+input[data-warn], input[data-warn]:focus { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }

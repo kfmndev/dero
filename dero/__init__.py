@@ -211,6 +211,22 @@ def _reserved_slugs():
     return {current_app.config["ADMIN_PATH"].strip("/").split("/")[0], "static"}
 
 
+def _parse_expiry(text: str):
+    """'' -> None (never expires); 'YYYY-MM-DD' -> end of that day (UTC). Past days are refused."""
+    text = (text or "").strip()
+    if not text:
+        return None
+    try:
+        day = datetime.strptime(text, "%Y-%m-%d").date()
+    except ValueError:
+        raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).", "expires_at")
+    if day < datetime.now(timezone.utc).date():
+        raise resolve.ValidationError(
+            "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC).",
+            "expires_at")
+    return day.strftime("%Y-%m-%dT23:59:59Z")
+
+
 def _validated(field, fn, *args):
     """Run a validator and tag its error with the form field it belongs to."""
     try:
@@ -230,17 +246,7 @@ def create_link():
             _validated("slug", resolve.validate_slug, slug)
             if slug in _reserved_slugs():
                 raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
-        expires = f.get("expires_at", "").strip() or None
-        if expires:
-            try:
-                day = datetime.strptime(expires, "%Y-%m-%d").date()
-            except ValueError:
-                raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).", "expires_at")
-            if day < datetime.now(timezone.utc).date():
-                raise resolve.ValidationError(
-                    "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC).",
-                    "expires_at")
-            expires = day.strftime("%Y-%m-%dT23:59:59Z")
+        expires = _parse_expiry(f.get("expires_at", ""))
         for _ in range(10):
             candidate = slug or _random_slug()
             try:
@@ -248,7 +254,7 @@ def create_link():
                     "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
                     (candidate, target, g.user["username"], db.now_iso(), expires))
                 conn.commit()
-                flash(f"Created {_base_url()}{candidate}", "link")
+                flash(f"{_base_url()}{candidate}", "link")  # the template adds the wording and the open/copy icons
                 return redirect(url_for("admin.index"))
             except sqlite3.IntegrityError:
                 if slug:
@@ -265,6 +271,21 @@ def toggle_link(link_id):
     conn = db.get_db()
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
     conn.commit()
+    return _back()
+
+
+@admin.post("/links/<int:link_id>/expires")
+def set_expiry(link_id):
+    row = _own_or_admin(link_id)
+    try:
+        expires = _parse_expiry(request.form.get("expires_at", ""))
+    except resolve.ValidationError as exc:
+        flash(f"{_base_url()}{row['slug']}: {exc}", "links:error")
+        return _back()
+    conn = db.get_db()
+    conn.execute("UPDATE links SET expires_at = ? WHERE id = ?", (expires, link_id))
+    conn.commit()
+    flash(f"{_base_url()}{row['slug']} " + (f"now expires on {expires[:10]}." if expires else "no longer expires."), "links")
     return _back()
 
 
@@ -304,7 +325,7 @@ def create_rule():
                      (pattern, mtype, target, priority, g.user["username"], db.now_iso()))
         conn.commit()
     except resolve.ValidationError as exc:
-        flash(str(exc), "error")
+        flash(str(exc), "rules:error")
     return redirect(url_for("admin.rules"))
 
 
@@ -314,7 +335,7 @@ def rule_priority(rule_id):
     try:
         prio = int(request.form.get("priority", ""))
     except ValueError:
-        flash("Priority must be a number.", "error")
+        flash("Priority must be a number.", "rules:error")
         return redirect(url_for("admin.rules"))
     conn = db.get_db()
     conn.execute("UPDATE rules SET priority = ? WHERE id = ?", (prio, rule_id))
@@ -346,7 +367,7 @@ def set_fallback():
     value = request.form.get("fallback_url", "").strip()
     try:
         db.set_setting("fallback_url", resolve.validate_url(value) if value else "")
-        flash("Fallback saved." if value else "Fallback cleared (unknown links return 404).")
+        flash("Fallback saved." if value else "Fallback cleared (unknown links return 404).", "fallback")
     except resolve.ValidationError as exc:
-        flash(str(exc), "error")
+        flash(str(exc), "fallback:error")
     return redirect(url_for("admin.rules"))
