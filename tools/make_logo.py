@@ -21,6 +21,7 @@ FONT = ROOT / "dero" / "static" / "fonts" / "hubot-sans.woff2"
 WEIGHT = 800  # the weight of the header's h1
 SIZE = 100  # 1 em = 100 units
 PAD = 4  # space around the ink, on every side
+BOTTOM = 11  # extra room below: 0.5rem (8 px) where the README shows the logo at 68 px high (93 units, 60 px of them the logo)
 
 THEMES = {  # name -> (text colour, dot colour): the app's text and accent tokens in light and dark
     "light": ("#15171c", "#05f"),
@@ -54,7 +55,7 @@ def build() -> dict[str, str]:
     word, x = draw("dero", 0)
     dot, _ = draw(".", x)
     left, top, right, bottom = bounds.bounds  # the ink, so the logo has no spare room above, below or at the sides
-    left, top, width, height = left - PAD, top - PAD, right - left + 2 * PAD, bottom - top + 2 * PAD
+    left, top, width, height = left - PAD, top - PAD, right - left + 2 * PAD, bottom - top + 2 * PAD + BOTTOM
     out = {}
 
     for theme, (text, accent) in THEMES.items():
