@@ -24,28 +24,28 @@
 
   const slugField = form.elements.slug,
     slugGroup = document.getElementById("new-link-slug");
-  let stash = ""; // what was typed as a custom slug, while a random type is selected
+  let stash = "", // what was typed as a custom slug, while a random type is selected
+    shown = sourceOf(); // the generator before the last change
 
   function repaintSlug() {
     slugField.dispatchEvent(new Event("input")); // the coloured copy behind it follows (not bubbling: not the user typing)
   }
 
   // Random or typed: only the options that belong to the chosen type are shown, next to the dropdown.
-  // The slug field is always there: with a random type it is empty ("generated when you create it") until the user
-  // clicks or types in it, which switches the type to Custom.
+  // The slug field is always there: with a random type it is empty (placeholder "random") until the generator is used
+  // (it then shows the drawn slug) or the user clicks or types in it, which switches the generator to Custom.
   function syncGenerator() {
     const source = sourceOf();
     const random = source !== "slug";
     slugGroup.classList.toggle("is-random", random);
-    slugField.placeholder = random ? "Generated when you create it" : "my-link";
-    slugField.setAttribute("aria-label", random ? "Slug (random; type to write your own)" : "Custom slug");
+    slugField.placeholder = random ? "random" : "my-link";
     form
       .querySelectorAll("[data-when-source]")
       .forEach((el) => (el.hidden = !el.dataset.whenSource.split(" ").includes(source)));
   }
 
-  // Generate: draw a slug of the selected type now, put it into the Custom slug field to look at, edit or create.
-  // From Custom it uses the random type that was selected last.
+  // Generate (only offered with a random type): draw a slug of the selected type now and show it in the slug field.
+  // What is shown is what will be created. Clicking into the field makes it a custom slug (the generator switches).
   let lastRandom = sourceOf() === "slug" ? "default" : sourceOf();
   const generate = form.querySelector("#new-link-generate");
   const reservedSet = new Set(reserved);
@@ -72,19 +72,18 @@
       return;
     }
     show("");
-    const select = form.elements.slug_source;
-    select.value = "slug"; // what is shown is what will be created: a custom slug that happens to be random
-    refreshSelect(select);
     slugField.value = randomSlug(kind);
     repaintSlug();
-    stash = "";
-    syncGenerator();
-    savePrefs();
     forgetWarning(form);
   });
 
+  // A slug that was drawn and is shown is created as it is: with a random type selected, the slug field counts as custom
+  function settle() {
+    if (sourceOf() !== "slug" && slugField.value.trim()) switchToCustom(false); // (not remembered: the next one is random again)
+  }
+
   // Clicking or typing in the slug field means "my own": the type switches to Custom.
-  function switchToCustom() {
+  function switchToCustom(remember = true) {
     if (sourceOf() === "slug") return;
     lastRandom = sourceOf();
     const select = form.elements.slug_source;
@@ -92,9 +91,9 @@
     refreshSelect(select);
     stash = "";
     syncGenerator();
-    savePrefs();
+    if (remember) savePrefs();
   }
-  slugField.addEventListener("pointerdown", switchToCustom);
+  slugField.addEventListener("pointerdown", () => switchToCustom());
 
   function savePrefs() {
     // the choice is remembered in this browser
@@ -128,6 +127,7 @@
   syncGenerator();
 
   form.addEventListener("submit", (event) => {
+    settle();
     form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
     const found = linkProblem(form, { reserved, generator: true });
     if (!found) {
@@ -163,14 +163,15 @@
       if (sourceOf() !== "slug") {
         lastRandom = sourceOf();
         if (slugField.value) {
-          stash = slugField.value; // a random type has no typed slug; it comes back with Custom
-          slugField.value = "";
+          if (shown === "slug") stash = slugField.value; // a random type has no typed slug; it comes back with Custom
+          slugField.value = ""; // (a drawn one is out of date when the generator changes)
           repaintSlug();
         }
       } else if (!slugField.value && stash) {
         slugField.value = stash;
         repaintSlug();
       }
+      shown = sourceOf();
       syncGenerator();
       savePrefs();
     }

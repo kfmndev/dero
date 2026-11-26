@@ -40,13 +40,13 @@
     </div>
     <div class="nl-row nl-type">
       <div class="field">
-        <label class="field-label" for="slug-source">Slug</label>
+        <label class="field-label" for="slug-source">Generator</label>
         <select name="slug_source" id="slug-source"{% if error_field in ('slug_source', 'alphabet') %}
           aria-invalid="true" autofocus{% endif %}>
           <option value="default"{% if slug_source == 'default' %} selected{% endif %}>Random · default</option>
           <option value="letters"{% if slug_source == 'letters' %} selected{% endif %}>Random · letters only</option>
           <option value="chars"{% if slug_source == 'chars' %} selected{% endif %}>Random · own characters</option>
-          <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom slug</option>
+          <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom</option>
         </select>
       </div>
       <label class="nl-chars" data-when-source="chars">Characters
@@ -59,20 +59,21 @@
           min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
           autofocus{% endif %}>
       </label>
+      <button type="button" class="btn" id="new-link-generate" data-when-source="default letters chars"
+        title="Draw a slug of this kind now, then create it or edit it">{{ icon('refresh') }}Generate</button>
     </div>
     <div class="nl-row nl-slug">
-      <div class="grow">
+      <div class="field grow">
+        <label class="field-label" for="new-link-slug-input">Slug</label>
         <span class="slug-group" id="new-link-slug">
           <span class="slug-prefix">{{ base }}</span>
           <span class="slug-edit">
             <span class="slug-hl" aria-hidden="true"></span>
-            <input name="slug" type="text" class="url-input" placeholder="my-link" aria-label="Custom slug"
+            <input name="slug" type="text" class="url-input" id="new-link-slug-input" placeholder="random"
               value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
               pattern="[A-Za-z0-9._~\-]{1,64}"
               {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
           </span>
-          <button type="button" class="mini" id="new-link-generate" aria-label="Generate a slug"
-            title="Generate a slug of the selected type">{{ icon('refresh') }}</button>
         </span>
       </div>
       <button class="btn primary" id="new-link-submit">{{ icon('plus') }}Create</button>
@@ -207,17 +208,19 @@
       </details>
     </div>
     {% set can_reset = query or cols != default_cols %}
-    <a class="btn" id="reset-filters" href="{{ url_for('admin.index') }}"
+    <div class="field live-field">
+      <label class="field-label" for="live-switch" id="live-name">Live</label>
+      <span class="live-toggle" id="live-toggle" title="Live visits: a visited slug is marked in the table and the counts stay current. Only the counter changes: no visit is recorded.">
+        <label class="switch small">
+          <input type="checkbox" role="switch" id="live-switch" aria-labelledby="live-name">
+          <span class="track"></span>
+        </label>
+      </span>
+    </div>
+    <a class="btn icon-only" id="reset-filters" href="{{ url_for('admin.index') }}" title="Reset the search and the columns"
        aria-disabled="{{ 'false' if can_reset else 'true' }}"{% if not can_reset %} tabindex="-1"{% endif %}>
-      {{- icon('rotate') }}Reset</a>
+      {{- icon('rotate') }}<span class="visually-hidden">Reset</span></a>
     <noscript><button class="btn">{{ icon('check') }}Apply</button></noscript>
-    <span class="live-toggle" id="live-toggle" title="Live visits: a visited slug is marked in the table and the counts stay current. Only the counter changes: no visit is recorded.">
-      <label class="switch small">
-        <input type="checkbox" role="switch" id="live-switch" aria-labelledby="live-name">
-        <span class="track"></span>
-      </label>
-      <label for="live-switch" id="live-name">Live</label>
-    </span>
   </form>
 
   {{ notices('links') }}

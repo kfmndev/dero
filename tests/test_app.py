@@ -488,7 +488,7 @@ def test_reset_button_is_disabled_not_hidden(client):
     plain = client.get("/admin/", headers=USER).get_data(as_text=True)
     filtered = client.get("/admin/?q=abc", headers=USER).get_data(as_text=True)
     for html, state in ((plain, "true"), (filtered, "false")):
-        tag = re.search(r'<a class="btn" id="reset-filters"[^>]*>', html).group(0)
+        tag = re.search(r'<a class="btn icon-only" id="reset-filters"[^>]*>', html).group(0)
         assert f'aria-disabled="{state}"' in tag and " hidden" not in tag
 
 
@@ -803,7 +803,7 @@ def test_every_button_has_an_icon_and_a_single_verb(client):
             words = re.sub(r"<[^>]+>", " ", inner).split()
             assert len(words) <= 1, words  # ... and a single word (icon-only buttons have none)
             seen.update(words)
-    assert {"Create", "Reset", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
+    assert {"Create", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
     assert (
         "Discard changes" not in "".join(pages)
         and "Delete link</button>" not in "".join(pages)
@@ -1024,7 +1024,7 @@ def test_new_link_form_markup_and_remembered_choice(client):
         r'<select name="slug_source" id="slug-source">\s*<option value="default" selected>Random · default</option>'
         r'\s*<option value="letters">Random · letters only</option>'
         r'\s*<option value="chars">Random · own characters</option>'
-        r'\s*<option value="slug">Custom slug</option>',
+        r'\s*<option value="slug">Custom</option>',
         html,
     )
     assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
@@ -1512,8 +1512,9 @@ def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
 
 def test_generate_button_and_settings_dialog(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    group = html[html.index('id="new-link-slug"') : html.index('id="new-link-submit"')]
-    assert 'id="new-link-generate"' in group and 'aria-label="Generate a slug"' in group  # inside the slug field
+    options = html[html.index('for="slug-source"') : html.index('id="new-link-slug"')]
+    assert 'id="new-link-generate"' in options and 'data-when-source="default letters chars"' in options
+    assert ">Generator</label>" in options and 'for="new-link-slug-input">Slug</label>' in html  # not offered with Custom
     assert re.search(
         r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S
     )  # the user name opens the settings
@@ -1977,7 +1978,7 @@ def test_every_notice_is_a_toast(client):
 def test_the_live_toast_is_pinned_and_follows_the_latest_visit(client):
     js = flat_js(js_source(client))
     assert 'toast("live"' in js and "‹${names[0]}›" in js and 'key: "live"' in js and 'textContent = "Live"' in js
-    assert 'if (kind === "live") toastHost().prepend(el)' in js  # above the others
+    assert 'if (kind !== "live" && live) toastHost().insertBefore(el, live)' in js  # the others go above it, it stays below
     assert 'if (kind === "ok") {' in js and "const arm = " in js  # only a success fades by itself
     assert 'else dismissToast("live", true)' in js  # switching Live off removes it
 

@@ -791,21 +791,34 @@ th[aria-sort="ascending"] .arrow .icon {
   color: var(--accent-2-ink);
 }
 
-/* ---- dero: the live visits switch, beside the Reset button ---- */
+/* ---- dero: the live visits switch: a field like the others (label above, the switch below) ---- */
+.live-field {
+  display: flex;
+  flex-direction: column;
+}
 .live-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 4px;
-  color: var(--muted);
-  font-size: 13px;
+  height: var(--control-h);
+  margin-top: 0;
 }
-.live-toggle label[for] {
-  margin: 0;
-  cursor: pointer;
+.live-field .field-label {
+  margin-bottom: var(--label-gap);
 }
-.live-toggle.is-live {
-  color: var(--accent-2-ink);
+/* Reset: an icon, at the right end of the row */
+.filters .btn.icon-only {
+  margin-left: auto;
+  width: var(--control-h);
+  padding: 0;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---- dero: expandable rows ---- */
@@ -2056,11 +2069,6 @@ dialog p.setting-note {
 .nl-type > label input {
   margin-top: 0;
 }
-.slug-group .mini {
-  flex: none;
-  align-self: center;
-  margin: 0 6px;
-} /* the generate button inside the slug field */
 .slug-group.is-random .slug-edit input.url-input::placeholder {
   color: var(--muted);
   font-family: var(--font-text);
@@ -2069,12 +2077,14 @@ dialog p.setting-note {
 .slug-edit .slug-hl code.slug:empty {
   display: none;
 } /* nothing typed: no empty box in front of the placeholder */
-.nl-type > .field {
+.nl-type > .field,
+.nl-slug > .field {
   display: flex;
   flex-direction: column;
   gap: var(--label-gap);
 }
-.nl-type .field-label {
+.nl-type .field-label,
+.nl-slug .field-label {
   margin: 0;
 }
 
@@ -2222,7 +2232,7 @@ td > .cell:has(> .badge) {
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
-  padding: 9px 10px 9px 14px;
+  padding: 9px 8px 9px 14px;
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 8px;
   background: var(--card);
@@ -2237,7 +2247,7 @@ td > .cell:has(> .badge) {
 }
 .toast-close {
   flex: 0 0 auto;
-  margin-left: 14px;
+  margin-left: 2px;
 }
 @keyframes toast-in {
   from {

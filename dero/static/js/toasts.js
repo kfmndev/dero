@@ -1,7 +1,7 @@
 // ---- Notifications: every message is a toast ----
 // A toast is a small card at the bottom of the window. Successes ("ok") fade away by themselves (hovering or focusing
 // one holds it); errors and warnings stay until they are dismissed, replaced by a newer message from the same place
-// (the `key`) or made obsolete; the live toast ("live") is pinned above the others until its x is clicked.
+// (the `key`) or made obsolete; the live toast ("live") is pinned below the others until its x is clicked.
 //
 // The server still renders its messages inside the cards' .notices (so without JavaScript they are simply shown
 // there); this script moves each of them into the stack, and `toast()` is what the other scripts call.
@@ -48,7 +48,7 @@ function placeToast(el, kind, key) {
   const body = el.querySelector("span:not(.toast-icon)");
   if (same && same.dataset.kind === kind) {
     // the same place speaks again: its toast changes in place, with a small nudge
-    same.querySelector("span").replaceWith(body);
+    same.querySelector("span:not(.toast-icon)").replaceWith(body);
     same.classList.remove("bump");
     void same.offsetWidth;
     same.classList.add("bump");
@@ -72,7 +72,9 @@ function placeToast(el, kind, key) {
   el.dataset.kind = kind;
   if (key) el.dataset.key = key;
   el.append(close);
-  if (kind === "live") toastHost().prepend(el);
+  // the live toast stays at the bottom of the stack, below the others
+  const live = toastHost().querySelector(':scope > [data-kind="live"]');
+  if (kind !== "live" && live) toastHost().insertBefore(el, live);
   else toastHost().append(el);
 
   if (kind === "ok") {
