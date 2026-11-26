@@ -1973,7 +1973,7 @@ def test_every_notice_is_a_toast(client):
     assert 'toast("warn", now, { key: "query" })' in js  # the search's problems follow the results
     assert 'data-problems="' in html and 'id="filter-live"' not in html  # and there is no search status line
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "20px"
+    assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "16px"
     assert css_rule(css, ".toasts .toast.form-live")["color"] == "var(--accent-2-ink)"  # the live toast is blue
 
 

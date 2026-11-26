@@ -2226,24 +2226,24 @@ td > .cell:has(> .badge) {
   position: fixed;
   z-index: 50;
   right: 0;
-  bottom: 20px;
+  bottom: 16px;
   left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 0 16px;
   pointer-events: none; /* only the toasts themselves take clicks */
 }
 .toasts .toast {
   display: flex; /* (the live toast has none of the form-ok rules that give the others this) */
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
-  padding: 9px 8px 9px 14px;
+  padding: 5px 6px 5px 11px;
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 8px;
   background: var(--card);
@@ -2293,7 +2293,8 @@ td > .cell:has(> .badge) {
   animation: blink 1.4s ease-in-out infinite;
 }
 .live-word {
-  margin-right: 0.5em;
+  margin-right: 0.4em;
+  font-family: var(--font-head);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
