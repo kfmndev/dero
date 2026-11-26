@@ -22,7 +22,7 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match VERSION = \"$version\" in dero/version.py"
             exit 1
           fi
-      - run: pip install git-cliff==2.14.2
+      - run: pip install -r .github/requirements-release.txt # git-cliff; a file so Dependabot can update it
       - run: git cliff --current --strip header > notes.md
       - name: Create the release
         env:

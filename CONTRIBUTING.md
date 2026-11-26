@@ -75,7 +75,8 @@ between inline elements the template uses `{{-` or `{%-` so no stray space appea
 
 **CI**: `.github/workflows/ci.yml` runs the Ruff, Pyrefly and Biome checks and the tests on every push to `main`
 and on pull requests. The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
-request weekly when one has a newer release.
+request weekly when one has a newer release. It also watches the git-cliff version in
+`.github/requirements-release.txt`.
 
 **Docker image**: `.github/workflows/docker.yml` builds the image on every pull request (nothing is pushed) and publishes
 it to `ghcr.io/kfmndev/dero` from `main` (`:edge`) and from release tags (`v1.2.3` becomes `:1.2.3`, `:1.2`, `:latest`).

@@ -8,3 +8,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(actions)"
+
+  # git-cliff for the release notes (the only thing in .github/requirements-release.txt)
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(release)"
