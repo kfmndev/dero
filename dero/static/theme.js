@@ -28,7 +28,9 @@
     const button = document.getElementById("theme-toggle");
     if (button) {
       const dark = current() === "dark";
-      button.setAttribute("aria-checked", String(dark)); // the knob sits on the moon in dark mode
+      // only for assistive technology: the look comes from the theme tokens in the stylesheet, so the knob
+      // is already in place on the first paint and does not slide on reload
+      button.setAttribute("aria-checked", String(dark));
       button.title = `Switch to ${dark ? "light" : "dark"} mode`;
     }
   }

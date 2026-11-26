@@ -78,6 +78,11 @@
   --err: #c0362c;
   --warn: #b45309;
   --on-err: #ffffff;
+  --hover: #e6edff; /* a dropdown row under the pointer or the keyboard: a tint of the accent, visible on --card */
+  /* the theme switch is drawn from these, so it is right on the first paint (no slide on reload) */
+  --toggle-knob: 3.5px;
+  --toggle-sun: var(--on-accent);
+  --toggle-moon: var(--muted);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +103,10 @@
     --err: #ff7b72;
     --warn: #fbbf24;
     --on-err: #0b0c0f;
+    --hover: #263250;
+    --toggle-knob: calc(100% - 27.5px);
+    --toggle-sun: var(--muted);
+    --toggle-moon: var(--on-accent);
   }
 }
 
@@ -118,6 +127,10 @@
   --err: #ff7b72;
   --warn: #fbbf24;
   --on-err: #0b0c0f;
+  --hover: #263250;
+  --toggle-knob: calc(100% - 27.5px);
+  --toggle-sun: var(--muted);
+  --toggle-moon: var(--on-accent);
 }
 
 /* ---- Base ---- */
@@ -244,24 +257,20 @@ h1 .dot {
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--card);
-  color: var(--muted);
   cursor: pointer;
+  transition: border-color 0.15s;
 }
 
 .theme-toggle::before {
   content: "";
   position: absolute;
   top: 3px;
-  left: 3.5px;
+  left: var(--toggle-knob);
   width: 24px;
   height: 24px;
   border-radius: 50%;
   background: var(--accent);
   transition: left 0.15s;
-}
-
-.theme-toggle[aria-checked="true"]::before {
-  left: calc(100% - 27.5px);
 }
 
 /* A block-level icon with no baseline offset, so every browser centers it; above the knob. */
@@ -271,19 +280,25 @@ h1 .dot {
   width: 14px;
   height: 14px;
   vertical-align: 0;
+  transition: color 0.15s;
 }
 
-.theme-toggle:not([aria-checked="true"]) .icon:first-child,
-.theme-toggle[aria-checked="true"] .icon:last-child {
-  color: var(--on-accent);
+.theme-toggle .icon:first-child {
+  color: var(--toggle-sun);
 }
 
-.theme-toggle:hover:not(:focus-visible) {
-  border-color: var(--muted);
+.theme-toggle .icon:last-child {
+  color: var(--toggle-moon);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent-2-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-toggle::before {
+  .theme-toggle,
+  .theme-toggle::before,
+  .theme-toggle .icon {
     transition: none;
   }
 }
@@ -1081,11 +1096,12 @@ option {
     padding: 6px 10px;
     border-radius: 6px;
     cursor: pointer;
+    transition: background-color 0.12s;
   }
 
   option:hover,
   option:focus-visible {
-    background: var(--field);
+    background: var(--hover);
     outline: none;
   }
   option:checked {
@@ -1474,9 +1490,10 @@ details.multi.custom .multi-label {
   font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 0.12s;
 }
 .multi-panel label:hover {
-  background: var(--field);
+  background: var(--hover);
 }
 .multi-panel input[type="checkbox"] {
   position: absolute;
@@ -1497,7 +1514,7 @@ details.multi.custom .multi-label {
   visibility: visible;
 }
 .multi-panel label:has(input:focus-visible) {
-  background: var(--field);
+  background: var(--hover);
 }
 
 .qhelp {
@@ -1600,10 +1617,11 @@ th.col-target {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
+  transition: background-color 0.12s;
 }
 .multi-panel .option:hover,
 .multi-panel .option:focus-visible {
-  background: var(--field);
+  background: var(--hover);
   outline: none;
 }
 .multi-panel .option .icon {

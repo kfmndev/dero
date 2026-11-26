@@ -1521,6 +1521,21 @@ def test_header_has_a_plain_user_name_and_a_sun_moon_switch(client):
     assert "Signed in as <strong>alice</strong> (user)" in html  # the role moved into the settings dialog
 
 
+def test_theme_switch_is_drawn_from_tokens_and_dropdown_rows_have_a_visible_hover(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    # the knob position comes from theme tokens (set before the first paint), never from the aria-checked attribute
+    # that the script sets later: that is what made the knob slide on every reload
+    assert css_rule(css, ".theme-toggle::before")["left"] == "var(--toggle-knob)"
+    assert "aria-checked" not in css
+    assert css.count("--toggle-knob:") == 3  # light, dark by preference, dark by choice
+    assert "transition" in css_rule(css, ".theme-toggle") and "transition" in css_rule(css, ".theme-toggle::before")
+    # the hover of a dropdown row is a tint of the accent: --field is nearly the same as the panel on both themes
+    for selector in (".multi-panel label:hover", ".multi-panel .option:hover, .multi-panel .option:focus-visible"):
+        assert css_rule(css, selector)["background"] == "var(--hover)"
+    assert css.count("--hover:") == 3
+    assert "transition" in css_rule(css, ".multi-panel label") and "transition" in css_rule(css, ".multi-panel .option")
+
+
 def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
     slug = "abcdefghij-klmnopqrst-uvwxyz"  # 28 characters
     post(client, "/admin/links", USER, target="https://example.com/long", slug=slug)
