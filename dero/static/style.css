@@ -56,11 +56,11 @@
   color-scheme: light;
   --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-head: "Hubot Sans", "Geist", system-ui, sans-serif;
-  --control-h: 30px;
-  --label-gap: 4px; /* between a label and its field, in every form */
+  --control-h: 1.875rem;
+  --label-gap: 0.25rem; /* between a label and its field, in every form */
   --label-lh: 1.4; /* one line height for every label */
-  --field-gap: 12px; /* between fields in a row, both directions */
-  --box-pad: 16px; /* inside the details box, all four sides */ /* one height for every input, dropdown and button */
+  --field-gap: 0.75rem; /* between fields in a row, both directions */
+  --box-pad: 1rem; /* inside the details box, all four sides */ /* one height for every input, dropdown and button */
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --bg: #f4f5f7;
@@ -106,7 +106,7 @@
     --warn: #fbbf24;
     --on-err: #0b0c0f;
     --hover: #263250;
-    --toggle-knob: calc(100% - 27.5px);
+    --toggle-knob: calc(100% - 1.7188rem);
     --toggle-sun: var(--muted);
     --toggle-moon: var(--on-accent);
   }
@@ -131,7 +131,7 @@
   --warn: #fbbf24;
   --on-err: #0b0c0f;
   --hover: #263250;
-  --toggle-knob: calc(100% - 27.5px);
+  --toggle-knob: calc(100% - 1.7188rem);
   --toggle-sun: var(--muted);
   --toggle-moon: var(--on-accent);
 }
@@ -146,27 +146,32 @@
   box-sizing: border-box;
 }
 
+/* The size of the whole page: everything outside the search bar's own geometry is in rem, so this one value scales it
+   (the browser's own text size setting still counts on top of it). */
+html {
+  font-size: 112.5%;
+}
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 15px / 1.5 var(--font-text);
+  font: 0.9375rem / 1.5 var(--font-text);
   -webkit-font-smoothing: antialiased;
 }
 
 /* Below 340px the page scrolls sideways instead of squeezing the layout. */
 main {
-  max-width: 1000px;
-  min-width: 340px;
+  max-width: 62.5rem;
+  min-width: 21.25rem;
   margin: 0 auto;
-  padding: 24px 16px 32px;
+  padding: 1.5rem 1rem 2rem;
 }
 
 code {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px 0.3125rem;
+  border-radius: 0.25rem;
   background: var(--field);
   border: 1px solid var(--border);
 }
@@ -190,10 +195,10 @@ footer {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px 8px;
-  min-width: 340px;
-  padding: 0 16px 28px;
-  font-size: 12px;
+  gap: 0.25rem 0.5rem;
+  min-width: 21.25rem;
+  padding: 0 1rem 1.75rem;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -205,11 +210,11 @@ footer a {
 footer a:first-child {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
 }
 footer .icon {
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   vertical-align: 0;
 }
 footer a:hover {
@@ -220,7 +225,7 @@ footer code {
   padding: 0;
   border: 0;
   background: none;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: inherit;
 }
 
@@ -229,14 +234,14 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 h1 {
   margin: 0;
   font-family: var(--font-head);
-  font-size: clamp(22px, 6vw, 28px);
+  font-size: clamp(1.375rem, 6vw, 1.75rem);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -253,8 +258,8 @@ h1 .dot {
   grid-template-columns: 1fr 1fr;
   align-items: center;
   justify-items: center;
-  width: 64px;
-  height: 32px;
+  width: 4rem;
+  height: 2rem;
   padding: 0;
   line-height: 0;
   border: 1px solid var(--border);
@@ -269,8 +274,8 @@ h1 .dot {
   position: absolute;
   top: 3px;
   left: var(--toggle-knob);
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   background: var(--accent);
   transition: left 0.15s;
@@ -280,8 +285,8 @@ h1 .dot {
 .theme-toggle .icon {
   position: relative;
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   vertical-align: 0;
   transition: color 0.15s;
 }
@@ -311,13 +316,13 @@ label,
 .label {
   display: block;
   font-weight: 600;
-  margin: 0 0 6px;
+  margin: 0 0 0.375rem;
 }
 
 .hint {
   color: var(--muted);
-  font-size: 13px;
-  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  margin: 0.375rem 0 0;
 }
 
 input[type="text"],
@@ -329,7 +334,7 @@ select {
   color: var(--text);
   background: var(--field);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
 }
 
 input[type="text"]:focus,
@@ -345,7 +350,7 @@ select:focus {
 input[type="text"],
 textarea {
   width: 100%;
-  padding: 9px 11px;
+  padding: 0.5625rem 0.6875rem;
 }
 input[type="text"] {
   height: var(--control-h);
@@ -354,7 +359,7 @@ input[type="text"] {
 
 textarea {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 0.8125rem;
   resize: vertical;
 }
 
@@ -387,14 +392,14 @@ input[type="checkbox"] {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   justify-content: center;
   height: var(--control-h);
-  padding: 0 16px;
-  font: 600 13px / 1 var(--font-head);
+  padding: 0 1rem;
+  font: 600 0.8125rem / 1 var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--text);
@@ -432,15 +437,15 @@ input[type="checkbox"] {
 .topnav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
 }
 
 .topnav a {
-  padding: 8px 14px;
+  padding: 0.5rem 0.875rem;
   border-bottom: 2px solid transparent;
-  font: 600 13px / 1.5 var(--font-head);
+  font: 600 0.8125rem / 1.5 var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -456,12 +461,12 @@ input[type="checkbox"] {
 }
 .topnav .who {
   margin-left: auto;
-  padding: 4px 0;
+  padding: 0.25rem 0;
   border: 0;
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
 }
 .topnav .who:hover {
@@ -472,14 +477,14 @@ input[type="checkbox"] {
 section {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 0.625rem;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 h2 {
-  margin: 0 0 12px;
-  font: 600 17px / 1.4 var(--font-head);
+  margin: 0 0 0.75rem;
+  font: 600 1.0625rem / 1.4 var(--font-head);
 }
 
 .form-grid {
@@ -489,11 +494,11 @@ h2 {
   align-items: end;
 }
 .form-grid.rules {
-  grid-template-columns: 1.2fr 110px 2fr 100px auto;
+  grid-template-columns: 1.2fr 6.875rem 2fr 6.25rem auto;
 }
 .form-grid label {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .form-grid input,
 .form-grid select {
@@ -506,12 +511,12 @@ input[type="number"],
 input[type="text"] {
   width: 100%;
   height: var(--control-h);
-  padding: 0 11px;
+  padding: 0 0.6875rem;
   font: inherit;
   color: var(--text);
   background: var(--field);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
 }
 
 input[type="url"]:focus,
@@ -529,8 +534,8 @@ input[type="date"]:focus {
 }
 
 .btn.small {
-  padding: 0 12px;
-  font-size: 12px;
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
 }
 .btn.danger {
   color: var(--err);
@@ -553,12 +558,12 @@ input[type="date"]:focus {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 th {
   text-align: left;
-  font: 600 12px / 1.4 var(--font-head);
+  font: 600 0.75rem / 1.4 var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -583,7 +588,7 @@ tfoot td {
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .nowrap,
 th {
@@ -615,17 +620,17 @@ tr.off td:last-child {
 .empty {
   color: var(--muted);
   text-align: center;
-  padding: 22px 10px;
+  padding: 1.375rem 0.625rem;
 }
 
 .badge {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 1px 0.4375rem;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--field);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--muted);
 }
 
@@ -643,15 +648,15 @@ tr.off td:last-child {
   margin-top: var(--label-gap);
 }
 .hint + form {
-  margin-top: 12px;
+  margin-top: 0.75rem;
 }
 
 /* ---- dero: switch (enable/disable) ---- */
 .switch {
   position: relative;
   display: inline-block;
-  width: 30px;
-  height: 18px;
+  width: 1.875rem;
+  height: 1.125rem;
   margin: 0;
   vertical-align: middle;
   cursor: pointer;
@@ -681,8 +686,8 @@ tr.off td:last-child {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 12px;
-  height: 12px;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 50%;
   background: var(--muted);
   transition:
@@ -694,7 +699,7 @@ tr.off td:last-child {
   border-color: var(--accent-2);
 }
 .switch input:checked + .track::after {
-  transform: translateX(12px);
+  transform: translateX(0.75rem);
   background: var(--on-accent-2);
 }
 .switch input:focus-visible + .track {
@@ -711,14 +716,14 @@ tr.off td:last-child {
   flex-wrap: wrap;
   gap: var(--field-gap);
   align-items: end;
-  margin: 0 0 14px;
+  margin: 0 0 0.875rem;
 }
 .filters .grow {
   flex: 1 1 14rem;
 }
 .filters label {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .filters input,
 .filters select {
@@ -729,9 +734,9 @@ tr.off td:last-child {
   min-width: 9rem;
 }
 .meta {
-  margin: 10px 0 0;
+  margin: 0.625rem 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 th a {
@@ -746,11 +751,11 @@ th[aria-sort] a {
 }
 th .arrow {
   color: var(--accent-ink);
-  margin-left: 4px;
+  margin-left: 0.25rem;
 }
 th .arrow .icon {
-  width: 12px;
-  height: 12px;
+  width: 0.75rem;
+  height: 0.75rem;
   vertical-align: -1px;
 }
 th[aria-sort="ascending"] .arrow .icon {
@@ -762,12 +767,12 @@ th[aria-sort="ascending"] .arrow .icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 1.375rem;
+  height: 1.375rem;
   padding: 0;
   vertical-align: middle;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0.25rem;
   background: none;
   color: var(--muted);
   cursor: pointer;
@@ -783,8 +788,8 @@ th[aria-sort="ascending"] .arrow .icon {
   cursor: default;
 }
 .mini .icon {
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   vertical-align: 0;
 }
 .mini.done {
@@ -863,12 +868,12 @@ tr.detail[hidden] {
 .details {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 .details-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 36px;
+  gap: 0.875rem 2.25rem;
   margin: 0;
 }
 .details-row > div {
@@ -882,7 +887,7 @@ tr.detail[hidden] {
 }
 .details dt {
   color: var(--muted);
-  font: 600 11px / 1.4 var(--font-head);
+  font: 600 0.6875rem / 1.4 var(--font-head);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -901,9 +906,9 @@ tr.detail[hidden] {
 .form-ok {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 12px 0 0;
-  font-size: 14px;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
 }
 .form-error {
   color: var(--err);
@@ -952,7 +957,7 @@ input[aria-invalid="true"]:focus {
 .detail-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 0.5rem;
   margin-top: 2px;
 } /* always the last thing in the details */
 .detail-actions form {
@@ -968,15 +973,15 @@ input:not([type]),
 select,
 textarea {
   font-weight: 400;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* ---- dero: confirmation dialog ---- */
 dialog {
-  width: min(420px, calc(100vw - 32px));
+  width: min(26.25rem, calc(100vw - 2rem));
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0.625rem;
   background: var(--card);
   color: var(--text);
   box-shadow: 0 20px 50px rgb(0 0 0 / 0.35);
@@ -990,19 +995,19 @@ dialog::backdrop {
 }
 dialog form {
   margin: 0;
-  padding: 20px;
+  padding: 1.25rem;
 }
 dialog h2 {
-  margin: 0 0 8px;
+  margin: 0 0 0.5rem;
 }
 dialog p {
-  margin: 0 0 18px;
+  margin: 0 0 1.125rem;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .dialog-actions {
   display: flex;
-  gap: 10px;
+  gap: 0.625rem;
   justify-content: flex-start;
 }
 #leave-query {
@@ -1010,7 +1015,7 @@ dialog p {
   max-width: min(36rem, 92vw);
 }
 #leave-text {
-  margin: 0 0 16px;
+  margin: 0 0 1rem;
   line-height: 1.9;
   overflow-wrap: anywhere;
 }
@@ -1027,7 +1032,7 @@ dialog p {
 @keyframes dialog-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(0.375rem) scale(0.98);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1041,7 +1046,7 @@ dialog p {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 0.5rem 0.625rem;
   margin: 0;
 }
 .inline-form input[type="date"] {
@@ -1056,17 +1061,17 @@ select,
 option,
 optgroup {
   font-family: var(--font-text);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 400;
 }
 
 select {
   appearance: none;
-  padding: 0 30px 0 10px;
+  padding: 0 1.875rem 0 0.625rem;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f9a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 9px center;
-  background-size: 14px;
+  background-position: right 0.5625rem center;
+  background-size: 0.875rem;
 }
 
 option {
@@ -1087,15 +1092,15 @@ option {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 0.5rem;
     background-image: none;
-    padding: 0 8px 0 10px;
+    padding: 0 0.5rem 0 0.625rem;
   }
 
   select::picker-icon {
     content: "";
-    width: 14px;
-    height: 14px;
+    width: 0.875rem;
+    height: 0.875rem;
     background: currentColor;
     mask:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
@@ -1112,10 +1117,10 @@ option {
 
   ::picker(select) {
     min-width: anchor-size(width);
-    margin-top: 4px;
-    padding: 4px;
+    margin-top: 0.25rem;
+    padding: 0.25rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 0.5rem;
     background: var(--card);
     box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
   }
@@ -1123,9 +1128,9 @@ option {
   option {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: 6px;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.375rem;
     cursor: pointer;
     transition: background-color 0.12s;
   }
@@ -1147,11 +1152,11 @@ option {
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
 code.slug {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text);
 } /* the compact short link keeps the highlight */
 .url {
-  font-size: 13px;
+  font-size: 0.8125rem;
 } /* URLs use the normal font; short links (and query syntax) add .mono */
 .url.wrap {
   white-space: normal;
@@ -1163,13 +1168,13 @@ code.slug {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  margin-left: 4px;
+  margin-left: 0.25rem;
   vertical-align: middle;
   flex: none;
 }
 .link-actions .mini {
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   color: var(--muted);
 }
 .link-actions .mini:hover,
@@ -1187,11 +1192,11 @@ input:disabled {
 .brand {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 0.75rem;
   min-width: 0;
 }
 .tagline {
-  font: 600 10px / 1 var(--font-text);
+  font: 600 0.625rem / 1 var(--font-text);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--muted);
@@ -1200,7 +1205,7 @@ input:disabled {
 
 /* rules table: switch and delete button side by side */
 .actions .switch {
-  margin-right: 6px;
+  margin-right: 0.375rem;
 }
 input[data-warn],
 input[data-warn]:focus {
@@ -1218,7 +1223,7 @@ input[data-warn]:focus {
   min-width: 0;
 }
 input.url-input {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .field-row > input.url-input {
   flex: 1 1 auto;
@@ -1231,7 +1236,7 @@ input.url-input {
   align-items: stretch;
   height: var(--control-h);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--field);
 }
 .slug-group:focus-within {
@@ -1241,8 +1246,8 @@ input.url-input {
 .slug-prefix {
   display: flex;
   align-items: center;
-  padding: 0 4px 0 10px;
-  font: 13px var(--font-text);
+  padding: 0 0.25rem 0 0.625rem;
+  font: 0.8125rem var(--font-text);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -1270,10 +1275,10 @@ input.url-input {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 0.25rem;
 }
 .confirm-urls {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .confirm-urls #confirm-name {
   display: flex;
@@ -1287,7 +1292,7 @@ input.url-input {
   overflow-wrap: anywhere;
 } /* the base address: normal font, like in the details */
 .confirm-urls code.slug {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .confirm-urls #confirm-detail {
   color: var(--text);
@@ -1295,7 +1300,7 @@ input.url-input {
 } /* the target: a plain URL */
 .confirm-urls .icon {
   flex: none;
-  margin-left: 12px;
+  margin-left: 0.75rem;
   color: var(--muted);
   transform: rotate(90deg);
 } /* points down, from the short link to its target */
@@ -1304,14 +1309,14 @@ input.url-input {
 time.localtime {
   cursor: help;
   text-decoration: underline dotted var(--border);
-  text-underline-offset: 4px;
+  text-underline-offset: 0.25rem;
 }
 
 /* ---- dero: new link form (target, expiry, and generate-or-provide the slug) ---- */
 .new-link {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0.875rem;
   margin: 0;
 }
 .nl-row {
@@ -1326,7 +1331,7 @@ time.localtime {
 }
 .nl-row label {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .nl-row label input,
 .nl-row label select {
@@ -1342,7 +1347,7 @@ time.localtime {
   display: block;
   margin: 0 0 var(--label-gap);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 /* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain. Only where the setting
@@ -1369,10 +1374,10 @@ html[data-hl~="toast"] .toasts .hl-symbol {
 .filters .field-label {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
   margin: 0 0 var(--label-gap);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .filters .field-label label {
   margin: 0;
@@ -1404,7 +1409,7 @@ html[data-hl~="toast"] .toasts .hl-symbol {
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
-  font: 400 13px / 1 var(--font-text);
+  font: 400 0.8125rem / 1 var(--font-text);
   letter-spacing: normal;
   color: var(--text);
 }
@@ -1427,7 +1432,7 @@ html[data-hl~="toast"] .toasts .hl-symbol {
   outline: none;
   color: transparent;
   caret-color: var(--text);
-  font: 400 13px / 1 var(--font-text);
+  font: 400 0.8125rem / 1 var(--font-text);
   letter-spacing: normal;
   white-space: pre;
 }
@@ -1497,16 +1502,16 @@ details.multi > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0.5rem;
   min-width: 9.5rem;
   height: var(--control-h);
-  padding: 0 8px 0 10px;
+  padding: 0 0.5rem 0 0.625rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: var(--field);
   cursor: pointer;
   list-style: none;
-  font: 400 13px var(--font-text);
+  font: 400 0.8125rem var(--font-text);
   user-select: none;
 }
 details.multi > summary::-webkit-details-marker {
@@ -1515,8 +1520,8 @@ details.multi > summary::-webkit-details-marker {
 details.multi > summary::after {
   content: "";
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   background: var(--muted);
   transition: rotate 0.15s;
   mask:
@@ -1536,12 +1541,12 @@ details.multi.custom .multi-label {
 .multi-panel {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 4px);
+  top: calc(100% + 0.25rem);
   left: 0;
   min-width: 100%;
-  padding: 4px;
+  padding: 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background: var(--card);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
 }
@@ -1549,12 +1554,12 @@ details.multi.custom .multi-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 0.875rem;
   margin: 0;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 0.3125rem 0.625rem;
+  border-radius: 0.375rem;
   font-weight: 400;
-  font-size: 13px;
+  font-size: 0.8125rem;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.12s;
@@ -1588,17 +1593,17 @@ details.multi.custom .multi-label {
   flex: 1 0 100%; /* a row of its own, right below the search bar */
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-  gap: 12px 24px;
-  padding: 12px 14px;
+  gap: 0.75rem 1.5rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background: var(--field);
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 .qhelp h4 {
-  margin: 0 0 4px;
-  font-size: 12px;
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1606,7 +1611,7 @@ details.multi.custom .multi-label {
   font-family: var(--font-head);
 }
 .qhelp p {
-  margin: 4px 0;
+  margin: 0.25rem 0;
   line-height: 1.95; /* tall lines: the examples are boxes, and boxes on neighbouring lines must not touch */
 }
 /* an example, drawn by the script the way the search bar draws it. The bar keeps 10px after each chip for its x; an
@@ -1617,7 +1622,7 @@ details.multi.custom .multi-label {
   margin: 0 2px 0 1px;
   white-space: pre;
   word-spacing: 8px; /* 4px between the boxes, as in the bar (there 15px, less the padding it hides) */
-  font: 400 13px / 1.3 var(--font-text);
+  font: 400 0.8125rem / 1.3 var(--font-text);
   font-variant-ligatures: none;
   color: var(--text);
   vertical-align: baseline;
@@ -1648,7 +1653,7 @@ details.multi.custom .multi-label {
   margin: 0 7px 0 4px;
 } /* its dashed outline lies outside the box */
 .query-problems {
-  margin: 0 0 10px;
+  margin: 0 0 0.625rem;
 }
 
 /* code-like text must show exactly what to type: no ligatures (JetBrains Mono turns != into a single "≠") */
@@ -1663,10 +1668,10 @@ code,
 }
 /* ---- dero: compact rows and shrink-to-fit columns ---- */
 td {
-  padding: 6px 8px;
+  padding: 0.375rem 0.5rem;
 }
 th {
-  padding: 7px 8px;
+  padding: 0.4375rem 0.5rem;
 }
 .col-slug,
 .col-creator,
@@ -1725,14 +1730,14 @@ th.col-target {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 0.875rem;
   width: 100%;
-  padding: 5px 10px;
+  padding: 0.3125rem 0.625rem;
   border: 0;
-  border-radius: 6px;
+  border-radius: 0.375rem;
   background: none;
   color: var(--text);
-  font: 400 13px var(--font-text);
+  font: 400 0.8125rem var(--font-text);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -1888,12 +1893,12 @@ th.col-target {
 .expired-mark {
   display: inline-flex;
   vertical-align: middle;
-  margin-left: 5px;
+  margin-left: 0.3125rem;
   color: var(--err);
 }
 .expired-mark .icon {
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   vertical-align: 0;
 }
 
@@ -1914,7 +1919,7 @@ th.col-target {
 .nl-expires-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .nl-expires input[type="date"]:disabled {
   opacity: 0.5;
@@ -1949,7 +1954,7 @@ tr.detail .notices {
 tr.detail .notices .form-error,
 tr.detail .notices .form-warn,
 tr.detail .notices .form-ok {
-  margin: 6px 0 0;
+  margin: 0.375rem 0 0;
 }
 .note-line {
   display: flex;
@@ -1990,7 +1995,7 @@ tr.detail .notices .form-ok {
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
-  font: 13px var(--font-mono);
+  font: 0.8125rem var(--font-mono);
   color: var(--text);
 }
 .slug-edit.hl-ready .slug-hl {
@@ -2009,8 +2014,8 @@ tr.detail .notices .form-ok {
 .setting {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin: 0 0 12px;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
 }
 .setting .switch {
   margin-top: 2px;
@@ -2020,32 +2025,32 @@ tr.detail .notices .form-ok {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .setting > div span {
   color: var(--muted);
 }
 dialog p.setting-note {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 #settings form {
   position: relative;
 }
 .dialog-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 26px;
-  height: 26px;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 1.625rem;
+  height: 1.625rem;
 }
 #settings h2 {
-  padding-right: 28px;
+  padding-right: 1.75rem;
 }
 #settings .signed-in {
-  margin: -4px 0 16px;
+  margin: -4px 0 1rem;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 #settings {
   min-width: min(24rem, 92vw);
@@ -2109,7 +2114,7 @@ dialog p.setting-note {
   height: 22px;
   margin: 0;
   padding: 0 5px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .slug-edit input.url-input {
   padding-left: 6px;
@@ -2218,7 +2223,7 @@ td > .cell:has(> .badge) {
   align-items: center;
 }
 .col-slug .cell .expired-mark {
-  margin-left: 5px;
+  margin-left: 0.3125rem;
 }
 
 /* ---- dero: toasts: a success is shown at the bottom of the window and fades away (errors stay by their field) ---- */
@@ -2226,26 +2231,26 @@ td > .cell:has(> .badge) {
   position: fixed;
   z-index: 50;
   right: 0;
-  bottom: 16px;
+  bottom: 1rem;
   left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 0 16px;
+  gap: 0.375rem;
+  padding: 0 1rem;
   pointer-events: none; /* only the toasts themselves take clicks */
 }
 .toasts .toast {
   display: flex; /* (the live toast has none of the form-ok rules that give the others this) */
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
-  padding: 5px 6px 5px 11px;
+  padding: 0.3125rem 0.375rem 0.3125rem 0.6875rem;
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background: var(--card);
   box-shadow: 0 0 16px color-mix(in srgb, currentColor 26%, transparent); /* a soft glow in the accent colour */
   animation: toast-in 0.14s ease-out;
@@ -2263,13 +2268,13 @@ td > .cell:has(> .badge) {
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(0.625rem);
   }
 }
 @keyframes toast-out {
   to {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(0.375rem);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2285,8 +2290,8 @@ td > .cell:has(> .badge) {
 }
 .live-dot {
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   margin: 0 1px;
   border-radius: 50%;
   background: currentColor;

@@ -639,7 +639,9 @@ def test_icons_share_one_wrapper_and_header_has_tagline(client):
     assert html.count('class="link-actions"') == copies >= 4
     assert '<span class="tagline">URL Shortener</span>' in html
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert css_rule(css, ".tagline")["font"] == "600 10px/1 var(--font-text)"  # 10px Geist
+    assert (
+        css_rule(css, ".tagline")["font"] == "600 0.625rem/1 var(--font-text)"
+    )  # 10px Geist (at the root size of 16px)
 
 
 # ---------------------------------------------------------------- column order, no-reload hooks
@@ -899,7 +901,7 @@ def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
         p,
     )
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert css_rule(css, ".confirm-urls code.slug")["font-size"] == "13px" and "rotate(90deg)" in css
+    assert css_rule(css, ".confirm-urls code.slug")["font-size"] == "0.8125rem" and "rotate(90deg)" in css
     assert (
         css_rule(css, ".slug-group input.url-input")["font-family"] == "var(--font-mono)"
     )  # only the slug field is mono
@@ -1369,7 +1371,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     row = html[html.index('<tr class="item') : html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')  # the clock comes after the open/copy icons
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert "--control-h: 30px" in css and re.search(
+    assert "--control-h: 1.875rem" in css and re.search(
         r"td\.col-target \{ width: 100%; max-width: 0; min-width: 12rem; \}", css
     )
 
@@ -1973,7 +1975,7 @@ def test_every_notice_is_a_toast(client):
     assert 'toast("warn", now, { key: "query" })' in js  # the search's problems follow the results
     assert 'data-problems="' in html and 'id="filter-live"' not in html  # and there is no search status line
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "16px"
+    assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "1rem"
     assert css_rule(css, ".toasts .toast.form-live")["color"] == "var(--accent-2-ink)"  # the live toast is blue
 
 
@@ -2002,3 +2004,18 @@ def test_enabling_and_disabling_a_link_is_announced(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".form-ok")["color"] == "var(--q-status)"
     assert "border-left" not in css_rule(css, ".toasts .toast")
+
+
+def test_the_page_scales_with_one_root_size_and_the_search_bar_keeps_its_pixel_geometry(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, "html")["font-size"] == "112.5%"  # the one value that sizes the whole page
+    assert css_rule(css, "main")["max-width"] == "62.5rem" and css_rule(css, ".btn")["height"] == "var(--control-h)"
+    # the chips' padding, their negative margins and the word spacing are exact pixels the script relies on
+    assert (
+        css_rule(css, ".q-term")["padding"] == "1px 10px 1px 3px"
+        and css_rule(css, ".q-term")["margin"] == "0 -10px 0 -3px"
+    )
+    assert re.search(
+        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css
+    )
+    assert "media (max-width: 760px)" in css  # breakpoints stay in pixels
