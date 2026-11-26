@@ -1597,18 +1597,28 @@ details.multi.custom .multi-label {
   margin: 4px 0;
   line-height: 1.95; /* tall lines: the examples are boxes, and boxes on neighbouring lines must not touch */
 }
-/* an example, drawn by the script the way the search bar draws it: the chips cancel their own padding with negative
-   margins, so the box keeps that padding, and the examples get the room between chips the bar has */
+/* an example, drawn by the script the way the search bar draws it. The bar keeps 10px after each chip for its x; an
+   example has no x, so its chips end 3px after the text, the same as before it, and the margins cancel exactly that */
 .qex {
   display: inline-block;
-  padding: 1px 10px 1px 3px;
-  margin: 0 4px 0 1px;
+  padding: 1px 3px;
+  margin: 0 2px 0 1px;
   white-space: pre;
   word-spacing: 15px;
   font: 400 13px / 1.3 var(--font-text);
   font-variant-ligatures: none;
   color: var(--text);
   vertical-align: baseline;
+}
+.qex .q-term,
+.qex .q-group {
+  padding-right: 3px;
+  margin-right: -3px;
+}
+.qex .q-op,
+.qex .q-paren.q-pill {
+  padding-right: 3px;
+  margin-right: calc(-3px - var(--hair, 1px));
 }
 .qex:has(.q-empty) {
   margin: 0 7px 0 4px;

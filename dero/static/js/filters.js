@@ -489,7 +489,7 @@
   });
   // the examples in the help are drawn as the search bar draws a query
   help.querySelectorAll("[data-q]").forEach((el) => {
-    const text = spaceQuotes(el.dataset.q);
+    const text = spaceQuotes(spaced(el.dataset.q)); // spaced: room around parentheses, as in the bar
     renderQuery(parseQuery(text), text, el, lists);
   });
 
