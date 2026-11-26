@@ -1382,7 +1382,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     row = html[html.index('<tr class="item') : html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')  # the clock comes after the open/copy icons
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert "--control-h: 1.875rem" in css and re.search(
+    assert "--control-h: round(1.875rem, 1px)" in css and re.search(
         r"td\.col-target \{ width: 100%; max-width: 0; min-width: 12rem; \}", css
     )
 
