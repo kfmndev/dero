@@ -634,7 +634,8 @@ def test_disabled_date_clears_the_expiry(client, app):
 def test_icons_share_one_wrapper_and_header_has_tagline(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert html.count('class="link-actions"') == html.count('data-copy="') >= 4
+    copies = html.count('data-copy="') - 1  # (the share button next to Search copies too, outside a link's actions)
+    assert html.count('class="link-actions"') == copies >= 4
     assert '<span class="tagline">URL Shortener</span>' in html
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".tagline")["font"] == "600 10px/1 var(--font-text)"  # 10px Geist
@@ -1557,6 +1558,9 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    # the share button copies the address of the search; the copy handler puts back whatever icon the button had
+    assert 'document.getElementById("q-share")' in js and "share.dataset.copy = q ? new URL(addressFor(q)" in js
+    assert "button.dataset.icon ??=" in js and "#copy" not in js.split("data-copy")[1].split("Click a row")[0]
     # a link that would clear the search or replace it asks first (a setting, on by default)
     assert 'localStorage.getItem("dero.leave") !== "0"' in js and "askToLeave(now, next)" in js
     assert "to.pathname !== new URL(form.action).pathname" in js and "if (next === now) return;" in js
@@ -1604,6 +1608,16 @@ def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
     assert not warned("/admin/?q=sort_by%3D%2Bvisits")  # an encoded plus is fine
     assert not warned("/admin/?q=a+b") and not warned("/admin/?q=status%3Dactive+slug%3Dabc")  # plus as a space
     assert not warned("/admin/") and not warned("/admin/?other=sort_by=+visits")
+
+
+def test_share_button_sits_next_to_the_search_label(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    label = html[html.index('<span class="field-label">') : html.index('<div class="qfield">')]
+    share = re.search(r'<button[^>]*id="q-share"[^>]*>.*?</button>', label, re.S).group(0)
+    assert 'class="mini copy"' in share and "disabled" in share and 'data-copy=""' in share  # nothing to copy yet
+    assert "#share" in share and 'aria-label="Copy a link to this search"' in share
+    assert label.index('id="q-help-toggle"') < label.index('id="q-share"')  # after the help button
+    assert 'id="share"' in client.get("/static/icons.svg").get_data(as_text=True)
 
 
 def test_the_leave_dialog_is_on_the_list_page(client):

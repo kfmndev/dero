@@ -773,6 +773,12 @@ th[aria-sort="ascending"] .arrow .icon {
 .mini:hover {
   color: var(--accent-2-ink);
 }
+.mini:disabled,
+.mini:disabled:hover {
+  color: var(--muted);
+  opacity: 0.35;
+  cursor: default;
+}
 .mini .icon {
   width: 14px;
   height: 14px;

@@ -123,7 +123,16 @@
     else label.textContent = `${names.length} selected`;
   }
 
+  // the share button copies the address of this search (nothing to share while the box is empty)
+  const share = document.getElementById("q-share");
+  function syncShare() {
+    const q = input.value.trim();
+    share.disabled = !q;
+    share.dataset.copy = q ? new URL(addressFor(q), location.href).href : "";
+  }
+
   function syncControls() {
+    syncShare();
     const parsed = parseQuery(input.value);
     queryMultis.forEach((details) =>
       showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))),

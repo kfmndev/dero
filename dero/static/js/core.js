@@ -1,6 +1,6 @@
 // Basics every page uses: copying a URL, opening a link's details, showing times in the viewer's zone,
 // and swapping a region of the page for the same region of a freshly fetched one.
-// Copy a short link to the clipboard (buttons carry the URL in data-copy).
+// Copy a short link (or the link to a search) to the clipboard: buttons carry the text in data-copy.
 document.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-copy]");
   if (!button) return;
@@ -11,10 +11,11 @@ document.addEventListener("click", async (event) => {
   }
   const use = button.querySelector("use");
   const sprite = use.getAttribute("href").split("#")[0];
+  button.dataset.icon ??= use.getAttribute("href"); // the button's own icon, put back below
   use.setAttribute("href", `${sprite}#check`);
   button.classList.add("done");
   setTimeout(() => {
-    use.setAttribute("href", `${sprite}#copy`);
+    use.setAttribute("href", button.dataset.icon);
     button.classList.remove("done");
   }, 1500);
 });
