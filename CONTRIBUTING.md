@@ -76,7 +76,8 @@ hand: attributes wrap one per line, repeated markup lives in macros (`_macros.ht
 between inline elements the template uses `{{-` or `{%-` so no stray space appears in the page.
 
 **CI**: `.github/workflows/ci.yml` runs the Ruff, Pyrefly and Biome checks and the tests on every push to `main`
-and on pull requests. The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
+and on pull requests; a newer push to the same branch cancels the run it makes obsolete (the Docker workflow too).
+The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
 request weekly when one has a newer release. It also watches the dependencies (`uv.lock`), the base
 images in the Dockerfile and the git-cliff version in `.github/requirements-release.txt`.
 
