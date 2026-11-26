@@ -8,7 +8,7 @@ import pytest
 
 from dero import create_app
 from dero.db import get_db
-from dero.display import highlight_slug
+from dero.display import highlight_slug, target_box
 from dero.forms import ALPHABETS, random_slug
 from dero.passwd import main as passwd_main
 from dero.passwd import make_line
@@ -1363,7 +1363,9 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     row = html[html.index('<tr class="item') : html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')  # the clock comes after the open/copy icons
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert "--control-h: 30px" in css and re.search(r"td\.col-target \{ width: 100%; max-width: 0; \}", css)
+    assert "--control-h: 30px" in css and re.search(
+        r"td\.col-target \{ width: 100%; max-width: 0; min-width: 12rem; \}", css
+    )
 
 
 # ---------------------------------------------------------------- one dropdown style, coloured search terms
@@ -1543,8 +1545,32 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "(!=|==|<=|>=|=|<|>)" in js.replace("\\", "")  # the same operators as _KEYED in query.py
     assert 'span("q-star", "*")' in js  # a wildcard of a value is drawn on its own, to be coloured
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--err)"
-    assert "--c: var(--q-visits)" in css
+    assert (
+        css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
+    )
+    assert "--c: var(--q-visits)" in css and "--q-not: #e00000" in css and css.count("--q-not:") == 3
+
+
+def test_targets_lose_https_and_keep_their_end_when_the_middle_is_cut():
+    parts = lambda url: re.findall(r">([^<]*)</span>", str(target_box(url)))  # noqa: E731
+    assert parts("https://github.com/kfmndev/podutils") == ["github.com/kfmndev", "/podutils"]  # the last path part
+    assert parts("http://example.com/page") == ["http://example.com", "/page"]  # http:// is worth seeing
+    assert parts("https://example.com/") == ["", "example.com/"]  # nothing to cut off
+    assert parts("https://example.com/" + "x" * 40) == ["example.com/" + "x" * 28, "x" * 12]  # no usable last part
+    assert parts("https://a.com/<b>&") == ["a.com", "/&lt;b&gt;&amp;"]  # escaped
+    assert 'title="https://github.com/kfmndev/podutils"' in str(target_box("https://github.com/kfmndev/podutils"))
+
+
+def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
+    def warned(address):
+        return "stands for a space" in client.get(address, headers=USER).get_data(as_text=True)
+
+    assert (
+        warned("/admin/?q=sort_by=+visits") and warned("/admin/?q=expires%3C+30d") and warned("/admin/?q=created>+7d")
+    )
+    assert not warned("/admin/?q=sort_by%3D%2Bvisits")  # an encoded plus is fine
+    assert not warned("/admin/?q=a+b") and not warned("/admin/?q=status%3Dactive+slug%3Dabc")  # plus as a space
+    assert not warned("/admin/") and not warned("/admin/?other=sort_by=+visits")
 
 
 def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):

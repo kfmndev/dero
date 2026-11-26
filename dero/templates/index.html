@@ -223,7 +223,7 @@
           {{- expired_mark(l.expires_at) if expired }}</span></td>
         {% elif c == 'target' %}
         <td class="col-target target">
-          <span class="cell"><span class="url truncate" title="{{ l.target }}">{{ l.target }}</span>
+          <span class="cell">{{ l.target|target_box }}
             {{- link_actions(l.target, 'target') }}</span>
         </td>
         {% elif c == 'creator' %}

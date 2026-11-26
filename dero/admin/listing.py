@@ -1,5 +1,6 @@
 """Building the links page: sorting, columns, the search query and the template's data."""
 
+import re
 import sqlite3
 from collections.abc import Mapping
 
@@ -142,6 +143,21 @@ def _sort_options(is_admin: bool) -> list[tuple[str, str]]:
     return options
 
 
+# a + right after an operator, as in ?q=sort_by=+visits (raw, or with the operator percent-encoded)
+_PLUS_AFTER_OPERATOR = re.compile(r"(?:=|<|>|%3D|%3C|%3E)\+", re.IGNORECASE)
+
+
+def _unencoded_plus(raw_query: bytes) -> list[str]:
+    """A warning if the address has a + after an operator: in an address that is a space, not a plus sign."""
+    for part in raw_query.decode("latin-1").split("&"):
+        name, _, value = part.partition("=")
+
+        if name == "q" and _PLUS_AFTER_OPERATOR.search(value):
+            return ["A + in an address stands for a space. If you meant a plus sign, write %2B instead."]
+
+    return []
+
+
 def render_index(
     form: Mapping[str, str] | None = None, error: str | None = None, error_field: str | None = None
 ) -> str:
@@ -170,7 +186,7 @@ def render_index(
         overall=overall,
         base=base_url(),
         query=text,
-        problems=parsed.problems,
+        problems=parsed.problems + _unencoded_plus(request.query_string),
         owners=_creators(conn, is_admin),
         statuses=[(v, STATUS_LABELS[v]) for v in query.STATUSES],
         sort_options=_sort_options(is_admin),

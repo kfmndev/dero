@@ -43,6 +43,25 @@ def slug_box(slug: str) -> Markup:
     return Markup('<code class="slug"') + title + Markup(">") + highlight_slug(slug, SLUG_SHOWN) + Markup("</code>")
 
 
+TARGET_TAIL = 12  # characters at the end of a target that stay visible when the middle is cut
+TARGET_LAST_PART = 24  # ... or the last part of the path, if it is not longer than this
+
+
+def target_box(url: str) -> Markup:
+    """A target as the table shows it: without the https:// (http:// stays, it is worth noticing), in two parts so
+    that the stylesheet can cut the middle (the start gets the ellipsis, the end stays).
+    The whole address is on hover."""
+    shown = url.removeprefix("https://")
+    slash = shown.rfind("/")
+    cut = slash if 0 < slash and 4 <= len(shown) - slash <= TARGET_LAST_PART else max(0, len(shown) - TARGET_TAIL)
+    box = (
+        '<span class="url truncate" title="{}">'
+        '<span class="target-head">{}</span><span class="target-tail">{}</span></span>'
+    )
+
+    return Markup(box).format(url, shown[:cut], shown[cut:])
+
+
 def highlight_url(url: str) -> Markup:
     """A short link: the base address in the normal font, the slug in its box."""
     base = base_url()
@@ -63,5 +82,6 @@ def register(app: Flask) -> None:
     app.add_template_filter(highlight_slug, "hl_slug")
     app.add_template_filter(highlight_url, "hl_url")
     app.add_template_filter(slug_box, "slug_box")
+    app.add_template_filter(target_box, "target_box")
     app.add_template_filter(rich, "rich")
     app.add_template_filter(json.loads, "fromjson")
