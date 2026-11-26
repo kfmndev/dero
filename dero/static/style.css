@@ -1573,7 +1573,7 @@ details.multi.custom .multi-label {
 }
 
 .qhelp {
-  flex: 1 0 100%;
+  flex: 1 0 100%; /* a row of its own, right below the search bar */
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: 12px 24px;
@@ -1591,9 +1591,22 @@ details.multi.custom .multi-label {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text);
+  font-family: var(--font-head);
 }
 .qhelp p {
   margin: 3px 0;
+}
+/* an example, drawn by the script the way the search bar draws it: the chips cancel their own padding with negative
+   margins, so the box keeps that padding, and the examples get the room between chips the bar has */
+.qex {
+  display: inline-block;
+  padding: 1px 10px 1px 3px;
+  margin: 1px 2px 1px 0;
+  white-space: pre;
+  word-spacing: 15px;
+  font: 400 13px / 1.3 var(--font-text);
+  font-variant-ligatures: none;
+  color: var(--text);
 }
 .query-problems {
   margin: 0 0 10px;

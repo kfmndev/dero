@@ -1940,3 +1940,13 @@ def test_all_options_of_status_and_created_by_can_be_deselected(client):
         as_text=True
     )
     assert "No links match." in html
+
+
+def test_search_help_sits_below_the_search_bar_and_draws_its_examples_like_the_bar(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert html.index('id="q"') < html.index('id="q-help"') < html.index('id="status-label"')  # right below the bar
+    assert 'class="qex mono" data-q="status=expired,disabled"' in html
+    js = flat_js(js_source(client))
+    assert 'help.querySelectorAll("[data-q]")' in js and "renderQuery(parseQuery(text), text, el, lists)" in js
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".qhelp h4")["font-family"] == "var(--font-head)"

@@ -487,6 +487,11 @@
     help.hidden = !help.hidden;
     helpToggle.setAttribute("aria-expanded", String(!help.hidden));
   });
+  // the examples in the help are drawn as the search bar draws a query
+  help.querySelectorAll("[data-q]").forEach((el) => {
+    const text = spaceQuotes(el.dataset.q);
+    renderQuery(parseQuery(text), text, el, lists);
+  });
 
   // After a reload within moments of typing, what was typed is put back (the address may not have caught up yet)
   const typed = performance.getEntriesByType("navigation")[0]?.type === "reload" ? recentDraft() : null;

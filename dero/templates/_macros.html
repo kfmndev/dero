@@ -71,3 +71,8 @@
 {%- macro syntax(text) -%}
 <span class="url mono">{{ text }}</span>
 {%- endmacro -%}
+
+{# an example search: the script draws it the way the search bar does (the text is what shows without it) #}
+{%- macro ex(text) -%}
+<span class="qex mono" data-q="{{ text }}">{{ text }}</span>
+{%- endmacro -%}
