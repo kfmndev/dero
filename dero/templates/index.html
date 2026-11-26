@@ -50,8 +50,6 @@
           <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom slug</option>
         </select>
       </div>
-      <button type="button" class="btn" id="new-link-generate"
-        title="Generate a slug of the selected type, then edit or create it">{{ icon('refresh') }}Generate</button>
       <label class="nl-chars" data-when-source="chars">Characters
         <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}"
           placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
@@ -62,8 +60,8 @@
           min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
           autofocus{% endif %}>
       </label>
-      <div class="grow" data-when-source="slug">
-        <span class="slug-group">
+      <div class="grow">
+        <span class="slug-group" id="new-link-slug">
           <span class="slug-prefix">{{ base }}</span>
           <span class="slug-edit">
             <span class="slug-hl" aria-hidden="true"></span>
@@ -72,6 +70,8 @@
               pattern="[A-Za-z0-9._~\-]{1,64}"
               {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
           </span>
+          <button type="button" class="mini" id="new-link-generate" aria-label="Generate a slug"
+            title="Generate a slug of the selected type">{{ icon('refresh') }}</button>
         </span>
       </div>
       <p class="alphabet-hint" aria-live="polite"></p>

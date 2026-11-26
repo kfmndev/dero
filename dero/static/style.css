@@ -2070,6 +2070,19 @@ dialog p.setting-note {
 .nl-slug > label input {
   margin-top: 0;
 }
+.slug-group .mini {
+  flex: none;
+  align-self: center;
+  margin: 0 6px;
+} /* the generate button inside the slug field */
+.slug-group.is-random .slug-edit input.url-input::placeholder {
+  color: var(--muted);
+  font-family: var(--font-text);
+  font-style: italic;
+}
+.slug-edit .slug-hl code.slug:empty {
+  display: none;
+} /* nothing typed: no empty box in front of the placeholder */
 .nl-slug > .field {
   display: flex;
   flex-direction: column;

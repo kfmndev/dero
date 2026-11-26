@@ -1028,11 +1028,8 @@ def test_new_link_form_markup_and_remembered_choice(client):
         html,
     )
     assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
-    assert (
-        'data-when-source="chars"' in html
-        and 'data-when-source="default letters chars"' in html
-        and 'data-when-source="slug"' in html
-    )
+    assert 'data-when-source="chars"' in html and 'data-when-source="default letters chars"' in html
+    assert 'data-when-source="slug"' not in html and 'id="new-link-slug"' in html  # the slug field is always there
     assert '<p class="alphabet-hint"' in html  # what it draws from: one line that can't overflow
     assert (
         'data-fresh="yes"' in html and "&#34;default&#34;" in html
@@ -1511,7 +1508,8 @@ def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
 
 def test_generate_button_and_settings_dialog(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert 'id="new-link-generate"' in html and "Generate</button>" in html
+    group = html[html.index('id="new-link-slug"') : html.index("alphabet-hint")]
+    assert 'id="new-link-generate"' in group and 'aria-label="Generate a slug"' in group  # inside the slug field
     assert re.search(
         r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S
     )  # the user name opens the settings
