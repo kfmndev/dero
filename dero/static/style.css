@@ -1706,6 +1706,19 @@ th.col-target {
   background: color-mix(in srgb, var(--c) 13%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);
 }
+/* a group has room for its x after the closing parenthesis (or after what is typed so far), like a chip after its text:
+   the margin cancels the padding, so the text stays where the input has it */
+.q-group {
+  padding-right: 10px;
+  margin-right: -10px;
+}
+/* inside a group the chip after the opening parenthesis gets as much room on its left as the last one has on its right
+   (they carry no x), so both parentheses sit the same distance from their chips */
+.q-paren + .q-term,
+.q-paren + .q-op {
+  padding-left: 10px;
+  margin-left: -10px;
+}
 .q-term .q-key {
   color: var(--c);
 }

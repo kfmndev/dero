@@ -1563,7 +1563,10 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     for selector in (".q-term", ".q-op"):
         rule = css_rule(css, selector)
         assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
-    assert "x - (padding - 1) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding and the 1px ring
+    assert "x - (padding - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
+    # a group's x sits after its closing parenthesis (not on it): the group has room for it, the same as a chip has
+    assert css_rule(css, ".q-group") == {"padding-right": "10px", "margin-right": "-10px"}
+    assert css_rule(css, ".q-paren + .q-term, .q-paren + .q-op") == {"padding-left": "10px", "margin-left": "-10px"}
     # the text of the highlight and of the real input start at the same place, close to the edge (chips pull in 3px)
     assert css_rule(css, ".qhighlight")["padding"] == "0 11px 0 7px"
     assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 11px 0 7px"
@@ -1849,7 +1852,9 @@ def test_operators_are_outlined_and_groups_are_not_tinted(client):
         r" box-shadow: 0 0 0 1px",
         css,
     )
-    assert ".q-group {" not in css and ".q-group .q-group" not in css  # parentheses and groups carry no highlight
+    # parentheses and groups carry no highlight: a group only has room (padding cancelled by a margin) for its x
+    assert not {"background", "box-shadow", "border", "outline"} & set(css_rule(css, ".q-group"))
+    assert ".q-group .q-group" not in css
 
 
 def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
