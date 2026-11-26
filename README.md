@@ -67,7 +67,8 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | `created_by=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
 | *×* behind a term | removes that term (and its *and*/*or*); the × behind an operator (`and`, `or`, `&&`, `||`) removes just the operator |
 | `( … )` | group; typing or pasting a parenthesis against a term adds a space on each side |
-| `created=2026-11` · `expires=<2027-01-01` · `expires=none` | creation or expiry date: a year, month or day (UTC), optionally with `<` `<=` `>` `>=`; `expires=none` = never expires |
+| `created=2026-11` · `expires<2027-01-01` · `created>=2026` | creation or expiry date: a year, month or day (UTC); compare with `<` `<=` `>` `>=` written directly after the key (not after the `=`). A link without an expiry matches no date |
+| `expires` · `!expires` · `expires=never` | `expires` alone is short for `expires!=never`: links that expire. `!expires` or `expires=never` (also `none`): links that never do |
 | `sort_by=visits` · `sort_by=-visits` | sort by `created`, `visits`, `slug`, `target`, `creator` or `expires`; a minus reverses the usual order |
 | `!status=expired` · `status!=expired` | negation |
 | `a and b` · `a && b` · `a or b` · `a \|\| b` · `( )` | explicit operators and grouping (*and* binds tighter than *or*) |

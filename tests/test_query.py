@@ -214,29 +214,67 @@ def test_date_filters():
         == ["aaa", "bbb", "ccc", "ddd", "eee"]
     )
     assert (
-        slugs("created=2025") == []
-        and slugs("created=>2026-01-01") == []
-        and slugs("created=>=2026-01-01") == slugs("")
+        slugs("created=2025") == [] and slugs("created>2026-01-01") == [] and slugs("created>=2026-01-01") == slugs("")
     )
-    assert slugs("created=<2026-02") == slugs("") and slugs("created=<2026-01") == []
+    assert slugs("created<2026-02") == slugs("") and slugs("created<2026-01") == []
     assert (
         slugs("expires=2020") == ["bbb", "eee"]
         and slugs("expires=2020-01") == ["bbb"]
         and slugs("expires=2020-02-02") == ["eee"]
     )
     assert (
-        slugs("expires=<2021") == ["bbb", "eee"]
-        and slugs("expires=>2030") == ["ddd"]
-        and slugs("expires=<=2020-01-01") == ["bbb"]
+        slugs("expires<2021") == ["bbb", "eee"]
+        and slugs("expires>2030") == ["ddd"]
+        and slugs("expires<=2020-01-01") == ["bbb"]
+        and slugs("expires>=2099") == ["ddd"]
     )
     assert slugs("expires=none") == slugs("expires=never") == ["aaa", "ccc"]
     assert slugs("expires!=none") == ["bbb", "ddd", "eee"] and slugs("!expires=none") == ["bbb", "ddd", "eee"]
     assert slugs("expires=2020-01,2099") == ["bbb", "ddd"]  # a comma is "or"
+    assert slugs("expires>2020 expires<2099") == slugs("expires>2020 and expires<2099")
     assert slugs("expires=2020 creator=julian") == ["bbb"] and slugs("created=2026 or expires=2099") == slugs("")
 
 
+def test_a_bare_optional_key_means_it_is_set():
+    assert slugs("expires") == slugs("expires!=never") == ["bbb", "ddd", "eee"]
+    assert slugs("!expires") == slugs("expires=never") == slugs("expires=none") == ["aaa", "ccc"]
+    assert slugs("EXPIRES creator=julian") == slugs("expires creator=julian")
+    assert slugs('"expires"') == []  # quoted, it is plain text again
+    assert slugs("expires or slug=aaa") == ["aaa", "bbb", "ddd", "eee"]
+    assert find("expires")[1].problems == []
+    tok = [t for t in query.tokenize("expires") if t.kind == "term"][0]
+    assert tok.key == "expires" and tok.op == "set" and tok.values == ()
+
+
+def test_a_link_without_expiry_is_not_excluded_by_a_negated_date():
+    assert slugs("!expires<2021") == ["aaa", "ccc", "ddd"] and slugs("expires!=2020") == ["aaa", "ccc", "ddd"]
+    assert slugs("!expires>2030") == ["aaa", "bbb", "ccc", "eee"]
+
+
+def test_comparisons_are_written_without_the_equals_sign():
+    kinds = {text: query.tokenize(text)[0] for text in ("expires<=2027", "created>2026", "expires=<2027", "slug<abc")}
+    assert (kinds["expires<=2027"].key, kinds["expires<=2027"].op, kinds["expires<=2027"].values) == (
+        "expires",
+        "<=",
+        ("2027",),
+    )
+    assert kinds["created>2026"].key == "created" and kinds["created>2026"].op == ">"
+    assert kinds["slug<abc"].key is None  # comparisons exist for dates only; elsewhere it is plain text
+    # an operator after the equals sign is not a date
+    for text in ("expires=<2027", "expires=>=2027", "created=>2026", "expires=<=2027-01-01"):
+        rows, parsed = find(text)
+        assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
+
+
 def test_bad_dates_match_nothing_and_are_reported():
-    for text in ("created=nonsense", "created=2026-13", "created=2026-02-30", "expires=<", "created=26"):
+    for text in (
+        "created=nonsense",
+        "created=2026-13",
+        "created=2026-02-30",
+        "expires=<",
+        "created=26",
+        "expires<none",
+    ):
         rows, parsed = find(text)
         assert rows == [] and parsed.problems and parsed.problems[0].startswith("Unknown date"), text
     assert find("created=2026-02-28")[1].problems == [] and find("created=2024-02-29")[1].problems == []

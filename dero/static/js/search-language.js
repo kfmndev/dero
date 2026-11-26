@@ -17,6 +17,10 @@ const QUERY_KEYS = {
   order: "sortby",
 };
 
+// keys that can be unset: the key alone means "is set" (expires = expires!=never); the date keys compare with < <= > >=
+const OPTIONAL_KEYS = ["expires"];
+const DATE_KEYS = ["created", "expires"];
+
 function unquote(text) {
   if (text.length >= 2 && text[0] === '"' && text.endsWith('"')) return text.slice(1, -1);
   return text.startsWith('"') ? text.slice(1) : text;
@@ -80,9 +84,22 @@ function parseQuery(text) {
       if (lower === "and" || lower === "or") {
         toks.push({ kind: lower, start: i, end: j });
       } else {
-        const m = /^([A-Za-z_]+)(!?=)([\s\S]*)$/.exec(word);
-        const key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
-        if (key) {
+        const m = /^([A-Za-z_]+)(!=|<=|>=|=|<|>)([\s\S]*)$/.exec(word);
+        let key = m ? QUERY_KEYS[m[1].toLowerCase()] : undefined;
+        if (key && /^[<>]/.test(m[2]) && !DATE_KEYS.includes(key)) key = undefined; // a comparison is for dates only
+        if (OPTIONAL_KEYS.includes(lower)) {
+          toks.push({
+            kind: "term",
+            start: i,
+            end: j,
+            key: lower,
+            rawKey: word,
+            op: "",
+            rest: "",
+            negated: false,
+            values: [],
+          });
+        } else if (key) {
           toks.push({
             kind: "term",
             start: i,
@@ -192,14 +209,15 @@ function deriveSort(parsed, sortKeys) {
   return value === "created" ? "" : value;
 }
 
-// created=2026 / 2026-11 / 2026-11-25, optionally after < <= > >=; expires also takes none. Same rules as dero/query.py.
-function validDate(value, key) {
-  if (key === "expires" && /^(none|never)$/i.test(value)) return true;
-  const m = /^(<=|>=|<|>)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(value.trim());
+// 2026 / 2026-11 / 2026-11-25 (the operator < <= > >= belongs to the key, not the value); expires=none and
+// expires=never only with = or !=. Same rules as dero/query.py.
+function validDate(value, key, op) {
+  if (OPTIONAL_KEYS.includes(key) && (op === "=" || op === "!=") && /^(none|never)$/i.test(value)) return true;
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(value.trim());
   if (!m) return false;
-  const month = Number(m[3] || 1),
-    day = Number(m[4] || 1),
-    date = new Date(Date.UTC(Number(m[2]), month - 1, day));
+  const month = Number(m[2] || 1),
+    day = Number(m[3] || 1),
+    date = new Date(Date.UTC(Number(m[1]), month - 1, day));
   return month >= 1 && month <= 12 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
@@ -262,13 +280,14 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       const before = parsed.toks[idx - 1],
         last = top().lastChild;
       if (before && before.kind === "not" && last?.classList?.contains("q-not")) pill.append(last);
-      pill.append(span("q-key", t.rawKey), span("q-eq", t.op));
-      splitRaw(t.rest).forEach((piece, i) => {
+      pill.append(span("q-key", t.rawKey));
+      if (t.op) pill.append(span("q-eq", t.op));
+      (t.op ? splitRaw(t.rest) : []).forEach((piece, i) => {
         if (i) pill.append(span("q-eq", ","));
         const value = unquote(piece);
         const bad =
           (t.key === "status" && value && !statuses.includes(value.toLowerCase())) ||
-          ((t.key === "created" || t.key === "expires") && value && !validDate(value, t.key)) ||
+          (DATE_KEYS.includes(t.key) && value && !validDate(value, t.key, t.op)) ||
           (t.key === "sortby" && value && !sortKeys.includes(value.replace(/^[+-]/, "").toLowerCase()));
         pill.append(span(bad ? "q-val q-invalid" : "q-val", piece));
       });

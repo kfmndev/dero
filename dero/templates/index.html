@@ -154,8 +154,10 @@
       <p>{{ syntax('free text') }} searches slug, target and creator · {{ syntax('"exact phrase"') }}</p>
       <p>{{ syntax('status=expired,disabled') }} · {{ syntax('created_by=julian') }} · {{ syntax('slug=abc') }}
          · {{ syntax('target=github') }} · a comma means or</p>
-      <p>{{ syntax('created=2026-11') }} · {{ syntax('expires=<2027-01-01') }} · {{ syntax('expires=none') }}
-         dates: a year, month or day (UTC), with {{ syntax('< <= > >=') }}</p>
+      <p>{{ syntax('created=2026-11') }} · {{ syntax('expires<2027-01-01') }} · {{ syntax('created>=2026') }}
+         dates: a year, month or day (UTC), compared with {{ syntax('< <= > >=') }} (no = in front of it)</p>
+      <p>{{ syntax('expires') }} links that expire · {{ syntax('!expires') }} or {{ syntax('expires=never') }}
+         links that never do</p>
       <p>{{ syntax('sort_by=visits') }} · {{ syntax('sort_by=-visits') }} reverses the usual order
          (also created, slug, target, creator, expires)</p>
       <p>{{ syntax('!status=expired') }} or {{ syntax('status!=expired') }} negates

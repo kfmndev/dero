@@ -4,8 +4,9 @@
     status=expired,disabled   created_by=julian   slug=abc   target=github
                               (a comma means "or" within one key; creator and status match exactly,
                                slug and target match parts)
-    created=2026-11           expires=<2027-01-01   dates: a year, month or day; < <= > >= compare; dates are UTC
-                              expires=none          links that never expire
+    created=2026-11           expires<2027-01-01    dates: a year, month or day; < <= > >= compare; dates are UTC
+    expires                   links that expire at all (short for expires!=never)
+                              expires=never         links that never expire (also: expires=none, !expires)
     sort_by=visits            sort; a leading minus reverses the key's usual order (sort_by=-visits)
     !term   key!=value        negate
     and  &&   or  ||   ( )    combine and group
@@ -48,8 +49,11 @@ SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
 DESC_BY_DEFAULT = {"created": True, "visits": True, "slug": False, "target": False, "creator": False, "expires": False}
 
 DATE_COLUMNS = {"created": "created_at", "expires": "expires_at"}
-_DATE = re.compile(r"^(<=|>=|<|>)?(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
-_KEYED = re.compile(r"^([A-Za-z_]+)(!?=)(.*)$", re.S)
+# keys that can be unset (a NULL column): the bare key means "is set", and a date comparison never matches an unset one
+OPTIONAL_KEYS = {"expires"}
+COMPARISONS = ("<=", ">=", "<", ">")  # only for the date keys, written without "=": expires<2027, created>=2026-11
+_DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
+_KEYED = re.compile(r"^([A-Za-z_]+)(!=|<=|>=|=|<|>)(.*)$", re.S)
 
 
 @dataclass
@@ -62,6 +66,7 @@ class Tok:
     key: str | None = None  # canonical key of a keyed term, else None (free text)
     negated: bool = False  # key!=value
     values: tuple[str, ...] = ()
+    op: str = "="  # "=", one of COMPARISONS, or "set" for an optional key written alone (expires)
 
 
 @dataclass
@@ -125,10 +130,16 @@ def _word_token(text: str, i: int, j: int) -> Tok:
 
     if lower in ("and", "or"):
         return Tok(lower, i, j)
+
+    if lower in OPTIONAL_KEYS:
+        return Tok("term", i, j, lower, False, (), "set")
     m = _KEYED.match(word)
 
     if m and (key := KEYS.get(m.group(1).lower())):
-        return Tok("term", i, j, key, m.group(2) == "!=", _split_values(m.group(3)))
+        op = m.group(2)
+
+        if op not in COMPARISONS or key in DATE_COLUMNS:
+            return Tok("term", i, j, key, op == "!=", _split_values(m.group(3)), "=" if op == "!=" else op)
 
     return Tok("term", i, j, None, False, (_unquote(word),))
 
@@ -161,7 +172,9 @@ def tokenize(text: str) -> list[Tok]:
 
 
 # ------------------------------------------------------------------ parser: tokens -> tree
-Node = tuple[Any, ...]  # a node of the parsed query: ("text", t), ("kv", key, values), ("not", n), ("and"|"or", [n...])
+Node = tuple[
+    Any, ...
+]  # a node of the parsed query: ("text", t), ("kv", key, values, op), ("not", n), ("and"|"or", [n])
 NOOP: Node = ("noop",)  # nothing to filter by
 
 
@@ -277,9 +290,9 @@ class _Parser:
 
             return NOOP  # a directive, not a filter (and never negated)
 
-        if not tok.values:
+        if not tok.values and tok.op != "set":
             return NOOP
-        node = ("kv", tok.key, tok.values)
+        node = ("kv", tok.key, tok.values, tok.op)
 
         return ("not", node) if tok.negated else node
 
@@ -292,30 +305,32 @@ _STATUS_SQL = {
 }
 
 
-def _date_condition(key: str, value: str, params: list[Any], problems: list[str]) -> str:
-    """created=2026 / created=2026-11 / created=2026-11-25 / expires=<2027-01-01 / expires=none. Dates are UTC.
-    The stored times are ISO strings, so comparing their first 4, 7 or 10 characters compares years, months or days."""
+def _date_condition(key: str, op: str, value: str, params: list[Any], problems: list[str]) -> str:
+    """created=2026 / created>=2026-11 / expires<2027-01-01 / expires=never. Dates are UTC.
+    The stored times are ISO strings, so comparing their first 4, 7 or 10 characters compares years, months or days.
+    A link without an expiry matches no date, so `!expires<2027` (not expiring before 2027) still includes it."""
     column = DATE_COLUMNS[key]
     value = value.strip()
 
-    if key == "expires" and value.lower() in ("none", "never"):
+    if key in OPTIONAL_KEYS and op == "=" and value.lower() in ("none", "never"):
         return f"{column} IS NULL"
     m = _DATE.match(value)
 
     if not m or not _real_date(m):
         problems.append(f"Unknown date: {value}")
         return "0"
-    operator, year, month, day = m.groups()
+    year, month, day = m.groups()
     text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
     params.append(text)
+    compare = f"substr({column}, 1, {len(text)}) {op} ?"
 
-    return f"substr({column}, 1, {len(text)}) {operator or '='} ?"
+    return f"({column} IS NOT NULL AND {compare})" if key in OPTIONAL_KEYS else compare
 
 
 def _real_date(m: re.Match[str]) -> bool:
     """Whether a matched year[-month[-day]] is a date that exists (no month 13, no 30 February)."""
     try:
-        datetime(int(m.group(2)), int(m.group(3) or 1), int(m.group(4) or 1))
+        datetime(int(m.group(1)), int(m.group(2) or 1), int(m.group(3) or 1))
     except ValueError:
         return False
 
@@ -346,14 +361,17 @@ def _compile_status(values: tuple[str, ...], now: str, params: list[Any], proble
     return "(" + " OR ".join(parts) + ")"
 
 
-def _compile_term(key: str, values: tuple[str, ...], now: str, params: list[Any], problems: list[str]) -> str:
+def _compile_term(key: str, values: tuple[str, ...], op: str, now: str, params: list[Any], problems: list[str]) -> str:
     """One key=value term (values are alternatives)."""
+
+    if op == "set":
+        return f"({DATE_COLUMNS[key]} IS NOT NULL)"
 
     if key == "status":
         return _compile_status(values, now, params, problems)
 
     if key in DATE_COLUMNS:
-        return "(" + " OR ".join(_date_condition(key, v, params, problems) for v in values) + ")"
+        return "(" + " OR ".join(_date_condition(key, op, v, params, problems) for v in values) + ")"
 
     if key == "creator":
         params += [v.lower() for v in values]
@@ -375,7 +393,7 @@ def _compile(node: Node, now: str, params: list[Any], problems: list[str]) -> st
         return "(slug LIKE ? ESCAPE '\\' OR target LIKE ? ESCAPE '\\' OR created_by LIKE ? ESCAPE '\\')"
 
     if kind == "kv":
-        return _compile_term(node[1], node[2], now, params, problems)
+        return _compile_term(node[1], node[2], node[3], now, params, problems)
 
     if kind == "not":
         return "(NOT " + _compile(node[1], now, params, problems) + ")"
