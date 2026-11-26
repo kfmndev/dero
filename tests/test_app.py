@@ -1403,7 +1403,7 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
     ).groups()
     assert len(set(colours)) == 4  # four different hues (plus muted and the secondary colour)
     assert re.search(
-        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 17px; \}", css
+        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css
     )  # same spacing in both layers
     assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)  # the search bar has its own row
 
@@ -1567,7 +1567,7 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     # the text of the highlight and of the real input start at the same place, close to the edge (chips pull in 3px)
     assert css_rule(css, ".qhighlight")["padding"] == "0 11px 0 7px"
     assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 11px 0 7px"
-    assert "opacity" not in css_rule(css, ".qx")  # the x is solid grey, like the text it belongs to
+    assert css_rule(css, ".qx")["opacity"] == "0.6"  # the x is a little faded until it is hovered
     # the commas between values have their own style, so a negated term does not turn them red like its operator
     assert 'span("q-comma", ",")' in js and 'span("q-eq", ",")' not in js
     assert css_rule(css, ".q-eq, .q-comma, .q-op, .q-op-tight")["color"] == "var(--muted)"

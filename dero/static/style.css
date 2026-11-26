@@ -1672,7 +1672,7 @@ th.col-target {
 .qhighlight,
 .qfield input.qinput,
 .qfield input.qinput:focus {
-  word-spacing: 17px;
+  word-spacing: 15px;
 } /* in both layers, so the text stays aligned */
 :root {
   --q-text: var(--muted);
@@ -1774,6 +1774,7 @@ th.col-target {
   border-radius: 0;
   background: none;
   color: var(--muted);
+  opacity: 0.6;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -1785,6 +1786,7 @@ th.col-target {
 }
 .qx:hover,
 .qx:focus-visible {
+  opacity: 1;
   color: var(--err);
   background: none;
 }
