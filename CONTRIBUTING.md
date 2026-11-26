@@ -81,6 +81,11 @@ request weekly when one has a newer release.
 it to `ghcr.io/kfmndev/dero` from `main` (`:edge`) and from release tags (`v1.2.3` becomes `:1.2.3`, `:1.2`, `:latest`).
 The compose files for running it are in `deploy/`.
 
+**Releases**: raise `VERSION` in `dero/version.py`, commit, then push a tag `vX.Y.Z` on that commit.
+`.github/workflows/release.yml` fails if the tag and `VERSION` differ, and otherwise creates the GitHub release with notes
+grouped by commit type (`cliff.toml`; preview them with `git cliff --unreleased`). A tag with a hyphen (`v0.2.0-rc1`)
+is marked as a pre-release.
+
 ## Code layout
 
 - `dero/__init__.py` – the app factory only. Around it: `forms.py` (reading the New link and edit forms: slugs,
