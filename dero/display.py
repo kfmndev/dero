@@ -4,6 +4,7 @@ import json
 import re
 from itertools import groupby
 
+from flask import Flask
 from markupsafe import Markup, escape
 
 from .urls import base_url
@@ -19,7 +20,8 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
     if cut:
         slug = slug[:limit]
 
-    def kind(ch):
+    def kind(ch: str) -> str:
+        """Whether a character is a digit, a letter or a symbol."""
         return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
 
     out = []
@@ -56,7 +58,7 @@ def rich(text: str) -> Markup:
     return Markup(re.sub(r"‹([^›]*)›", lambda m: str(slug_box(m.group(1))), str(escape(text))))
 
 
-def register(app):
+def register(app: Flask) -> None:
     """Make the filters and the constant available to every template."""
     app.add_template_filter(highlight_slug, "hl_slug")
     app.add_template_filter(highlight_url, "hl_url")

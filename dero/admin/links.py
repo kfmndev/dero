@@ -8,6 +8,7 @@ from flask import flash, g, jsonify, redirect, request, url_for
 
 from .. import db, resolve
 from ..forms import parse_expiry, random_slug, reserved_slugs, slug_plan, validated
+from ..types import ViewResult
 from ..urls import base_url
 from . import bp
 from .helpers import back, own_or_admin
@@ -15,11 +16,14 @@ from .listing import render_index
 
 
 @bp.get("/")
-def index():
+def index() -> ViewResult:
+    """The links page."""
     return render_index()
 
 
-def _save_new_link(conn, kind, plan, target, expires):
+def _save_new_link(
+    conn: sqlite3.Connection, kind: str, plan: str | tuple[str, int], target: str, expires: str | None
+) -> str:
     """Insert the link and return its slug. A typed slug that is taken is an error, a generated one is drawn again."""
 
     for _ in range(20 if kind == "generate" else 1):
@@ -44,7 +48,8 @@ def _save_new_link(conn, kind, plan, target, expires):
 
 
 @bp.post("/links")
-def create_link():
+def create_link() -> ViewResult:
+    """Create a link from the New link form."""
     f = request.form
 
     try:
@@ -61,7 +66,8 @@ def create_link():
 
 
 @bp.post("/links/<int:link_id>/toggle")
-def toggle_link(link_id):
+def toggle_link(link_id: int) -> ViewResult:
+    """Switch a link on or off."""
     own_or_admin(link_id)
     conn = db.get_db()
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
@@ -70,14 +76,14 @@ def toggle_link(link_id):
     return back()
 
 
-def _same_target_key(url: str):
+def _same_target_key(url: str) -> tuple[str, str, str, str, str]:
     """Two addresses that differ only in letter case of scheme/host or in a trailing slash count as the same."""
     parts = urlsplit(url.strip())
     return (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/") or "/", parts.query, parts.fragment)
 
 
 @bp.get("/links/lookup")
-def lookup_target():
+def lookup_target() -> ViewResult:
     """Which links already point to this address? Slugs are only revealed for links the user may see."""
     url = request.args.get("target", "").strip()
     exclude = request.args.get("exclude", type=int)  # the link being edited doesn't count
@@ -96,7 +102,7 @@ def lookup_target():
     return resp
 
 
-def _changes(row, slug, target, expires):
+def _changes(row: sqlite3.Row, slug: str, target: str, expires: str | None) -> list[list[str]]:
     """What an edit changed, as [label, value] pairs: the page shows the value after the label."""
     changes = []
 
@@ -113,7 +119,7 @@ def _changes(row, slug, target, expires):
 
 
 @bp.post("/links/<int:link_id>/update")
-def update_link(link_id):
+def update_link(link_id: int) -> ViewResult:
     """Change the target, the slug and the expiry of a link in one go."""
     row = own_or_admin(link_id)
     f = request.form
@@ -146,7 +152,8 @@ def update_link(link_id):
 
 
 @bp.post("/links/<int:link_id>/delete")
-def delete_link(link_id):
+def delete_link(link_id: int) -> ViewResult:
+    """Delete a link."""
     own_or_admin(link_id)
     conn = db.get_db()
     conn.execute("DELETE FROM links WHERE id = ?", (link_id,))

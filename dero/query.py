@@ -16,8 +16,8 @@ The names are the dropdowns' names in snake case (status, created_by, sort_by); 
 order are older spellings that still work. Unknown keys are plain text
 (so `a=b` or a pasted URL just searches for that text).
 
-The browser has a tokenizer with the same rules (static/app.js, parseQuery) for highlighting and for keeping
-the dropdowns in sync; this module is the authority that actually filters.
+The browser has a tokenizer with the same rules (static/js/search-language.js, parseQuery) for highlighting
+and for keeping the dropdowns in sync; this module is the authority that actually filters.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 KEYS = {
     "status": "status",
@@ -53,31 +54,36 @@ _KEYED = re.compile(r"^([A-Za-z_]+)(!?=)(.*)$", re.S)
 
 @dataclass
 class Tok:
+    """One piece of the query text: where it starts and ends, and what it is."""
+
     kind: str  # ws, lpar, rpar, and, or, not, term
     start: int
     end: int
     key: str | None = None  # canonical key of a keyed term, else None (free text)
     negated: bool = False  # key!=value
-    values: tuple = ()
+    values: tuple[str, ...] = ()
 
 
 @dataclass
 class Parsed:
+    """A query turned into SQL: the WHERE part, its parameters, the sort and any problems found."""
+
     where: str | None = None  # SQL for the filter part, None = no filter
-    params: list = field(default_factory=list)
-    sort: tuple | None = None  # (key, reverse) or None
-    problems: list = field(default_factory=list)
+    params: list[Any] = field(default_factory=list)
+    sort: tuple[str, bool] | None = None  # (key, reverse) or None
+    problems: list[str] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------ tokenizer
 def _unquote(text: str) -> str:
+    """The text without the quotes around it (an unclosed quote is dropped too)."""
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return text[1:-1]
 
     return text[1:] if text.startswith('"') else text
 
 
-def _split_values(rest: str) -> tuple:
+def _split_values(rest: str) -> tuple[str, ...]:
     """a,b,"c d" -> ("a", "b", "c d"); commas inside quotes stay."""
     parts, buf, quoted = [], "", False
 
@@ -129,6 +135,7 @@ def _word_token(text: str, i: int, j: int) -> Tok:
 
 
 def tokenize(text: str) -> list[Tok]:
+    """Cut the query into tokens: spaces, parentheses, and/or/not and terms. The tokens cover the whole text."""
     toks, i, n = [], 0, len(text)
 
     while i < n:
@@ -155,20 +162,26 @@ def tokenize(text: str) -> list[Tok]:
 
 
 # ------------------------------------------------------------------ parser: tokens -> tree
-NOOP = ("noop",)
+Node = tuple[Any, ...]  # a node of the parsed query: ("text", t), ("kv", key, values), ("not", n), ("and"|"or", [n...])
+NOOP: Node = ("noop",)  # nothing to filter by
 
 
 class _Parser:
-    def __init__(self, toks):
+    """Turns the tokens into a tree of nodes ('and' binds tighter than 'or'); problems are collected, not raised."""
+
+    def __init__(self, toks: list[Tok]) -> None:
+        """Start at the first token (spaces are ignored)."""
         self.toks = [t for t in toks if t.kind != "ws"]
         self.i = 0
         self.sort = None
         self.problems = []
 
-    def kind(self):
+    def kind(self) -> str | None:
+        """The kind of the current token, or None at the end."""
         return self.toks[self.i].kind if self.i < len(self.toks) else None
 
-    def parse(self):
+    def parse(self) -> Node:
+        """The whole query as one node (the NOOP node if there is nothing to filter by)."""
         nodes = [self.or_expr()]
 
         while self.i < len(self.toks):  # only reachable on a stray ")"
@@ -179,7 +192,8 @@ class _Parser:
         return self._join("and", nodes)
 
     @staticmethod
-    def _join(op, nodes):
+    def _join(op: str, nodes: list[Node]) -> Node:
+        """Combine nodes with and/or; NOOP nodes vanish, and one node stays as it is."""
         nodes = [n for n in nodes if n != NOOP]
 
         if not nodes:
@@ -187,7 +201,8 @@ class _Parser:
 
         return nodes[0] if len(nodes) == 1 else (op, nodes)
 
-    def or_expr(self):
+    def or_expr(self) -> Node:
+        """Parts joined by 'or'."""
         parts = [self.and_expr()]
 
         while self.kind() == "or":
@@ -196,7 +211,8 @@ class _Parser:
 
         return self._join("or", parts)
 
-    def and_expr(self):
+    def and_expr(self) -> Node:
+        """Parts next to each other or joined by 'and'."""
         parts = []
 
         while True:
@@ -211,7 +227,8 @@ class _Parser:
 
         return self._join("and", parts)
 
-    def unary(self):
+    def unary(self) -> Node:
+        """A term, a group, or either of them negated with '!'."""
         if self.kind() == "not":
             self.i += 1
 
@@ -223,7 +240,7 @@ class _Parser:
 
         return self.primary()
 
-    def _read_sort(self, tok):
+    def _read_sort(self, tok: Tok) -> None:
         """sortby=visits / sortby=-visits: remember the sort, or report one that does not exist."""
 
         if not tok.values:
@@ -236,7 +253,8 @@ class _Parser:
         else:
             self.problems.append(f"Unknown sort: {raw}")
 
-    def primary(self):
+    def primary(self) -> Node:
+        """A parenthesised group, a free-text word or a key=value term."""
         tok = self.toks[self.i]
         self.i += 1
 
@@ -275,7 +293,7 @@ _STATUS_SQL = {
 }
 
 
-def _date_condition(key: str, value: str, params: list, problems: list) -> str:
+def _date_condition(key: str, value: str, params: list[Any], problems: list[str]) -> str:
     """created=2026 / created=2026-11 / created=2026-11-25 / expires=<2027-01-01 / expires=none. Dates are UTC.
     The stored times are ISO strings, so comparing their first 4, 7 or 10 characters compares years, months or days."""
     column = DATE_COLUMNS[key]
@@ -304,10 +322,12 @@ def _date_condition(key: str, value: str, params: list, problems: list) -> str:
 
 
 def like(term: str) -> str:
+    """A LIKE pattern that finds the term anywhere (its own % and _ are matched literally)."""
     return "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _compile_status(values, now, params, problems):
+def _compile_status(values: tuple[str, ...], now: str, params: list[Any], problems: list[str]) -> str:
+    """SQL for status=a,b: the statuses are alternatives."""
     parts = []
 
     for v in values:
@@ -325,7 +345,7 @@ def _compile_status(values, now, params, problems):
     return "(" + " OR ".join(parts) + ")"
 
 
-def _compile_term(key, values, now, params, problems):
+def _compile_term(key: str, values: tuple[str, ...], now: str, params: list[Any], problems: list[str]) -> str:
     """One key=value term (values are alternatives)."""
 
     if key == "status":
@@ -344,7 +364,8 @@ def _compile_term(key, values, now, params, problems):
     return "(" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for _ in values) + ")"
 
 
-def _compile(node, now, params, problems):
+def _compile(node: Node, now: str, params: list[Any], problems: list[str]) -> str:
+    """SQL for a node; values go into `params` and are never put into the SQL text."""
     kind = node[0]
 
     if kind == "text":
@@ -392,6 +413,7 @@ def sort_term(key: str, reverse: bool) -> str:
 
 
 def _remove(text: str, toks: list[Tok]) -> str:
+    """The text without these tokens and the space after each (or before the last, at the end)."""
     for t in sorted(toks, key=lambda t: t.start, reverse=True):
         end = t.end
 
@@ -408,6 +430,7 @@ def _remove(text: str, toks: list[Tok]) -> str:
 
 
 def has_top_level_or(toks: list[Tok]) -> bool:
+    """Whether an 'or' stands outside every parenthesis."""
     depth = 0
 
     for t in toks:
@@ -432,6 +455,7 @@ def add_term(text: str, term: str) -> str:
 
 
 def with_sort(text: str, key: str, reverse: bool) -> str:
+    """The query with its sort_by term replaced by this sort (the default sort has no term)."""
     toks = [t for t in tokenize(text) if t.kind == "term" and t.key == "sortby"]
     base = _remove(text, toks)
     term = sort_term(key, reverse)
@@ -440,4 +464,5 @@ def with_sort(text: str, key: str, reverse: bool) -> str:
 
 
 def quote_value(value: str) -> str:
+    """The value in quotes if it holds spaces, parentheses or quotes (quotes inside are dropped)."""
     return '"' + value.replace('"', "") + '"' if (not value or re.search(r'[\s()"]', value)) else value

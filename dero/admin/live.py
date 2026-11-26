@@ -3,6 +3,8 @@
 import json
 import sqlite3
 import time
+from collections.abc import Iterator
+from typing import Any
 
 from flask import Response, current_app, g
 
@@ -11,17 +13,17 @@ from . import bp
 KEEPALIVE_EVERY = 10  # quiet ticks between comments that keep the stream open
 
 
-def _fingerprint(conn, where, args):
+def _fingerprint(conn: sqlite3.Connection, where: str, args: tuple[str, ...]) -> tuple[int, int]:
     """One cheap aggregate: how many links, how many visits."""
     return tuple(conn.execute(f"SELECT COUNT(*), COALESCE(SUM(visits), 0) FROM links{where}", args).fetchone())
 
 
-def _snapshot(conn, where, args):
+def _snapshot(conn: sqlite3.Connection, where: str, args: tuple[str, ...]) -> dict[int, tuple[str, int]]:
     """{id: (slug, visits)} of the links in scope."""
     return {r[0]: (r[1], r[2]) for r in conn.execute(f"SELECT id, slug, visits FROM links{where}", args)}
 
 
-def _increases(known, latest):
+def _increases(known: dict[int, tuple[str, int]], latest: dict[int, tuple[str, int]]) -> list[dict[str, Any]]:
     """The links whose counter went up between two snapshots."""
     return [
         {"id": i, "slug": slug, "visits": visits, "delta": visits - known[i][1]}
@@ -30,7 +32,7 @@ def _increases(known, latest):
     ]
 
 
-def _events(path, where, args, tick, max_ticks):
+def _events(path: str, where: str, args: tuple[str, ...], tick: float, max_ticks: int | None) -> Iterator[str]:
     """The text of the event stream. It runs until the page leaves (or, in tests, for max_ticks ticks)."""
     conn = sqlite3.connect(path, timeout=10)
 
@@ -66,7 +68,7 @@ def _events(path, where, args, tick, max_ticks):
 
 
 @bp.get("/links/visits/stream")
-def visit_stream():
+def visit_stream() -> Response:
     """Server-sent events for "Live visits": `visit` when a counter of a link the user may see went up, `refresh` when
     links were created or deleted. Only counters are read, no visit is recorded. Every open stream holds one worker
     thread (gunicorn runs threaded workers) and checks the database itself, so visits handled by any worker show up."""

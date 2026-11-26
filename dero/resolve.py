@@ -4,27 +4,32 @@ Order: exact link -> pattern rules (by priority) -> fallback URL -> 404.
 """
 
 import re
+from collections.abc import Mapping
 from functools import lru_cache
+from typing import Any
 from urllib.parse import quote, urlsplit
 
 import regex  # third-party: supports match timeouts, so a bad pattern can't hang us
 
 from .db import get_db, get_setting, now_iso
 
-SLUG_RE = re.compile(
-    r"[A-Za-z0-9._~-]{1,64}"
-)  # the characters a URL path never needs to escape (RFC 3986 "unreserved")
+# the characters a URL path never needs to escape (RFC 3986 "unreserved")
+SLUG_RE = re.compile(r"[A-Za-z0-9._~-]{1,64}")
 PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 REGEX_TIMEOUT = 0.05  # seconds
 
 
 class ValidationError(ValueError):
-    def __init__(self, message, field=None):
+    """A value the user sent is not acceptable; `field` names the form field the message belongs to."""
+
+    def __init__(self, message: str, field: str | None = None) -> None:
+        """Keep the message and the name of the field it is about."""
         super().__init__(message)
         self.field = field  # name of the form field the message belongs to, if any
 
 
 def validate_slug(slug: str) -> str:
+    """The slug, if it only uses URL-safe characters and is not just dots; else a ValidationError."""
     if not SLUG_RE.fullmatch(slug):
         raise ValidationError("Slug: letters, digits and - _ . ~ only, up to 64.")
     if not slug.strip("."):
@@ -66,11 +71,13 @@ def glob_to_regex(pattern: str) -> str:
 
 
 @lru_cache(maxsize=256)
-def _compile(pattern: str, match_type: str):
+def _compile(pattern: str, match_type: str) -> regex.Pattern[str]:
+    """The compiled pattern of a rule (cached)."""
     return regex.compile(glob_to_regex(pattern) if match_type == "glob" else pattern)
 
 
 def validate_rule(pattern: str, match_type: str, target: str) -> None:
+    """Check a new rule: the pattern compiles, its {n} placeholders exist, and the target is a URL."""
     pattern = pattern.strip().strip("/")
 
     if not pattern or len(pattern) > 255:
@@ -91,15 +98,19 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
     validate_url(PLACEHOLDER_RE.sub("x", target))
 
 
-def fill_target(template: str, groups: tuple) -> str:
-    def sub(m):
+def fill_target(template: str, groups: tuple[str | None, ...]) -> str:
+    """Put the captured groups into the target where it says {1}, {2}, ..."""
+
+    def sub(m: re.Match[str]) -> str:
+        """The text for one {n} placeholder (empty if the pattern has no such group)."""
         idx = int(m.group(1)) - 1
         return quote(groups[idx] or "", safe="/") if 0 <= idx < len(groups) else ""
 
     return PLACEHOLDER_RE.sub(sub, template)
 
 
-def match_rule(rule, path: str):
+def match_rule(rule: Mapping[str, Any], path: str) -> str | None:
+    """The target a rule gives for the path, or None if it does not match (or takes too long)."""
     try:
         m = _compile(rule["pattern"], rule["match_type"]).fullmatch(path, timeout=REGEX_TIMEOUT)
     except TimeoutError:
@@ -108,7 +119,7 @@ def match_rule(rule, path: str):
     return fill_target(rule["target"], m.groups()) if m else None
 
 
-def resolve(path: str):
+def resolve(path: str) -> tuple[str | None, bool]:
     """Return (url, was_counted) or (None, False)."""
     db = get_db()
     path = path.strip("/")

@@ -1,5 +1,8 @@
 """Building the links page: sorting, columns, the search query and the template's data."""
 
+import sqlite3
+from collections.abc import Mapping
+
 from flask import current_app, g, render_template, request, url_for
 
 from .. import db, query
@@ -57,7 +60,7 @@ def _visible_columns() -> list:
     return [key for key, _ in COLUMNS if key in wanted] or list(DEFAULT_COLUMNS)  # never an empty table
 
 
-def _effective_query(args, is_admin: bool) -> str:
+def _effective_query(args: Mapping[str, str], is_admin: bool) -> str:
     """The query text: `q`, plus the older separate parameters (status, owner, order, sort, dir)
     if a URL still has them."""
     text = args.get("q", "").strip()[:500]
@@ -80,7 +83,7 @@ def _effective_query(args, is_admin: bool) -> str:
     return text
 
 
-def _slug_source_of(form) -> str:
+def _slug_source_of(form: Mapping[str, str]) -> str:
     """Which "Short link" option a (rejected) form was using."""
 
     if form.get("slug_source") in ("default", "letters", "chars", "slug"):
@@ -91,12 +94,15 @@ def _slug_source_of(form) -> str:
     return {"letters": "letters", "custom": "chars"}.get(form.get("alphabet", ""), "default")
 
 
-def _own_scope(is_admin):
+def _own_scope(is_admin: bool) -> tuple[str, tuple[str, ...]]:
     """(SQL, arguments) that limit a query to what the user may see: everything for an admin, else their own links."""
     return ("", ()) if is_admin else (" WHERE created_by = ?", (g.user["username"],))
 
 
-def _find_links(conn, parsed, sort_key, direction, is_admin):
+def _find_links(
+    conn: sqlite3.Connection, parsed: query.Parsed, sort_key: str, direction: str, is_admin: bool
+) -> list[sqlite3.Row]:
+    """The links the query finds, in the chosen order (people only ever see their own)."""
     where, args = [], []
 
     if not is_admin:  # whatever the query says, people only ever see their own links
@@ -112,7 +118,7 @@ def _find_links(conn, parsed, sort_key, direction, is_admin):
     return conn.execute(f"SELECT * FROM links{clause} ORDER BY {order}", args).fetchall()
 
 
-def _creators(conn, is_admin):
+def _creators(conn: sqlite3.Connection, is_admin: bool) -> list[str]:
     """Everyone who has made a link (for the Created by dropdown); only admins see others."""
 
     if not is_admin:
@@ -121,7 +127,7 @@ def _creators(conn, is_admin):
     return [r[0] for r in conn.execute("SELECT DISTINCT created_by FROM links ORDER BY created_by COLLATE NOCASE")]
 
 
-def _sort_options(is_admin):
+def _sort_options(is_admin: bool) -> list[tuple[str, str]]:
     """The entries of the Sort by dropdown: (value, label)."""
     options = []
 
@@ -136,7 +142,10 @@ def _sort_options(is_admin):
     return options
 
 
-def render_index(form=None, error=None, error_field=None):
+def render_index(
+    form: Mapping[str, str] | None = None, error: str | None = None, error_field: str | None = None
+) -> str:
+    """Render the links page: the filtered and sorted links, the search state and, after a rejected form, its error."""
     conn = db.get_db()
     is_admin = g.user["is_admin"]
     text = _effective_query(request.args, is_admin)
@@ -148,7 +157,8 @@ def render_index(form=None, error=None, error_field=None):
     scope, scope_args = _own_scope(is_admin)
     overall = conn.execute(f"SELECT COUNT(*) FROM links{scope}", scope_args).fetchone()[0]
 
-    def sort_url(key):
+    def sort_url(key: str) -> str:
+        """The address that sorts by this column (a second click reverses it)."""
         q = query.with_sort(text, key, (not reverse) if key == sort_key else False)
 
         return url_for("admin.index", q=q) if q else url_for("admin.index")

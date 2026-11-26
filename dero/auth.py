@@ -7,7 +7,9 @@ AUTH_MODE=proxy  identity headers set by a reverse proxy doing SSO (e.g. Autheli
 
 import hmac
 import os
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, NoReturn
 
 from flask import Response, abort, current_app, g, request
 from itsdangerous import BadData, URLSafeTimedSerializer
@@ -16,18 +18,20 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from .db import get_db, now_iso
 
 _DUMMY_HASH = generate_password_hash("dero")  # compared against for unknown users (timing)
-_cache: dict = {}
+_cache: dict[str, tuple[int, dict[str, tuple[str, str]]]] = {}  # path -> (mtime, users)
 
 
-def _csrf_serializer():
+def _csrf_serializer() -> URLSafeTimedSerializer:
+    """Signs and checks the hidden form tokens."""
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="csrf")
 
 
 def csrf_token() -> str:
+    """A signed token for the current user, put into every form."""
     return _csrf_serializer().dumps(g.user["username"])
 
 
-def load_users(path: str) -> dict:
+def load_users(path: str) -> dict[str, tuple[str, str]]:
     """Parse the users file, re-reading it only when it changed on disk."""
 
     try:
@@ -55,7 +59,8 @@ def load_users(path: str) -> dict:
     return users
 
 
-def _unauthorized():
+def _unauthorized() -> NoReturn:
+    """Answer 401 so the browser asks for a name and password."""
     abort(
         Response(
             "Authentication required.",
@@ -65,7 +70,8 @@ def _unauthorized():
     )
 
 
-def _identify_basic():
+def _identify_basic() -> tuple[str, bool]:
+    """Check the Basic credentials against the users file. Returns (name, is_admin)."""
     creds = request.authorization
 
     if not creds or creds.type != "basic" or not creds.username:
@@ -79,7 +85,8 @@ def _identify_basic():
     return creds.username, entry[0] == "admin"
 
 
-def _identify_proxy():
+def _identify_proxy() -> tuple[str, bool]:
+    """Take the user from the headers a trusted proxy sets. Returns (name, is_admin)."""
     cfg = current_app.config
     secret = cfg["PROXY_SECRET"]
 
@@ -99,7 +106,8 @@ def _identify_proxy():
     return username, is_admin
 
 
-def load_user():
+def load_user() -> None:
+    """Identify the user of the request into g.user, and check the form token of every POST."""
     mode = current_app.config["AUTH_MODE"]
 
     if mode == "basic":
@@ -124,9 +132,12 @@ def load_user():
             abort(400, "Invalid form token.")
 
 
-def admin_required(view):
+def admin_required(view: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator: only admins may call the view (everyone else gets 403)."""
+
     @wraps(view)
-    def wrapper(*a, **kw):
+    def wrapper(*a: Any, **kw: Any) -> Any:
+        """Run the view for an admin."""
         if not g.user["is_admin"]:
             abort(403)
 

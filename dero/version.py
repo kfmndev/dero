@@ -23,6 +23,8 @@ _HASH = re.compile(r"^[0-9a-f]{7,40}$")
 
 @dataclass(frozen=True)
 class BuildInfo:
+    """Version and build details of the running app, shown in the page footer."""
+
     version: str
     repo_url: str
     commit: str | None  # full hash, if known
@@ -30,14 +32,17 @@ class BuildInfo:
 
     @property
     def short_commit(self) -> str | None:
+        """The first seven characters of the commit, if known."""
         return self.commit[:7] if self.commit else None
 
     @property
     def commit_url(self) -> str | None:
+        """The address of the commit on GitHub, if known."""
         return f"{self.repo_url}/commit/{self.commit}" if self.commit else None
 
 
 def _git(*args: str) -> str | None:
+    """The output of a git command, or None where git is missing or fails."""
     try:
         result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=5, check=True)
     except (OSError, subprocess.SubprocessError):
@@ -48,6 +53,7 @@ def _git(*args: str) -> str | None:
 
 @lru_cache(maxsize=1)
 def build_info() -> BuildInfo:
+    """Version and commit shown in the footer (cached: it does not change while the app runs)."""
     repo_url = os.environ.get("DERO_REPO_URL", REPO_URL).rstrip("/")
     commit = os.environ.get("DERO_COMMIT", "").strip().lower()
 

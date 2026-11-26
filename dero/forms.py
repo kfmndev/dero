@@ -1,7 +1,9 @@
 """Reading what the New link and edit forms send: slugs (typed or generated), expiry dates, validation errors."""
 
 import secrets
+from collections.abc import Callable, Mapping
 from datetime import datetime
+from typing import Any
 
 from flask import current_app
 
@@ -30,10 +32,11 @@ def _quoted(chars: str) -> str:
 
 
 def random_slug(alphabet: str, length: int) -> str:
+    """A slug of `length` characters drawn at random from the alphabet (a repeated character is more likely)."""
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-def _slug_source(f, slug):
+def _slug_source(f: Mapping[str, str], slug: str) -> str:
     """The slug_source of the form. Older posts have slug_mode/alphabet instead:
     a given slug is used, otherwise one is drawn."""
     source = f.get("slug_source", "")
@@ -53,7 +56,8 @@ def _slug_source(f, slug):
     raise resolve.ValidationError("Unknown alphabet.", "slug_source")
 
 
-def _typed_slug(slug):
+def _typed_slug(slug: str) -> str:
+    """A slug the user typed, if it is allowed and free to use."""
     if not slug:
         raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
     validated("slug", resolve.validate_slug, slug)
@@ -64,7 +68,7 @@ def _typed_slug(slug):
     return slug
 
 
-def _own_characters(f):
+def _own_characters(f: Mapping[str, str]) -> str:
     """The characters a slug is drawn from. Duplicates stay: they make a character more likely."""
     chars = f.get("alphabet_custom", "")
     bad = "".join(dict.fromkeys(c for c in chars if c not in SLUG_CHARS))
@@ -80,7 +84,8 @@ def _own_characters(f):
     return chars
 
 
-def _slug_length(f):
+def _slug_length(f: Mapping[str, str]) -> int:
+    """The length of a generated slug (the default if none is given)."""
     try:
         length = int(f.get("length") or DEFAULT_LENGTH)
     except ValueError:
@@ -92,7 +97,7 @@ def _slug_length(f):
     return length
 
 
-def slug_plan(f):
+def slug_plan(f: Mapping[str, str]) -> tuple[str, str | tuple[str, int]]:
     """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
 
     slug_source is one of: default, letters (random from that alphabet), chars (random from the characters in
@@ -115,11 +120,12 @@ def slug_plan(f):
     return "generate", (alphabet, _slug_length(f))
 
 
-def reserved_slugs():
+def reserved_slugs() -> set[str]:
+    """Slugs that would clash with the admin UI or the static files."""
     return {current_app.config["ADMIN_PATH"].strip("/").split("/")[0], "static"}
 
 
-def parse_expiry(text: str):
+def parse_expiry(text: str) -> str | None:
     """'' -> None (never expires); 'YYYY-MM-DD' -> end of that day (UTC). A past day is allowed (the page warns)."""
     text = (text or "").strip()
 
@@ -134,7 +140,7 @@ def parse_expiry(text: str):
     return day.strftime("%Y-%m-%dT23:59:59Z")
 
 
-def validated(field, fn, *args):
+def validated[T](field: str, fn: Callable[..., T], *args: Any) -> T:
     """Run a validator and tag its error with the form field it belongs to."""
 
     try:

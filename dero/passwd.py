@@ -11,6 +11,7 @@ USERNAME_RE = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 
 
 def make_line(username: str, role: str, password: str) -> str:
+    """One line of the users file: name, role and the password hash. Raises ValueError for bad input."""
     if not USERNAME_RE.fullmatch(username):
         raise ValueError("Username: letters, digits and . _ @ - only, up to 64.")
     if role not in ("admin", "user"):
@@ -21,7 +22,8 @@ def make_line(username: str, role: str, password: str) -> str:
     return f"{username}:{role}:{generate_password_hash(password)}"
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
+    """The command line: print a users-file line, or append it to a file. Returns the exit code."""
     ap = argparse.ArgumentParser(prog="python -m dero.passwd", description=__doc__)
     ap.add_argument("username")
     ap.add_argument("--role", choices=["admin", "user"], default="user")

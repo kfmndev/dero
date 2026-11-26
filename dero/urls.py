@@ -26,4 +26,5 @@ def normalise_base_url(value: str) -> str:
 
 
 def base_url() -> str:
+    """The address short links are shown with: BASE_URL if set, else the address of the current request."""
     return current_app.config["BASE_URL"] or request.host_url

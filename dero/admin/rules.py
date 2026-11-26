@@ -3,20 +3,23 @@
 from flask import flash, g, redirect, render_template, request, url_for
 
 from .. import auth, db, resolve
+from ..types import ViewResult
 from . import bp
 
 
 # ---- admin only: rules + fallback
 @bp.get("/rules")
 @auth.admin_required
-def rules():
+def rules() -> ViewResult:
+    """The rules page: the pattern rules and the fallback address."""
     rows = db.get_db().execute("SELECT * FROM rules ORDER BY priority, id").fetchall()
     return render_template("rules.html", rules=rows, fallback=db.get_setting("fallback_url"))
 
 
 @bp.post("/rules")
 @auth.admin_required
-def create_rule():
+def create_rule() -> ViewResult:
+    """Add a pattern rule."""
     f = request.form
 
     try:
@@ -43,7 +46,8 @@ def create_rule():
 
 @bp.post("/rules/<int:rule_id>/priority")
 @auth.admin_required
-def rule_priority(rule_id):
+def rule_priority(rule_id: int) -> ViewResult:
+    """Change the priority of a rule (lower numbers are tried first)."""
     try:
         prio = int(request.form.get("priority", ""))
     except ValueError:
@@ -58,7 +62,8 @@ def rule_priority(rule_id):
 
 @bp.post("/rules/<int:rule_id>/toggle")
 @auth.admin_required
-def rule_toggle(rule_id):
+def rule_toggle(rule_id: int) -> ViewResult:
+    """Switch a rule on or off."""
     conn = db.get_db()
     conn.execute("UPDATE rules SET enabled = 1 - enabled WHERE id = ?", (rule_id,))
     conn.commit()
@@ -68,7 +73,8 @@ def rule_toggle(rule_id):
 
 @bp.post("/rules/<int:rule_id>/delete")
 @auth.admin_required
-def rule_delete(rule_id):
+def rule_delete(rule_id: int) -> ViewResult:
+    """Delete a rule."""
     conn = db.get_db()
     conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
     conn.commit()
@@ -78,7 +84,8 @@ def rule_delete(rule_id):
 
 @bp.post("/settings/fallback")
 @auth.admin_required
-def set_fallback():
+def set_fallback() -> ViewResult:
+    """Save or clear the fallback address for links nobody has made."""
     value = request.form.get("fallback_url", "").strip()
 
     try:

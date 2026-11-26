@@ -4,8 +4,8 @@ target-version = "py313"
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-# E/W: pycodestyle, F: pyflakes, I: import order
-select = ["E", "W", "F", "I"]
+# E/W: pycodestyle, F: pyflakes, I: import order, D1: a docstring on every public module, class and function
+select = ["E", "W", "F", "I", "D1"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]            # test names describe the tests

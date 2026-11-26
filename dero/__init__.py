@@ -12,8 +12,11 @@ admin/       the admin UI (links, live visits, rules)
 
 import os
 import secrets
+from collections.abc import Mapping
+from typing import Any
 
 from flask import Flask, abort, redirect, request
+from werkzeug.wrappers import Response
 
 from . import auth, db, display, resolve
 from .admin import bp as admin_blueprint
@@ -21,7 +24,8 @@ from .urls import normalise_base_url
 from .version import build_info
 
 
-def _config_from_environment():
+def _config_from_environment() -> dict[str, str]:
+    """The settings from environment variables, with their defaults."""
     env = os.environ.get
 
     return dict(
@@ -40,7 +44,7 @@ def _config_from_environment():
     )
 
 
-def _check_auth_mode(app):
+def _check_auth_mode(app: Flask) -> None:
     """Refuse an unknown mode, and warn where the setup leaves the admin UI open or locked."""
     mode = app.config["AUTH_MODE"]
 
@@ -62,7 +66,7 @@ def _check_auth_mode(app):
         )
 
 
-def _prepare_database(app):
+def _prepare_database(app: Flask) -> None:
     """Create the directory and the tables, and take the fallback address from FALLBACK_URL if none is saved yet."""
     os.makedirs(os.path.dirname(os.path.abspath(app.config["DATABASE"])), exist_ok=True)
 
@@ -74,11 +78,12 @@ def _prepare_database(app):
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
 
-def _add_short_link_routes(app):
+def _add_short_link_routes(app: Flask) -> None:
     """Security headers on every answer, and the public route that follows a short link."""
 
     @app.after_request
-    def headers(resp):
+    def headers(resp: Response) -> Response:
+        """Add the security headers to an answer."""
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["X-Content-Type-Options"] = "nosniff"
 
@@ -86,7 +91,8 @@ def _add_short_link_routes(app):
 
     @app.get("/", defaults={"path": ""})
     @app.get("/<path:path>")
-    def follow(path):
+    def follow(path: str) -> Response:
+        """Redirect a short link to its target, or answer 404."""
         url, _counted = resolve.resolve(path)
 
         if not url:
@@ -97,7 +103,8 @@ def _add_short_link_routes(app):
         return resp
 
 
-def create_app(test_config=None):
+def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
+    """Build the app. `test_config` overrides the settings (the tests use it)."""
     app = Flask(__name__)
     app.config.update(_config_from_environment())
 
