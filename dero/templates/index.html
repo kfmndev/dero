@@ -66,7 +66,7 @@
       <div class="field grow">
         <label class="field-label" for="new-link-slug-input">Slug</label>
         <span class="slug-group" id="new-link-slug">
-          <span class="slug-prefix">{{ base }}</span>
+          <span class="slug-prefix">{{ host }}</span>
           <span class="slug-edit">
             <span class="slug-hl" aria-hidden="true"></span>
             <input name="slug" type="text" class="url-input" id="new-link-slug-input" placeholder="random"
@@ -324,7 +324,7 @@
               <div class="grow-1"><dt>Short link</dt>
                 <dd class="field-row">
                   <span class="slug-group">
-                    <span class="slug-prefix">{{ base }}</span>
+                    <span class="slug-prefix">{{ host }}</span>
                     <span class="slug-edit">
                       <span class="slug-hl" aria-hidden="true"></span>
                       <input type="text" name="slug" form="x{{ l.id }}" class="url-input" value="{{ l.slug }}"

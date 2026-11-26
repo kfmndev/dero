@@ -19,7 +19,7 @@
       const base = document.createElement("span"),
         code = document.createElement("code");
       base.className = "confirm-base";
-      base.textContent = full.slice(0, cut);
+      base.textContent = full.slice(0, cut).replace(/^https?:\/\//, ""); // displayed without the protocol
       code.className = "slug";
       code.append(coloredSlug(slugPart.length > 20 ? slugPart.slice(0, 20) : slugPart));
       if (slugPart.length > 20) {

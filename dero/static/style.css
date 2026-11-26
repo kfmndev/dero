@@ -1153,12 +1153,15 @@ code.slug {
    that part is coloured; the base address and any other address stay plain. */
 code.urlbox {
   display: inline-block;
-  padding: 0 0.4rem;
+  padding: 0 0.28rem;
   font-size: var(--slug-size);
   color: var(--text);
   white-space: nowrap;
-  overflow: hidden;
   vertical-align: middle;
+}
+code.urlbox:not(:has(> code.slug)) {
+  overflow: hidden; /* a plain address may be cut with an ellipsis (the one with a slug block must not clip it: the block
+                       covers the border of the box) */
 }
 code.urlbox:has(> code.slug) {
   padding-right: 0; /* the slug part runs to the edge on the other sides */
@@ -1168,8 +1171,8 @@ code.urlbox .base {
 }
 code.urlbox > code.slug {
   display: inline-block;
-  margin: -1px -1px -1px 0.2rem; /* over the border of the outer box: a block that ends at its edge */
-  padding: 1px 0.4rem;
+  margin: -1px -1px -1px 0.1rem; /* over the border of the outer box: a block that ends at its edge */
+  padding: 1px 0.3rem 1px 0.2rem;
   border: 0;
   border-radius: 0.1875rem 0.25rem 0.25rem 0.1875rem;
   background: color-mix(in srgb, var(--accent-2) 20%, var(--field));

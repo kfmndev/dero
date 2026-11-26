@@ -64,6 +64,11 @@ def target_box(url: str) -> Markup:
     return Markup(box).format(url, shown[:cut], shown[cut:])
 
 
+def without_protocol(url: str) -> str:
+    """A base address as it is displayed: without http:// or https:// (what is copied or opened keeps it)."""
+    return re.sub(r"^https?://", "", url)
+
+
 def highlight_url(url: str) -> Markup:
     """A short link in one code box: the base address plain, the slug in a box of its own (the only part coloured)."""
     base = base_url()
@@ -71,7 +76,7 @@ def highlight_url(url: str) -> Markup:
     if url.startswith(base) and len(url) > len(base):
         return (
             Markup('<code class="urlbox"><span class="base">')
-            + escape(base)
+            + escape(without_protocol(base))
             + Markup("</span>")
             + slug_box(url[len(base) :])
             + Markup("</code>")

@@ -422,8 +422,7 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
     assert (
         "<code>s.example.com</code>" in html
-        and 'Link created <code class="urlbox"><span class="base">https://s.example.com/</span>'
-        '<code class="slug">abc</code>'
+        and 'Link created <code class="urlbox"><span class="base">s.example.com/</span><code class="slug">abc</code>'
         in html
     )
     assert "localhost" not in html
@@ -522,7 +521,7 @@ def test_every_link_has_open_then_copy(tmp_path):
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     # the "created" notification, the row, and the details panel
     notice = html[html.index('class="form-ok"') : html.index("</p>", html.index('class="form-ok"'))]
-    assert '<span class="base">https://s.example.com/</span><code class="slug">abc</code>' in notice
+    assert '<span class="base">s.example.com/</span><code class="slug">abc</code>' in notice
     sections = {
         "notice": notice,
         "row": html[html.index('<tr class="item') : html.index('<tr class="detail"')],
@@ -602,7 +601,9 @@ def test_details_order_full_url_and_expiry_switch(client, app):
     plain, dated = details["1"], details["2"]
     order = [plain.index(f"<dt>{t}</dt>") for t in ("Created by", "Created", "Expires", "Target", "Short link")]
     assert order == sorted(order)  # what the collapsed row doesn't show comes first
-    assert '<span class="slug-prefix">http://localhost/</span>' in plain  # fully qualified, then the editable slug
+    assert (
+        '<span class="slug-prefix">localhost/</span>' in plain
+    )  # the address without its protocol, then the editable slug
     assert re.search(r'name="slug" form="x1"[^>]*value="plain"', plain) and re.search(
         r'name="target" form="x1"[^>]*value="https://example.com/t"', plain
     )
@@ -1792,7 +1793,7 @@ def test_slugs_look_the_same_in_every_message(client, app):
     post(client, "/admin/links", USER, target="https://example.com/c", slug="c2.d")  # created message
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert (
-        'Link created <code class="urlbox"><span class="base">http://localhost/</span>'
+        'Link created <code class="urlbox"><span class="base">localhost/</span>'
         '<code class="slug">c<span class="hl-digit">2</span><span class="hl-symbol">.</span>d</code>' in page
     )
     js = js_source(client)
@@ -2041,3 +2042,13 @@ def test_every_icon_has_the_same_line_width_whatever_its_size(client):
     assert shapes and all('vector-effect="non-scaling-stroke"' in shape for shape in shapes)  # not scaled with the icon
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert "--icon-line: 1.4px" in css
+
+
+def test_base_addresses_are_displayed_without_their_protocol(client):
+    js = flat_js(js_source(client))
+    assert 'base.textContent = full.slice(0, cut).replace(/^https?:\\/\\//, "")' in js  # the delete dialog
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert '<span class="slug-prefix">http' not in html  # the new link's field and the edit fields
+    post(client, "/admin/links", USER, target="https://example.com", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'data-copy="http://localhost/abc"' in html and 'href="http://localhost/abc"' in html  # copy and open keep it
