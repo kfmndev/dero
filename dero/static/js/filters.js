@@ -68,7 +68,11 @@
     highlight.querySelectorAll(".q-term, .q-group, .q-op").forEach((el) => {
       if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
       if (!el.classList.contains("q-group") && el.closest(".q-group")) return; // a group is removed as a whole
-      const x = el.getBoundingClientRect().right - base.left - field.clientLeft; // (the layer starts inside the border)
+      // A closed group has its x in its closing parenthesis, which is a pill like and / or; an open one (still being
+      // typed) after what there is, in the room the group keeps for it. Every other x is in the right padding of its chip.
+      const closing = el.classList.contains("q-group") ? el.lastElementChild : null;
+      const anchor = closing?.classList.contains("q-pill") && closing.textContent === ")" ? closing : el;
+      const x = anchor.getBoundingClientRect().right - base.left - field.clientLeft; // (the layer starts inside the border)
       if (x < 6 || x > base.width - 6) return; // scrolled out of view
       const label = queryText().slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
       const button = document.createElement("button");
@@ -82,8 +86,9 @@
       if (el.classList.contains("q-op")) button.dataset.kind = "operator";
       // the x sits in the middle of the space after the text: for a chip that is the right padding plus the 1px ring of
       // the chip, for a group the padding after its closing parenthesis (a group has no ring)
-      const padding = Number.parseFloat(getComputedStyle(el).paddingRight);
-      const ring = el.classList.contains("q-group") ? 0 : 1;
+      // the x sits in the middle of the space after the text: the right padding, plus the 1px ring of a chip or pill
+      const padding = Number.parseFloat(getComputedStyle(anchor).paddingRight);
+      const ring = anchor.classList.contains("q-group") ? 0 : 1;
       button.style.left = `${x - (padding - ring) / 2 - 5}px`; // (the x is 10px wide)
       button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`; // an icon sits exactly in the middle
       removers.append(button);

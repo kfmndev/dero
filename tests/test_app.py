@@ -1560,20 +1560,22 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
     # a chip's padding is cancelled by its negative margins, or every term shifts the text after it (a 2 px difference
     # drifts 2 px per term away from the real text of the input); the x sits in the middle of the right padding
-    for selector in (".q-term", ".q-op"):
+    for selector in (".q-term", ".q-op, .q-paren.q-pill"):
         rule = css_rule(css, selector)
         assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
     assert "x - (padding - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
     # a group's x sits after its closing parenthesis (not on it): the group has room for it, the same as a chip has
     assert css_rule(css, ".q-group") == {"padding-right": "10px", "margin-right": "-10px"}
-    assert css_rule(css, ".q-paren + .q-term, .q-paren + .q-op") == {"padding-left": "10px", "margin-left": "-10px"}
+    assert (
+        css_rule(css, ".q-op, .q-paren.q-pill")["padding"] == "1px 10px 1px 3px"
+    )  # parentheses are pills like and / or
     # the text of the highlight and of the real input start at the same place, close to the edge (chips pull in 3px)
     assert css_rule(css, ".qhighlight")["padding"] == "0 11px 0 7px"
     assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 11px 0 7px"
     assert css_rule(css, ".qx")["opacity"] == "0.6"  # the x is a little faded until it is hovered
     # the commas between values have their own style, so a negated term does not turn them red like its operator
     assert 'span("q-comma", ",")' in js and 'span("q-eq", ",")' not in js
-    assert css_rule(css, ".q-eq, .q-comma, .q-op, .q-op-tight")["color"] == "var(--muted)"
+    assert css_rule(css, ".q-eq, .q-comma, .q-op, .q-op-tight, .q-paren.q-pill")["color"] == "var(--muted)"
     # a space inside quotes is drawn as a look-alike that the CSS word spacing does not stretch, in the box and the
     # copy alike; the address, drafts, the server and the clipboard get plain spaces
     assert 'const QUOTED_SPACE = "\\u2005";' in js and "function spaceQuotes(text)" in js
@@ -1813,7 +1815,7 @@ def test_detail_buttons_are_the_last_thing_in_the_details(client):
 
 def test_operators_are_pills_with_the_same_padding_as_terms_and_visits_are_mono(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert re.search(r"\.q-op \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px;", css)
+    assert re.search(r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px;", css)
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert '<td class="col-visits num mono">' in html
@@ -1848,7 +1850,8 @@ def test_operators_stuck_to_other_tokens_are_not_highlighted(client):
 def test_operators_are_outlined_and_groups_are_not_tinted(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(
-        r"\.q-op \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px; border-radius: 4px; background: none;"
+        r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px; border-radius: 4px;"
+        r" background: none;"
         r" box-shadow: 0 0 0 1px",
         css,
     )

@@ -1431,12 +1431,14 @@ time.localtime {
 .q-eq,
 .q-comma,
 .q-op,
-.q-op-tight {
+.q-op-tight,
+.q-paren.q-pill {
   color: var(--muted);
 } /* the commas between values stay grey, also in a negated term (only its operator turns red) */
-/* and / or / && / || are outlined like a chip, without its background, with the same padding as the terms,
-   so the space is the same on both sides */
-.q-op {
+/* and / or / && / || and the parentheses are outlined like a chip, without its background, with the same padding as the
+   terms, so the space is the same on both sides */
+.q-op,
+.q-paren.q-pill {
   padding: 1px 10px 1px 3px;
   margin: 0 -10px 0 -3px;
   border-radius: 4px;
@@ -1706,18 +1708,11 @@ th.col-target {
   background: color-mix(in srgb, var(--c) 13%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);
 }
-/* a group has room for its x after the closing parenthesis (or after what is typed so far), like a chip after its text:
-   the margin cancels the padding, so the text stays where the input has it */
+/* a group that is not closed yet has room for its x after what is typed so far, like a chip after its text (a closed one
+   has it in its closing parenthesis): the margin cancels the padding, so the text stays where the input has it */
 .q-group {
   padding-right: 10px;
   margin-right: -10px;
-}
-/* inside a group the chip after the opening parenthesis gets as much room on its left as the last one has on its right
-   (they carry no x), so both parentheses sit the same distance from their chips */
-.q-paren + .q-term,
-.q-paren + .q-op {
-  padding-left: 10px;
-  margin-left: -10px;
 }
 .q-term .q-key {
   color: var(--c);

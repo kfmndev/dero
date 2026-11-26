@@ -303,25 +303,25 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
   };
   parsed.toks.forEach((t, idx) => {
     const raw = text.slice(t.start, t.end);
+    // only an operator or a parenthesis with space (or the end of the text) on both sides is shown as a pill; one stuck
+    // to another token, as in (a)or(b) or (a or b), stays plain, or its pill would run into its neighbours
+    const gap = (other) => !other || other.kind === "ws";
+    const apart = gap(parsed.toks[idx - 1]) && gap(parsed.toks[idx + 1]);
     if (t.kind === "ws") top().append(document.createTextNode(raw));
     else if (t.kind === "lpar") {
       const group = span("q-group", "");
       group.dataset.from = t.start;
       top().append(group);
       stack.push(group);
-      group.append(span("q-paren", "("));
+      group.append(span(apart ? "q-paren q-pill" : "q-paren", "("));
     } else if (t.kind === "rpar") {
-      top().append(span("q-paren", ")"));
+      top().append(span(apart ? "q-paren q-pill" : "q-paren", ")"));
       if (stack.length > 1) {
         top().dataset.to = t.end;
         stack.pop();
       }
     } else if (t.kind === "and" || t.kind === "or") {
-      // only an operator with space (or the end of the text) on both sides is shown as a pill with its own x;
-      // one stuck to a parenthesis, as in (a)or(b), stays plain
-      const gap = (other) => !other || other.kind === "ws";
-      const apart = gap(parsed.toks[idx - 1]) && gap(parsed.toks[idx + 1]);
-      const op = span(apart ? "q-op" : "q-op-tight", raw);
+      const op = span(apart ? "q-op" : "q-op-tight", raw); // (a pill has its own x)
       if (apart) {
         op.dataset.from = t.start;
         op.dataset.to = t.end;
