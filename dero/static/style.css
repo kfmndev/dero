@@ -1722,9 +1722,9 @@ th.col-target {
   background: color-mix(in srgb, var(--c) 13%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);
 }
-/* a group has the box of a chip (so its outline, shown when its x is hovered, matches the pills at its ends) and, while it
-   is not closed yet, room for its x after what is typed so far (a closed one has it in its closing parenthesis): the
-   margins cancel the padding, so the text stays where the input has it */
+/* a group has the box of a chip (so its outline, shown when its x is hovered, matches the pills at its ends) and room for
+   its x when the closing parenthesis cannot hold it: the margins cancel the padding, so the text stays where the
+   input has it */
 .q-group {
   padding: 1px 10px 1px 3px;
   margin: 0 -10px 0 -3px;

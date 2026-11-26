@@ -1569,6 +1569,11 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
     assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
     assert css_rule(css, ".q-paren.q-open.q-pill") == {"padding-right": "3px", "margin-right": "-3px"}
+    # an opening parenthesis that is never closed has room for an x that removes just it; its group has none (it would
+    # sit on the x of the last term); the space after a closed one is narrower (an em), so the gap to the chip is small
+    assert 'open.classList.replace("q-open", "q-stray")' in js and 'group.classList.add("q-unclosed")' in js
+    assert 'if (el.classList.contains("q-unclosed")) return;' in js
+    assert 'const OPEN_SPACE = "\\u2003";' in js and "closed.has(i - 1) ? OPEN_SPACE" in js
     # hovering an x marks what a click would remove (dimmed, a group outlined too), the joining and / or included
     assert "function markRemoval(button)" in js and "function partRange(text, from, to)" in js
     assert css_rule(css, ".q-doomed")["opacity"] == "0.35" and css_rule(css, ".q-group.q-doomed")["outline"].startswith(

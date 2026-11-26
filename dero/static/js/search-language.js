@@ -40,21 +40,39 @@ const sortName = (raw) => {
   return SORT_ALIASES[name] || name;
 };
 
-// The search box is one <input>, so its CSS word-spacing (the room between terms, for the x of each chip) would widen a
-// space inside quotes as well. A space inside quotes is therefore drawn as QUOTED_SPACE, a quarter of an em (as wide as a
-// space) that word-spacing leaves alone, in the box and in the coloured copy behind it alike. Everything outside the
-// box sees plain spaces: plainQuery() turns it back, and the server reads it as a space too.
+// The search box is one <input>, so its CSS word-spacing (the room between terms, for the x of each chip) widens every
+// space. Two kinds of space must not be that wide, and are drawn as look-alikes that word-spacing leaves alone, in the
+// box and in the coloured copy behind it alike:
+//  - a space inside quotes is QUOTED_SPACE, a quarter of an em: as wide as a space;
+//  - the space after an opening parenthesis that is closed again is OPEN_SPACE, an em (13px): the parenthesis is a
+//    compact pill with no x, so the gap to the next chip is then about as small as between chips (a parenthesis that is
+//    not closed has an x and room for it, and keeps the wide space).
+// Everything outside the box sees plain spaces: plainQuery() turns them back, and the server reads them as spaces too.
 const QUOTED_SPACE = "\u2005";
-const plainQuery = (text) => text.replaceAll(QUOTED_SPACE, " ");
-// The text with the spaces inside quotes as QUOTED_SPACE and every other one plain (one character for one: the
-// positions stay). A quote opens at one " and closes at the next; an unclosed one runs to the end, as in the tokenizer.
+const OPEN_SPACE = "\u2003";
+const plainQuery = (text) => text.replaceAll(QUOTED_SPACE, " ").replaceAll(OPEN_SPACE, " ");
+// The text with those spaces as the look-alikes and every other one plain (one character for one: the positions stay).
+// A quote opens at one " and closes at the next; an unclosed one runs to the end, as in the tokenizer.
 function spaceQuotes(text) {
-  let quoted = false,
-    out = "";
-  for (const ch of text) {
+  const chars = [...text];
+  // which opening parentheses are closed again (outside quotes, nested like the parser does)
+  const open = [],
+    closed = new Set();
+  let quoted = false;
+  chars.forEach((ch, i) => {
     if (ch === '"') quoted = !quoted;
-    out += ch === " " || ch === QUOTED_SPACE ? (quoted ? QUOTED_SPACE : " ") : ch;
-  }
+    else if (!quoted && ch === "(") open.push(i);
+    else if (!quoted && ch === ")" && open.length) closed.add(open.pop());
+  });
+  quoted = false;
+  let out = "";
+  chars.forEach((ch, i) => {
+    if (ch === '"') quoted = !quoted;
+    const isSpace = ch === " " || ch === QUOTED_SPACE || ch === OPEN_SPACE;
+    if (!isSpace) out += ch;
+    else if (quoted) out += QUOTED_SPACE;
+    else out += chars[i - 1] === "(" && closed.has(i - 1) ? OPEN_SPACE : " ";
+  });
   return out;
 }
 
@@ -392,7 +410,16 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
   });
   stack.slice(1).forEach((group) => {
     if (!group.dataset.to) group.dataset.to = text.length;
-  }); // a group that is never closed
+    // a group that is never closed has no x of its own (it would sit on the x of its last term): its ( has room for
+    // one that removes just it, like a stray ")"
+    group.classList.add("q-unclosed");
+    const open = group.firstElementChild;
+    if (open?.classList.contains("q-pill")) {
+      open.classList.replace("q-open", "q-stray");
+      open.dataset.from = group.dataset.from;
+      open.dataset.to = String(Number(group.dataset.from) + 1);
+    }
+  });
 }
 
 // Take just an operator (and, or, &&, ||) out; what it joined is then joined by the implicit "and".

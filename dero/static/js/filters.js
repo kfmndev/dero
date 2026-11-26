@@ -67,8 +67,10 @@
     removers.replaceChildren();
     const base = field.getBoundingClientRect();
     highlight.querySelectorAll(".q-term, .q-group, .q-op, .q-stray").forEach((el) => {
-      // A closed group has its x in its closing parenthesis, which is a pill like and / or; an open one (still being
-      // typed) after what there is, in the room the group keeps for it. Every other x is in the right padding of its chip.
+      // A closed group has its x in its closing parenthesis, which is a pill like and / or (or, if that one is stuck to
+      // its neighbours, after it, in the room the group keeps for it). An unclosed group has none: its ( has one. Every
+      // other x is in the right padding of its chip.
+      if (el.classList.contains("q-unclosed")) return;
       const closing = el.classList.contains("q-group") ? el.lastElementChild : null;
       const pill = closing?.classList.contains("q-pill") && closing.textContent === ")";
       if (el.classList.contains("q-group") && !pill && el.parentElement.closest(".q-group")) return; // no room for a second x

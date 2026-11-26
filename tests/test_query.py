@@ -425,3 +425,9 @@ def test_the_search_bars_quoted_space_is_a_plain_space_for_the_server():
     assert find('created_by="Anna\u2005Maria"')[1].problems == []
     tok = [t for t in query.tokenize('creator="Anna\u2005Maria",julian') if t.kind == "term"][0]
     assert tok.values == ("Anna Maria", "julian")
+
+
+def test_the_search_bars_space_after_an_opening_parenthesis_is_just_whitespace():
+    # the browser draws that space as an em space (U+2003) where the parenthesis is closed again; it is whitespace
+    assert slugs("(\u2003slug=aaa\u2003)") == slugs("( slug=aaa )") == ["aaa"]
+    assert slugs("(\u2003(\u2003slug=aaa or slug=bbb )\u2003) ccc") == slugs("( ( slug=aaa or slug=bbb ) ) ccc")
