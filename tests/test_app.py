@@ -224,3 +224,64 @@ def test_auth_none_everyone_is_admin(tmp_path):
 def test_unknown_auth_mode_rejected(tmp_path):
     with pytest.raises(RuntimeError):
         create_app({"DATABASE": str(tmp_path / "y.db"), "SECRET_KEY": "t", "AUTH_MODE": "magic"})
+
+
+def test_static_slug_reserved_and_assets_served(client):
+    post(client, "/admin/links", USER, target="https://example.com", slug="static")
+    assert client.get("/static").status_code == 404
+    assert client.get("/static/style.css").status_code == 200
+
+
+# ---------------------------------------------------------------- sorting / filtering
+def seed_links(client):
+    post(client, "/admin/links", USER, target="https://example.com/apple", slug="aaa")
+    post(client, "/admin/links", USER, target="https://example.com/banana", slug="bbb")
+    post(client, "/admin/links", USER2, target="https://other.org/cherry", slug="ccc")
+    post(client, "/admin/links", USER, target="https://example.com/old", slug="old", expires_at="2000-01-01")
+    for _ in range(3):
+        client.get("/bbb")
+    client.get("/aaa")
+    post(client, "/admin/links/1/toggle", USER)  # disable "aaa"
+
+
+def slugs(client, headers, query=""):
+    html = client.get("/admin/" + query, headers=headers).get_data(as_text=True)
+    return re.findall(r'class="slug">/([a-z]+)</span>', html)
+
+
+def test_sorting(client):
+    seed_links(client)
+    assert slugs(client, ADMIN, "?sort=slug&dir=asc") == ["aaa", "bbb", "ccc", "old"]
+    assert slugs(client, ADMIN, "?sort=slug&dir=desc") == ["old", "ccc", "bbb", "aaa"]
+    assert slugs(client, ADMIN, "?sort=visits&dir=desc")[0] == "bbb"
+    assert slugs(client, ADMIN, "?sort=expires&dir=asc")[0] == "old"  # rows without expiry come last
+    assert slugs(client, ADMIN, "?sort=bogus; DROP TABLE links&dir=sideways")  # invalid values fall back to the default
+    assert slugs(client, ADMIN, "?order=slug:desc") == ["old", "ccc", "bbb", "aaa"]  # the dropdown
+    assert slugs(client, ADMIN, "?order=nonsense")
+
+
+def test_filtering(client):
+    seed_links(client)
+    assert slugs(client, ADMIN, "?q=cherry") == ["ccc"]
+    assert slugs(client, ADMIN, "?q=BOB") == ["ccc"]                 # creator, case-insensitive
+    assert slugs(client, ADMIN, "?status=disabled") == ["aaa"]
+    assert slugs(client, ADMIN, "?status=expired") == ["old"]
+    assert sorted(slugs(client, ADMIN, "?status=active")) == ["bbb", "ccc"]
+    assert slugs(client, ADMIN, "?owner=bob") == ["ccc"]
+    assert slugs(client, ADMIN, "?q=%25") == []                       # % is literal, not a wildcard
+    assert "No links match." in client.get("/admin/?q=zzz", headers=ADMIN).get_data(as_text=True)
+
+
+def test_filters_never_expose_other_users_links(client):
+    seed_links(client)
+    assert "ccc" not in slugs(client, USER)
+    assert "ccc" not in slugs(client, USER, "?owner=bob&q=cherry")
+    assert slugs(client, USER2, "?owner=alice") == ["ccc"]
+
+
+def test_toggle_returns_to_same_view_only(client):
+    seed_links(client)
+    r = post(client, "/admin/links/2/toggle", USER, back="/admin/?status=active&sort=slug")
+    assert r.headers["Location"] == "/admin/?status=active&sort=slug"
+    for evil in ("https://evil.example/", "//evil.example/", "/other", "/admin\\evil"):
+        assert post(client, "/admin/links/2/toggle", USER, back=evil).headers["Location"] == "/admin/"

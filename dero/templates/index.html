@@ -1,41 +1,121 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 {% block content %}
-<h1>New link</h1>
-<form method="post" action="{{ url_for('admin.create_link') }}" class="row">
-  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-  <input name="target" type="url" placeholder="https://example.com/long/url" required>
-  <input name="slug" placeholder="custom slug (optional)" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}">
-  <input name="expires_at" type="date" title="Expires (optional)">
-  <button>Create</button>
-</form>
+{% set host = base | replace("https://", "") | replace("http://", "") %}
+<section>
+  <h2>New link</h2>
+  <form method="post" action="{{ url_for('admin.create_link') }}" class="form-grid">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label>Target URL
+      <input name="target" type="url" placeholder="https://example.com/a/long/url" required>
+    </label>
+    <label>Slug <span class="hint-inline">(optional)</span>
+      <input name="slug" type="text" placeholder="random" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}" maxlength="64" autocomplete="off">
+    </label>
+    <label>Expires <span class="hint-inline">(optional)</span>
+      <input name="expires_at" type="date">
+    </label>
+    <button class="btn primary">{{ icon('plus') }}Create</button>
+  </form>
+</section>
 
-<h1>{{ 'All links' if g.user.is_admin else 'Your links' }}</h1>
-<table>
-  <thead><tr><th>Short</th><th>Target</th>{% if g.user.is_admin %}<th>Created by</th>{% endif %}
-    <th>Created</th><th>Expires</th><th class="num">Visits</th><th></th></tr></thead>
-  <tbody>
-  {% for l in links %}
-    <tr class="{{ '' if l.enabled else 'off' }}">
-      <td><code>{{ base }}{{ l.slug }}</code></td>
-      <td class="target"><a href="{{ l.target }}" rel="noreferrer noopener">{{ l.target }}</a></td>
-      {% if g.user.is_admin %}<td>{{ l.created_by }}</td>{% endif %}
-      <td>{{ l.created_at[:10] }}</td>
-      <td>{{ l.expires_at[:10] if l.expires_at else '–' }}</td>
-      <td class="num">{{ l.visits }}</td>
-      <td class="actions">
-        <form method="post" action="{{ url_for('admin.toggle_link', link_id=l.id) }}">
-          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-          <button>{{ 'Disable' if l.enabled else 'Enable' }}</button></form>
-        <form method="post" action="{{ url_for('admin.delete_link', link_id=l.id) }}"
-              onsubmit="return confirm('Delete this link?')">
-          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-          <button class="danger">Delete</button></form>
-      </td>
-    </tr>
-  {% else %}
-    <tr><td colspan="7">No links yet.</td></tr>
-  {% endfor %}
-  </tbody>
-  <tfoot><tr><td colspan="{{ 5 if g.user.is_admin else 4 }}">Total visits</td><td class="num">{{ total }}</td><td></td></tr></tfoot>
-</table>
+<section>
+  <h2>{{ 'All links' if g.user.is_admin else 'Your links' }}</h2>
+  <p class="hint">Short links are served from <code>{{ host.rstrip('/') }}</code>. Click a row for details.</p>
+
+  <form method="get" action="{{ url_for('admin.index') }}" class="filters" role="search">
+    <label class="grow">Search
+      <input type="text" name="q" value="{{ q }}" placeholder="slug, target or creator" autocomplete="off">
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="">All</option>
+        {% for value, label in [('active', 'Active'), ('disabled', 'Disabled'), ('expired', 'Expired')] %}
+        <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if g.user.is_admin %}
+    <label>Created by
+      <select name="owner">
+        <option value="">Everyone</option>
+        {% for o in owners %}<option value="{{ o }}"{% if owner == o %} selected{% endif %}>{{ o }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <label>Sort by
+      <select name="order">
+        {% for value, label in order_options %}
+        <option value="{{ value }}"{% if value == sort ~ ':' ~ direction %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn">Apply</button>
+    {% if filtered %}<a class="btn" href="{{ url_for('admin.index', sort=sort, dir=direction) }}">Clear</a>{% endif %}
+  </form>
+
+  {% macro th(key, label, cls='') %}
+  <th class="{{ cls }}"{% if sort == key %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
+    <a href="{{ sort_url(key) }}">{{ label }}{% if sort == key %}<span class="arrow" aria-hidden="true">{{ '↑' if direction == 'asc' else '↓' }}</span>{% endif %}</a>
+  </th>
+  {% endmacro %}
+
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th></th>
+      {{ th('slug', 'Short link') }}{{ th('target', 'Target') }}{{ th('visits', 'Visits', 'num') }}<th></th>
+    </tr></thead>
+    <tbody>
+    {% for l in links %}
+      {% set expired = l.expires_at and l.expires_at <= now %}
+      <tr class="item {{ '' if l.enabled and not expired else 'off' }}">
+        <td class="narrow">
+          <form method="post" action="{{ url_for('admin.toggle_link', link_id=l.id) }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="back" value="{{ back }}">
+            <label class="switch" title="{{ 'Enabled: click to disable' if l.enabled else 'Disabled: click to enable' }}">
+              <input type="checkbox" role="switch" aria-label="Enabled"{% if l.enabled %} checked{% endif %} onchange="this.form.submit()">
+              <span class="track"></span>
+            </label>
+            <noscript><button class="btn small">{{ 'Disable' if l.enabled else 'Enable' }}</button></noscript>
+          </form>
+        </td>
+        <td class="mono nowrap">
+          <button type="button" class="expand" aria-expanded="false" aria-controls="d{{ l.id }}" title="Show details" aria-label="Show details">{{ icon('chevron') }}</button>
+          <span class="slug">/{{ l.slug }}</span>{% if expired %} <span class="badge">expired</span>{% endif %}
+        </td>
+        <td class="target"><a href="{{ l.target }}" rel="noreferrer noopener" title="{{ l.target }}">{{ l.target }}</a></td>
+        <td class="num">{{ l.visits }}</td>
+        <td class="actions">
+          <button type="button" class="btn small icon-only copy" data-copy="{{ base }}{{ l.slug }}" title="Copy link" aria-label="Copy link">{{ icon('copy') }}</button>
+          <form method="post" action="{{ url_for('admin.delete_link', link_id=l.id) }}"
+                onsubmit="return confirm('Delete this link?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="back" value="{{ back }}">
+            <button class="btn small icon-only danger" title="Delete" aria-label="Delete">{{ icon('trash') }}</button></form>
+        </td>
+      </tr>
+      <tr class="detail" id="d{{ l.id }}" hidden>
+        <td></td>
+        <td colspan="4">
+          <dl class="details">
+            <div><dt>Short link</dt><dd class="mono">{{ host }}{{ l.slug }}</dd></div>
+            <div><dt>Created by</dt><dd>{{ l.created_by }}</dd></div>
+            <div><dt>Created</dt><dd class="mono">{{ l.created_at.replace('T', ' ').replace('Z', ' UTC') }}</dd></div>
+            <div><dt>Expires</dt><dd class="mono">{% if l.expires_at %}{{ l.expires_at[:10] }}{% if expired %} (expired){% endif %}{% else %}never{% endif %}</dd></div>
+            <div class="wide"><dt>Target</dt><dd class="mono wrap">{{ l.target }}</dd></div>
+          </dl>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">{{ 'No links match.' if filtered else 'No links yet.' }}</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td colspan="3">Total visits</td><td class="num">{{ total }}</td><td></td></tr></tfoot>
+  </table>
+  </div>
+  <noscript><style>tr.detail[hidden] { display: table-row; }</style></noscript>
+  <p class="meta">{% if filtered %}Showing {{ links|length }} of {{ overall }} links{% else %}{{ overall }} link{{ '' if overall == 1 else 's' }}{% endif %}</p>
+</section>
 {% endblock %}

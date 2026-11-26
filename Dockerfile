@@ -3,6 +3,9 @@ ENV PYTHONUNBUFFERED=1 DATABASE=/data/dero.db USERS_FILE=/data/users.txt
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# Shown in the page footer (no .git folder in the image): --build-arg DERO_COMMIT=$(git rev-parse HEAD)
+ARG DERO_COMMIT=
+ENV DERO_COMMIT=$DERO_COMMIT
 COPY dero ./dero
 RUN useradd -r -u 10001 app && mkdir /data && chown app /data
 USER app

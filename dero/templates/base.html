@@ -1,23 +1,40 @@
+{% from "_macros.html" import icon %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>{% block title %}Shorten{% endblock %}</title>
+  <title>{% block title %}dero{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
-<header>
-  <a href="{{ url_for('admin.index') }}">Links</a>
-  {% if g.user.is_admin %}<a href="{{ url_for('admin.rules') }}">Rules &amp; fallback</a>{% endif %}
-  <span class="who">{{ g.user.username }}{% if g.user.is_admin %} (admin){% endif %}</span>
-</header>
 <main>
+  <header>
+    <h1>dero<span class="dot">.</span></h1>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch theme">{{ icon('moon') }}</button>
+  </header>
+
+  <nav class="topnav">
+    <a href="{{ url_for('admin.index') }}"{% if request.endpoint == 'admin.index' %} aria-current="page"{% endif %}>Links</a>
+    {% if g.user.is_admin %}<a href="{{ url_for('admin.rules') }}"{% if request.endpoint == 'admin.rules' %} aria-current="page"{% endif %}>Rules &amp; fallback</a>{% endif %}
+    <span class="who">{{ g.user.username }}<span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span></span>
+  </nav>
+
   {% for category, message in get_flashed_messages(with_categories=true) %}
-    <p class="flash {{ category }}">{{ message }}</p>
+    <p class="flash {{ category }}">{{ icon('alert' if category == 'error' else 'check') }}<span>{{ message }}</span></p>
   {% endfor %}
   {% block content %}{% endblock %}
 </main>
+<footer>
+  <a href="{{ build.repo_url }}" target="_blank" rel="noopener">{{ icon('github') }}dero v{{ build.version }}</a>
+  {%- if build.commit %}
+  <span aria-hidden="true">&middot;</span>
+  <a href="{{ build.commit_url }}" target="_blank" rel="noopener" title="Commit {{ build.commit }}"><code>{{ build.short_commit }}</code></a>
+  {%- if build.dirty %} <span title="Running with uncommitted changes">(modified)</span>{% endif %}
+  {%- endif %}
+</footer>
 </body>
 </html>

@@ -13,6 +13,7 @@
 - Stored per link: slug, target, **creator**, creation date, optional expiry, visit count. **No IPs, referrers or user agents**
 - Lookup order: **exact link** → **pattern rule** (lowest priority number first) → **fallback URL** → `404`
 - Example pattern rule: `gh/*` → `https://github.com/{1}`
+- Small admin UI in the style of [podutils](https://github.com/kfmndev/podutils) with a green accent: compact links table (click a row for creator, dates and the full target), sorting, search, status and creator filters, enable/disable sliders, light and dark mode (follows the browser, toggle overrides), no external requests, fonts bundled
 - Admin UI at `/admin`, protected by **HTTP Basic auth** (users file with hashed passwords). SSO via a reverse proxy such as [Authelia](https://www.authelia.com) is available as `AUTH_MODE=proxy`
 
 > [!IMPORTANT]
@@ -27,7 +28,7 @@ Requirements: Docker and a reverse proxy with TLS (e.g. Caddy) in front of dero.
 
 ```sh
 cp .env.example .env       # set SECRET_KEY (openssl rand -hex 32)
-docker compose up -d --build
+docker compose up -d --build   # optional: DERO_COMMIT=$(git rev-parse HEAD) shows the commit in the footer
 
 # create the first admin (prompts for a password, writes /data/users.txt)
 docker compose run --rm dero python -m dero.passwd --file /data/users.txt alice --role admin

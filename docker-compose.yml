@@ -1,6 +1,9 @@
 services:
   dero:
-    build: .
+    build:
+      context: .
+      args:
+        DERO_COMMIT: ${DERO_COMMIT:-}
     restart: unless-stopped
     environment:
       SECRET_KEY: "${SECRET_KEY:?generate one with openssl rand -hex 32}"
