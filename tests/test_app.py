@@ -1556,6 +1556,11 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    # a reload keeps the query: the address is set before the request (not after the answer), and what was typed in
+    # the last moments is kept in the browser for a reload
+    assert "const syncAddress = (q) =>" in js and "syncAddress(q);" in js and "history.replaceState(null" in js
+    assert js.count("history.replaceState") == 1  # only there, and not again after the response
+    assert 'const DRAFT = "dero.query"' in js and '=== "reload"' in js and "DRAFT_MS" in js
     # the dropdowns can write explicit terms (a setting, off by default): a signed sort even for the default and
     # "every creator" as a *; otherwise what changes nothing is left out
     assert 'DEFAULT_SORT = "-created"' in js and "function sortTermValues(value, defaultDesc, explicit)" in js

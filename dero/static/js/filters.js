@@ -139,6 +139,7 @@
     input.value = text;
     draw();
     syncControls();
+    remember(text);
     if (fetch) update();
   }
 
@@ -200,9 +201,38 @@
   });
 
   // ---- query -> results
+  const addressFor = (q) => form.getAttribute("action") + (q ? `?${new URLSearchParams({ q })}` : "");
+
+  // The address holds the query, so a reload keeps it. It is set before the request, not after the answer: a reload
+  // while the server still thinks about it must not lose what is in the box.
+  const syncAddress = (q) => {
+    try {
+      history.replaceState(null, "", addressFor(q));
+    } catch {} // a browser may refuse when it is called too often
+  };
+
+  // The text of the box is also kept in this browser for a moment: the address only follows typing after a short
+  // pause, and a reload in that pause would lose the last characters. Used only by a reload, shortly after (below).
+  const DRAFT = "dero.query",
+    DRAFT_MS = 5000;
+  function remember(text) {
+    try {
+      localStorage.setItem(DRAFT, JSON.stringify({ text, at: Date.now() }));
+    } catch {}
+  }
+  function recentDraft() {
+    try {
+      const draft = JSON.parse(localStorage.getItem(DRAFT) || "null");
+      return draft && Date.now() - draft.at < DRAFT_MS ? draft.text : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function update() {
     const q = input.value.trim();
-    const url = form.getAttribute("action") + (q ? `?${new URLSearchParams({ q })}` : "");
+    const url = addressFor(q);
+    syncAddress(q);
     const mine = ++seq;
     indicator("busy", "Updating…");
     try {
@@ -212,7 +242,6 @@
       if (mine !== seq) return; // a newer change already replaced this one
       if (!swapRegion("links-results", doc)) throw new Error("unexpected page");
       const fresh = document.getElementById("links-results");
-      history.replaceState(null, "", url);
       const n = Number(fresh.dataset.count),
         total = Number(fresh.dataset.overall);
       indicator("done", hasFilter(parseQuery(q)) ? `Updated · ${n} of ${total}` : "Updated");
@@ -255,6 +284,7 @@
     if (event.inputType?.startsWith("insert")) spaceOut();
     draw();
     syncControls();
+    remember(input.value);
     clearTimeout(typing);
     typing = setTimeout(update, 250);
   });
@@ -290,7 +320,10 @@
     helpToggle.setAttribute("aria-expanded", String(!help.hidden));
   });
 
-  setQuery(input.value, { fetch: false }); // draw the first time
+  // After a reload within moments of typing, what was typed is put back (the address may not have caught up yet)
+  const typed = performance.getEntriesByType("navigation")[0]?.type === "reload" ? recentDraft() : null;
+  if (typed !== null && typed !== input.value) setQuery(typed);
+  else setQuery(input.value, { fetch: false }); // draw the first time; the draft is now what this page shows
 
   // what the live-visits script (live.js) needs from this one
   window.deroFilters = { form, input, lists, live, update, indicator };
