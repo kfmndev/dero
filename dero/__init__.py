@@ -107,7 +107,7 @@ SLUG_PLACES = ("forms", "table", "toast")  # where a slug can be coloured (the s
 
 
 def highlighted_places(cookie: str | None) -> list[str]:
-    """Where slugs are coloured: the places in the cookie (comma separated, "none" for nowhere); by default the table."""
+    """Where slugs are coloured: the places in the cookie (comma separated, "none" for nowhere), by default the table."""
     if cookie is None:
         return ["table"]
 
