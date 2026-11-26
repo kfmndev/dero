@@ -668,7 +668,7 @@ def test_details_layout_buttons_and_edit_form(client):
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
     assert re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css   # no fixed grid
-    assert re.search(r"tr\.detail td \{[^}]*padding: 14px 24px 16px", css)                                                   # margins around the details
+    assert re.search(r"tr\.detail td \{[^}]*padding: var\(--box-pad\)", css)                                                   # margins around the details
     js = js_source(client)
     assert "function syncEdit" in js and "data-discard" in js and "function linkProblem" in js
 
@@ -1375,7 +1375,7 @@ def test_operators_are_outlined_and_groups_are_not_tinted(client):
 
 def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert "label, .label, .field-label { font-family: var(--font-head); }" in css
+    assert "label, .label, .field-label { font-family: var(--font-head); line-height: var(--label-lh); }" in css
     assert "input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary { font-family: var(--font-text); }" in css
 
 

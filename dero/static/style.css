@@ -55,7 +55,11 @@
   color-scheme: light;
   --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-head: "Hubot Sans", "Geist", system-ui, sans-serif;
-  --control-h: 30px; /* one height for every input, dropdown and button */
+  --control-h: 30px;
+  --label-gap: 4px;      /* between a label and its field, in every form */
+  --label-lh: 1.4;       /* one line height for every label */
+  --field-gap: 12px;     /* between fields in a row, both directions */
+  --box-pad: 16px;       /* inside the details box, all four sides */ /* one height for every input, dropdown and button */
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 
   --bg: #f4f5f7;
@@ -336,10 +340,10 @@ h2 {
   font: 600 17px/1.4 var(--font-head);
 }
 
-.form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: var(--field-gap); align-items: end; }
 .form-grid.rules { grid-template-columns: 1.2fr 110px 2fr 100px auto; }
 .form-grid label { margin: 0; font-size: 13px; }
-.form-grid input, .form-grid select { margin-top: 4px; }
+.form-grid input, .form-grid select { margin-top: var(--label-gap); }
 
 input[type="url"], input[type="date"], input[type="number"], input[type="text"] {
   width: 100%;
@@ -403,7 +407,7 @@ tr.off td:last-child { opacity: 1; }
 .copy { cursor: pointer; }
 .copy.done { color: var(--accent-2-ink); border-color: var(--accent-2-ink); }
 
-.form-grid select { display: block; width: 100%; margin-top: 4px; }
+.form-grid select { display: block; width: 100%; margin-top: var(--label-gap); }
 .hint + form { margin-top: 12px; }
 
 /* ---- dero: switch (enable/disable) ---- */
@@ -451,10 +455,10 @@ tr.off td:last-child { opacity: 1; }
 .switch:hover .track { border-color: var(--accent-2-ink); }
 
 /* ---- dero: filter bar and sortable headers ---- */
-.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 0 0 14px; }
+.filters { display: flex; flex-wrap: wrap; gap: var(--field-gap); align-items: end; margin: 0 0 14px; }
 .filters .grow { flex: 1 1 14rem; }
 .filters label { margin: 0; font-size: 13px; }
-.filters input, .filters select { margin-top: 4px; }
+.filters input, .filters select { margin-top: var(--label-gap); }
 .filters select { display: block; min-width: 9rem; }
 .meta { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 
@@ -514,7 +518,7 @@ td.narrow form {
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
-tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: 14px 24px 16px; }
+tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: var(--box-pad); }
 tr.detail[hidden] { display: none; }
 .details { display: flex; flex-direction: column; gap: 12px; }
 .details-row { display: flex; flex-wrap: wrap; gap: 14px 36px; margin: 0; }
@@ -527,7 +531,7 @@ tr.detail[hidden] { display: none; }
   text-transform: uppercase;
   letter-spacing: .05em;
 }
-.details dd { margin: 2px 0 0; word-break: break-word; }
+.details dd { margin: var(--label-gap) 0 0; word-break: break-word; }
 .details .wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: form feedback ---- */
@@ -760,13 +764,13 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 
 /* ---- dero: new link form (target, expiry, and generate-or-provide the slug) ---- */
 .new-link { display: flex; flex-direction: column; gap: 14px; margin: 0; }
-.nl-row { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: flex-end; }
+.nl-row { display: flex; flex-wrap: wrap; gap: var(--field-gap); align-items: flex-end; }
 .nl-row > .grow { flex: 1 1 18rem; min-width: 0; }
 .nl-row label { margin: 0; font-size: 13px; }
-.nl-row label input, .nl-row label select { margin-top: 4px; }
+.nl-row label input, .nl-row label select { margin-top: var(--label-gap); }
 .nl-row input[type="date"] { width: auto; }
 .nl-length input { width: 5.5rem; }
-.field-label { display: block; margin: 0 0 4px; font-weight: 600; font-size: 13px; }
+.field-label { display: block; margin: 0 0 var(--label-gap); font-weight: 600; font-size: 13px; }
 
 
 /* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain */
@@ -779,10 +783,9 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
   display: flex;
   align-items: center;
   gap: 4px;
-  margin: 0 0 4px;
+  margin: 0 0 var(--label-gap);
   font-weight: 600;
   font-size: 13px;
-  line-height: 1.5;
 }
 .filters .field-label label { margin: 0; font: inherit; }
 .filters select { margin-top: 0; }
@@ -945,7 +948,7 @@ select.native-hidden {
   clip-path: inset(50%);
   pointer-events: none;
 }
-.nl-row label details.multi, .form-grid details.multi { margin-top: 4px; }
+.nl-row label details.multi, .form-grid details.multi { margin-top: var(--label-gap); }
 .form-grid details.multi { width: 100%; }
 .form-grid details.multi > summary { min-width: 0; }
 .single-panel { max-height: 22rem; overflow-y: auto; }
@@ -1111,11 +1114,10 @@ dialog p.setting-note { margin: 0; font-size: 12px; }
 .nl-slug > label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--label-gap);
 }  /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
 .nl-slug > label input { margin-top: 0; }
-.nl-slug > label, .nl-slug .field-label { line-height: 1.3; }
-.nl-slug > .field { display: flex; flex-direction: column; gap: 4px; }
+.nl-slug > .field { display: flex; flex-direction: column; gap: var(--label-gap); }
 .nl-slug .field-label { margin: 0; }
 
 /* the slug being edited sits in the usual code box; the (transparent) input text lines up with the text inside it */
@@ -1173,7 +1175,7 @@ tr.item.visited td.col-visits { font-weight: 700; color: var(--accent-2-ink); }
 
 /* ---- dero: labels use Hubot Sans ----
    what is typed into the fields (and the options of a dropdown) stays in the text font */
-label, .label, .field-label { font-family: var(--font-head); }
+label, .label, .field-label { font-family: var(--font-head); line-height: var(--label-lh); }
 input[type], input:not([type]), select, textarea, .multi-panel label, details.multi > summary {
   font-family: var(--font-text);
 }
