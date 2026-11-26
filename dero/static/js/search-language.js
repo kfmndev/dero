@@ -40,7 +40,26 @@ const sortName = (raw) => {
   return SORT_ALIASES[name] || name;
 };
 
-function unquote(text) {
+// The search box is one <input>, so its CSS word-spacing (the room between terms, for the x of each chip) would widen a
+// space inside quotes as well. A space inside quotes is therefore drawn as QUOTED_SPACE, a quarter of an em (as wide as a
+// space) that word-spacing leaves alone, in the box and in the coloured copy behind it alike. Everything outside the
+// box sees plain spaces: plainQuery() turns it back, and the server reads it as a space too.
+const QUOTED_SPACE = "\u2005";
+const plainQuery = (text) => text.replaceAll(QUOTED_SPACE, " ");
+// The text with the spaces inside quotes as QUOTED_SPACE and every other one plain (one character for one: the
+// positions stay). A quote opens at one " and closes at the next; an unclosed one runs to the end, as in the tokenizer.
+function spaceQuotes(text) {
+  let quoted = false,
+    out = "";
+  for (const ch of text) {
+    if (ch === '"') quoted = !quoted;
+    out += ch === " " || ch === QUOTED_SPACE ? (quoted ? QUOTED_SPACE : " ") : ch;
+  }
+  return out;
+}
+
+function unquote(raw) {
+  const text = plainQuery(raw);
   if (text.length >= 2 && text[0] === '"' && text.endsWith('"')) return text.slice(1, -1);
   return text.startsWith('"') ? text.slice(1) : text;
 }

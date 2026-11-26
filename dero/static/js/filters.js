@@ -70,7 +70,7 @@
       if (!el.classList.contains("q-group") && el.closest(".q-group")) return; // a group is removed as a whole
       const x = el.getBoundingClientRect().right - base.left - field.clientLeft; // (the layer starts inside the border)
       if (x < 6 || x > base.width - 6) return; // scrolled out of view
-      const label = input.value.slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
+      const label = queryText().slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
       const button = document.createElement("button");
       button.type = "button";
       button.className = "qx";
@@ -129,7 +129,7 @@
   // the share button copies the address of this search (nothing to share while the box is empty)
   const share = document.getElementById("q-share");
   function syncShare() {
-    const q = input.value.trim();
+    const q = queryText().trim();
     share.disabled = !q;
     share.dataset.copy = q ? new URL(addressFor(q), location.href).href : "";
   }
@@ -147,11 +147,13 @@
   }
 
   // ---- dropdowns -> query
+  const queryText = () => plainQuery(input.value); // what the box says, with plain spaces: for the address, the server, drafts
+
   function setQuery(text, { fetch = true } = {}) {
-    input.value = text;
+    input.value = spaceQuotes(text);
     draw();
     syncControls();
-    remember(text);
+    remember(plainQuery(text));
     if (fetch) update();
   }
 
@@ -242,7 +244,7 @@
   }
 
   async function update() {
-    const q = input.value.trim();
+    const q = queryText().trim();
     const url = addressFor(q);
     syncAddress(q);
     const mine = ++seq;
@@ -292,7 +294,7 @@
     document.addEventListener("click", (event) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
       const link = event.target.closest("a[href]");
-      const now = input.value.trim();
+      const now = queryText().trim();
       if (!link || !now || link.target === "_blank" || link.hasAttribute("download") || !asksBeforeLeaving()) return;
       const to = new URL(link.href, location.href);
       if (to.origin !== location.origin || to.pathname !== new URL(form.action).pathname) return;
@@ -335,11 +337,36 @@
     return true;
   }
 
+  // Keeps the look-alike spaces right while typing or pasting: a quote opened or closed changes which spaces are inside
+  // quotes. The selection stays where it was.
+  function showQuotedSpaces() {
+    const fixed = spaceQuotes(input.value);
+    if (fixed === input.value) return;
+    const { selectionStart, selectionEnd, selectionDirection } = input;
+    input.value = fixed;
+    input.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
+  }
+
+  // Copying or cutting hands over plain spaces, never the look-alikes
+  for (const name of ["copy", "cut"]) {
+    input.addEventListener(name, (event) => {
+      const { selectionStart: from, selectionEnd: to } = input;
+      if (from === to) return;
+      event.clipboardData.setData("text/plain", plainQuery(input.value.slice(from, to)));
+      event.preventDefault();
+      if (name === "cut") {
+        input.setRangeText("", from, to, "end");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  }
+
   input.addEventListener("input", (event) => {
     if (event.inputType?.startsWith("insert")) spaceOut();
+    showQuotedSpaces();
     draw();
     syncControls();
-    remember(input.value);
+    remember(queryText());
     clearTimeout(typing);
     typing = setTimeout(update, 250);
   });
@@ -377,7 +404,7 @@
 
   // After a reload within moments of typing, what was typed is put back (the address may not have caught up yet)
   const typed = performance.getEntriesByType("navigation")[0]?.type === "reload" ? recentDraft() : null;
-  if (typed !== null && typed !== input.value) setQuery(typed);
+  if (typed !== null && typed !== queryText()) setQuery(typed);
   else setQuery(input.value, { fetch: false }); // draw the first time; the draft is now what this page shows
 
   // what the live-visits script (live.js) needs from this one

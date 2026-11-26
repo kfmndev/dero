@@ -415,3 +415,13 @@ def test_a_negation_of_sort_by_does_nothing_and_is_reported():
         assert parsed.problems == [query.NO_NEGATED_SORT], text
         assert parsed.sort == ("visits", False) and parsed.where is None and rows == slugs("sort_by=visits"), text
     assert find("sort_by=visits")[1].problems == [] and find("!slug=a sort_by=-slug")[1].problems == []
+
+
+def test_the_search_bars_quoted_space_is_a_plain_space_for_the_server():
+    # the browser draws a space inside quotes as U+2005 (as wide as a space, but not stretched by the CSS word spacing
+    # that makes room for the x of each chip) and sends plain ones; if one arrives anyway, it still means a space
+    assert query.QUOTED_SPACE == "\u2005"
+    assert slugs('created_by="Anna\u2005Maria"') == slugs('created_by="Anna Maria"') == ["eee"]
+    assert find('created_by="Anna\u2005Maria"')[1].problems == []
+    tok = [t for t in query.tokenize('creator="Anna\u2005Maria",julian') if t.kind == "term"][0]
+    assert tok.values == ("Anna Maria", "julian")

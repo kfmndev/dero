@@ -107,8 +107,13 @@ class Parsed:
 
 
 # ------------------------------------------------------------------ tokenizer
+QUOTED_SPACE = "\u2005"  # how the search bar draws a space inside quotes (as wide as a space; see search-language.js)
+
+
 def _unquote(text: str) -> str:
-    """The text without the quotes around it (an unclosed quote is dropped too)."""
+    """The text without the quotes around it (an unclosed quote is dropped too); QUOTED_SPACE is a plain space."""
+    text = text.replace(QUOTED_SPACE, " ")
+
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return text[1:-1]
 
