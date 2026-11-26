@@ -1388,7 +1388,7 @@ time.localtime {
   inset: 0;
   display: flex;
   align-items: center;
-  padding: 0 11px;
+  padding: 0 11px 0 7px; /* the first chip starts close to the edge: its own 3px padding sits in these 7px */
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
@@ -1407,7 +1407,7 @@ time.localtime {
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 0 11px;
+  padding: 0 11px 0 7px; /* the same as .qhighlight, or the text of the two layers drifts apart */
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1774,7 +1774,6 @@ th.col-target {
   border-radius: 0;
   background: none;
   color: var(--muted);
-  opacity: 0.6;
   cursor: pointer;
   pointer-events: auto;
 }
@@ -1786,7 +1785,6 @@ th.col-target {
 }
 .qx:hover,
 .qx:focus-visible {
-  opacity: 1;
   color: var(--err);
   background: none;
 }

@@ -80,10 +80,10 @@
       button.dataset.from = el.dataset.from;
       button.dataset.to = el.dataset.to;
       if (el.classList.contains("q-op")) button.dataset.kind = "operator";
-      // a chip's x sits in the middle of its right padding (the space after the text, still inside the chip); a group
-      // has no padding: its x stays just before the closing parenthesis
+      // a chip's x sits in the middle of the space after its text, inside the chip: that space is the right padding
+      // plus the 1px ring of the chip. A group has no padding: its x stays just before the closing parenthesis
       const padding = el.classList.contains("q-group") ? 0 : Number.parseFloat(getComputedStyle(el).paddingRight);
-      button.style.left = `${padding ? x - padding / 2 - 5 : x - 10}px`; // (the x is 10px wide)
+      button.style.left = `${padding ? x - (padding - 1) / 2 - 5 : x - 10}px`; // (the x is 10px wide)
       button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`; // an icon sits exactly in the middle
       removers.append(button);
     });

@@ -1563,7 +1563,11 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     for selector in (".q-term", ".q-op"):
         rule = css_rule(css, selector)
         assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
-    assert "x - padding / 2 - 5" in js and "field.clientLeft" in js
+    assert "x - (padding - 1) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding and the 1px ring
+    # the text of the highlight and of the real input start at the same place, close to the edge (chips pull in 3px)
+    assert css_rule(css, ".qhighlight")["padding"] == "0 11px 0 7px"
+    assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 11px 0 7px"
+    assert "opacity" not in css_rule(css, ".qx")  # the x is solid grey, like the text it belongs to
     # the commas between values have their own style, so a negated term does not turn them red like its operator
     assert 'span("q-comma", ",")' in js and 'span("q-eq", ",")' not in js
     assert css_rule(css, ".q-eq, .q-comma, .q-op, .q-op-tight")["color"] == "var(--muted)"
