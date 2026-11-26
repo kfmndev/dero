@@ -309,6 +309,7 @@ def seed_links(client, app):
 
 def slugs(client, headers, query=""):
     html = client.get("/admin/" + query, headers=headers).get_data(as_text=True)
+    html = html[html.index('id="links-results"') :]  # not the slug boxes of a notice above the table
     return re.findall(r'class="slug">([a-z0-9]+)</code>', html)
 
 
@@ -1208,7 +1209,7 @@ def test_old_style_parameters_still_work_and_show_up_as_a_query(client, app):
     seed_query_links(client, app)
     html = client.get("/admin/?status=expired&owner=alice&order=visits:asc", headers=ADMIN).get_data(as_text=True)
     assert 'value="status=expired created_by=alice sort_by=+visits"' in html
-    assert re.findall(r'class="slug">([a-z]+)</code>', html) == ["bbb"]
+    assert re.findall(r'class="slug">([a-z]+)</code>', html[html.index('id="links-results"') :]) == ["bbb"]
 
 
 def test_problems_are_shown_briefly_above_the_table(client, app):
@@ -1960,3 +1961,17 @@ def test_success_notices_become_toasts_and_errors_stay_by_their_field(client):
     assert "new MutationObserver(collect).observe(main" in js  # also those that arrive later (fetch, edit)
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "20px"
+
+
+def test_enabling_and_disabling_a_link_is_announced(client):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="abc")
+    for word in ("disabled", "enabled"):
+        r = post(client, "/admin/links/1/toggle", USER)
+        assert r.status_code == 302
+        html = client.get("/admin/", headers=USER).get_data(as_text=True)
+        notice = html[html.index('id="links-notices"') :]
+        assert f"</code> {word}</span>" in notice[: notice.index("</div>")] and 'class="form-ok"' in notice
+    assert 'class="form-ok"' not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".form-ok")["color"] == "var(--q-status)"
+    assert "border-left" not in css_rule(css, ".toasts .toast")

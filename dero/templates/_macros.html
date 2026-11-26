@@ -36,7 +36,7 @@
 {%- for category, message in get_flashed_messages(with_categories=true) if category in (scope, scope ~ ':error') %}
   {% set failed = category.endswith(':error') %}
   <p class="{{ 'form-error' if failed else 'form-ok' }}" role="{{ 'alert' if failed else 'status' }}">
-    {{- icon('alert' if failed else 'check') }}<span>{{ message }}</span></p>
+    {{- icon('alert' if failed else 'check') }}<span>{{ message|rich }}</span></p>
 {%- endfor %}
 </div>
 {%- endmacro -%}

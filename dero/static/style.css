@@ -913,8 +913,8 @@ tr.detail[hidden] {
   display: none;
 }
 .form-ok {
-  color: var(--accent-2-ink);
-}
+  color: var(--q-status);
+} /* the green of the status terms */
 input[aria-invalid="true"],
 input[aria-invalid="true"]:focus {
   border-color: var(--err);
@@ -2221,7 +2221,6 @@ td > .cell:has(> .badge) {
   margin: 0;
   padding: 9px 8px 9px 14px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent-2);
   border-radius: 8px;
   background: var(--card);
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);

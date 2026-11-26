@@ -71,6 +71,8 @@ def toggle_link(link_id: int) -> ViewResult:
     conn = db.get_db()
     conn.execute("UPDATE links SET enabled = 1 - enabled WHERE id = ?", (link_id,))
     conn.commit()
+    link = conn.execute("SELECT slug, enabled FROM links WHERE id = ?", (link_id,)).fetchone()
+    flash(f"‹{link['slug']}› {'enabled' if link['enabled'] else 'disabled'}", "links")  # shown as a toast
 
     return back()
 
