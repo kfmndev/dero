@@ -307,7 +307,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     assert r.status_code == 400
     # what was typed is still in the fields
     assert 'value="https://example.com/mine?a=1&amp;b=2"' in html
-    assert 'name="slug" type="text" placeholder="random" value="taken"' in html
+    assert 'name="slug" type="text" placeholder="my-link" value="taken"' in html and 'value="custom" checked' in html   # custom mode restored
     assert 'value="2031-05-06"' in html
     # the message is inside the "New link" card (before the "links" card), next to the offending field
     card = html[html.index("New link"):html.index("Short links are served from")]
@@ -322,8 +322,7 @@ def test_each_field_error_is_tagged_and_nothing_is_created(client):
     for data, field in [({"target": "javascript:alert(1)"}, "target"),
                         ({"target": "https://example.com", "slug": "bad slug!"}, "slug"),
                         ({"target": "https://example.com", "slug": "static"}, "slug"),
-                        ({"target": "https://example.com", "expires_at": "31/12/2030"}, "expires_at"),
-                        ({"target": "https://example.com", "expires_at": "2000-01-01"}, "expires_at")]:
+                        ({"target": "https://example.com", "expires_at": "31/12/2030"}, "expires_at")]:
         r = post(client, "/admin/links", USER, **data)
         html = r.get_data(as_text=True)
         assert r.status_code == 400
@@ -385,21 +384,16 @@ def test_row_layout_copy_beside_link_delete_in_details(client):
     assert 'id="links-results"' in html and 'id="filter-live"' in html
 
 
-def test_cannot_create_an_already_expired_link(client):
+def test_an_already_expired_link_can_be_created(client):
+    """The form warns about a past expiry date; the server lets it through."""
     from datetime import datetime, timedelta, timezone
-    today = datetime.now(timezone.utc).date()
-    r = post(client, "/admin/links", USER, target="https://example.com/x", slug="late",
-             expires_at=(today - timedelta(days=1)).isoformat())
-    html = r.get_data(as_text=True)
-    assert r.status_code == 400 and "already passed" in html
-    assert re.search(r'name="expires_at"[^>]*aria-invalid="true"', html) and 'value="https://example.com/x"' in html
-    assert client.get("/late").status_code == 404
-    # today still works (the link lasts until the end of that day, UTC) and so does a later day
-    for slug, day in (("today", today), ("later", today + timedelta(days=30))):
-        assert post(client, "/admin/links", USER, target="https://example.com/y", slug=slug,
-                    expires_at=day.isoformat()).status_code == 302
-        assert client.get(f"/{slug}").status_code == 302
-    assert f'min="{today.isoformat()}"' in client.get("/admin/", headers=USER).get_data(as_text=True)
+    yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+    r = post(client, "/admin/links", USER, target="https://example.com/x", slug="late", expires_at=yesterday)
+    assert r.status_code == 302
+    assert client.get("/late").status_code == 404                                  # expired, so it doesn't redirect
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'class="badge">expired</span>' in html
+    assert not any(" min=" in tag for tag in re.findall(r'<input[^>]*type="date"[^>]*>', html))     # past days are selectable
 
 
 # ---------------------------------------------------------------- regressions: Clear button / swapped fragment
@@ -496,7 +490,7 @@ def test_expiry_edit_rejects_bad_dates_and_other_users(client, app):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     link_id = link_row(app, "abc")["id"]
     before = link_row(app, "abc")["expires_at"]
-    for bad, message in (("2000-01-01", "already passed"), ("31/12/2030", "must be a date"), ("tomorrow", "must be a date")):
+    for bad, message in (("31/12/2030", "must be a date"), ("tomorrow", "must be a date")):
         r = edit(client, app, "abc", expires_at=bad)
         assert r.status_code == 302
         assert link_row(app, "abc")["expires_at"] == before
@@ -590,13 +584,13 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "now expires on" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
+    assert f"Updated · expiry {day}" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
     assert 'id="flashes"' not in html and 'class="flash' not in html
-    assert "now expires on" not in notice_box(html, "new-link")
+    assert "Updated" not in notice_box(html, "new-link")
 
-    edit(client, app, "abc", expires_at="2000-01-01")
+    edit(client, app, "abc", expires_at="31/12/2030")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "already passed" in notice_box(html, "links") and 'class="form-error"' in notice_box(html, "links")
+    assert "must be a date" in notice_box(html, "links") and 'class="form-error"' in notice_box(html, "links")
 
     post(client, "/admin/rules", ADMIN, pattern="x", target="javascript:alert(1)")
     html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
@@ -708,7 +702,7 @@ def test_edit_target_and_slug(client, app):
     assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     note = notice_box(page, "links")
-    assert "http://localhost/renamed updated" in note and "short link changed (was http://localhost/abc)" in note and "target changed" in note
+    assert "Updated · short link, target" in note and "localhost" not in note and "was" not in note         # brief: no URLs, no history
 
 
 def test_edit_rejections_keep_the_link_unchanged(client, app):
@@ -732,14 +726,14 @@ def test_edit_permissions(client, app):
     assert link_row(app, "by-admin")["created_by"] == "alice"
 
 
-def test_keeping_a_past_expiry_does_not_block_other_edits(client, app):
+def test_past_expiry_dates_are_accepted_when_editing(client, app):
     post(client, "/admin/links", USER, target="https://example.com/a", slug="aaa")
     expire(app, "aaa")
-    assert edit(client, app, "aaa", target="https://example.com/fixed").status_code == 302     # expires_at 2000-01-01 sent unchanged
+    assert edit(client, app, "aaa", target="https://example.com/fixed").status_code == 302      # unchanged past date: fine
     row = link_row(app, "aaa")
     assert row["target"] == "https://example.com/fixed" and row["expires_at"] == "2000-01-01T23:59:59Z"
-    edit(client, app, "aaa", expires_at="2000-02-02")                                          # picking another past date is still refused
-    assert link_row(app, "aaa")["expires_at"] == "2000-01-01T23:59:59Z"
+    edit(client, app, "aaa", expires_at="2000-02-02")                                          # another past date: the page warns, the server accepts
+    assert link_row(app, "aaa")["expires_at"] == "2000-02-02T23:59:59Z"
 
 
 # ---------------------------------------------------------------- delete dialog
@@ -761,3 +755,166 @@ def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(
     assert f'<time class="localtime" datetime="{created}" title="{original}">{original}</time>' in html   # UTC text without JavaScript
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function localizeTimes" in js and js.count("localizeTimes()") >= 2                           # on load and after table swaps
+
+
+# ---------------------------------------------------------------- slug generator
+import string
+
+from dero import ALPHABETS, highlight_slug
+
+
+def created_slug(client, headers=USER, **data):
+    """Create a link and return the slug the server picked."""
+    r = post(client, "/admin/links", headers, target="https://example.com/g", **data)
+    assert r.status_code == 302, r.get_data(as_text=True)[:300]
+    return re.search(r"data-copy=\"http://localhost/([^\"]+)\"", client.get("/admin/", headers=headers).get_data(as_text=True)).group(1)
+
+
+def test_generate_with_the_default_alphabet(client):
+    assert not set("il1o0") & set(ALPHABETS["default"])                      # no look-alikes
+    seen = set()
+    for _ in range(15):
+        slug = created_slug(client, slug_mode="generate", alphabet="default", length="8")
+        assert len(slug) == 8 and set(slug) <= set(ALPHABETS["default"])
+        seen.add(slug)
+    assert len(seen) == 15                                                   # actually random
+
+
+def test_generate_letters_only_and_custom_alphabets(client):
+    slug = created_slug(client, slug_mode="generate", alphabet="letters", length="12")
+    assert len(slug) == 12 and slug.isalpha() and slug.islower()
+    slug = created_slug(client, slug_mode="generate", alphabet="custom", alphabet_custom="xyz789", length="10")
+    assert len(slug) == 10 and set(slug) <= set("xyz789")
+    # symbols are allowed in the alphabet, but never as the first character
+    for _ in range(15):
+        slug = created_slug(client, slug_mode="generate", alphabet="custom", alphabet_custom="-_a", length="6")
+        assert slug[0] == "a" and set(slug) <= set("-_a")
+
+
+def test_generator_validation(client):
+    bad = [({"alphabet": "custom", "alphabet_custom": "a"}, "alphabet_custom"),            # needs two different characters
+           ({"alphabet": "custom", "alphabet_custom": "aaaa"}, "alphabet_custom"),
+           ({"alphabet": "custom", "alphabet_custom": "ab c"}, "alphabet_custom"),         # space isn't allowed in a slug
+           ({"alphabet": "custom", "alphabet_custom": "-_"}, "alphabet_custom"),           # nothing a slug can start with
+           ({"alphabet": "klingon"}, "alphabet"), ({"length": "2"}, "length"), ({"length": "33"}, "length"), ({"length": "x"}, "length")]
+    for extra, field in bad:
+        r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", **{"alphabet": "default", **extra})
+        html = r.get_data(as_text=True)
+        assert r.status_code == 400 and re.search(rf'name="{field}"[^>]*aria-invalid="true"', html), (extra, html[:200])
+    assert "No links yet." in client.get("/admin/", headers=USER).get_data(as_text=True)
+
+
+def test_slug_mode_decides_what_is_used(client):
+    assert created_slug(client, slug_mode="custom", slug="mine") == "mine"
+    r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="custom", slug="")
+    assert r.status_code == 400 and "Enter a slug" in r.get_data(as_text=True)
+    other = created_slug(client, slug_mode="generate", slug="ignored", length="6")           # a typed slug is ignored when generating
+    assert other != "ignored" and len(other) == 6
+    assert len(created_slug(client)) == 5                                                    # no mode, no slug: default alphabet, length 5
+
+
+def test_generator_gives_up_politely_when_the_alphabet_is_exhausted(client):
+    # "ab" with length 3 has exactly 8 combinations: take them all, then ask for one more
+    for combo in ("aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb"):
+        assert post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="custom", slug=combo).status_code == 302
+    r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", alphabet="custom", alphabet_custom="ab", length="3")
+    html = r.get_data(as_text=True)
+    assert r.status_code == 400 and "No free slug found" in html and re.search(r'name="length"[^>]*aria-invalid="true"', html)
+
+
+def test_new_link_form_markup_and_remembered_choice(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert re.search(r'name="slug_mode" value="generate" checked', html) and 'name="slug_mode" value="custom"' in html
+    assert re.search(r'<select name="alphabet">.*?Default.*?Letters only.*?Custom.*?</select>', html, re.S)
+    assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
+    assert 'data-fresh="yes"' in html and "&#34;default&#34;" in html                       # alphabets are handed to the page for the preview
+    failed = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", alphabet="custom", alphabet_custom="a").get_data(as_text=True)
+    assert 'data-fresh="no"' in failed and '<option value="custom" selected>' in failed          # the server's values win over remembered ones
+
+
+# ---------------------------------------------------------------- Bitwarden-style slug colours
+def test_highlight_slug_colours_digits_and_symbols():
+    assert str(highlight_slug("abc")) == "abc"
+    assert str(highlight_slug("x9k-2_p")) == 'x<span class="hl-digit">9</span>k<span class="hl-symbol">-</span><span class="hl-digit">2</span><span class="hl-symbol">_</span>p'
+    assert str(highlight_slug("a123b")) == 'a<span class="hl-digit">123</span>b'              # runs share one span
+    assert "<b>" not in str(highlight_slug("<b>"))                                            # always escaped
+
+
+def test_collapsed_row_uses_the_highlight(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="x9k-2")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
+    assert '<code class="slug">x<span class="hl-digit">9</span>k<span class="hl-symbol">-</span><span class="hl-digit">2</span></code>' in row
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.hl-digit \{ color: var\(--accent-ink\)", css) and re.search(r"\.hl-symbol \{ color: var\(--err\)", css)
+
+
+# ---------------------------------------------------------------- warnings stay short
+def test_warning_texts_are_brief(client):
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "Unusual address:" in js and "Expiry date is in the past." in js and "again to continue" in js
+    assert "won't work" not in js and "(:" not in js and "odd ending (" not in js                  # no explanations, no values in parentheses
+    assert "doesn't look like a usual" not in js and "dead on arrival" not in js and "Check it, or press" not in js   # the long wordings are gone
+    for reason in ("uses http", "has no domain ending", "is an IP address", "has a port", "has a login", "has spaces"):
+        assert reason in js
+
+
+def test_update_messages_are_brief(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/old", slug="abc")
+    def note():
+        return notice_box(client.get("/admin/", headers=USER).get_data(as_text=True), "links")
+    edit(client, app, "abc", target="https://example.com/new")
+    assert "Updated · target" in note() and "abc" not in note()
+    edit(client, app, "abc", expires_at="2099-01-01")
+    assert "Updated · expiry 2099-01-01" in note()
+    edit(client, app, "abc", expires_at="")
+    assert "Updated · no expiry" in note()
+    edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
+    assert "Updated · short link, target, expiry 2098-02-02" in note()
+    edit(client, app, "xyz")
+    assert "Nothing to update." in note()
+    post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
+    edit(client, app, "xyz", slug="other")
+    assert note().count("Slug &#39;other&#39; is already taken.") == 1 and "http" not in note()    # errors carry no URL prefix either
+
+
+# ---------------------------------------------------------------- "target already shortened" lookup
+def lookup(client, headers, target, **extra):
+    return client.get("/admin/links/lookup", headers=headers, query_string={"target": target, **extra}).get_json()
+
+
+def test_lookup_finds_links_with_the_same_target_but_hides_other_peoples_slugs(client, app):
+    post(client, "/admin/links", USER, target="https://Example.com/a/", slug="mine")
+    post(client, "/admin/links", USER2, target="https://example.com/a", slug="theirs")
+    post(client, "/admin/links", USER, target="https://example.com/b", slug="other")
+    # trailing slash and the case of scheme/host don't matter; both links count, only visible slugs are named
+    assert lookup(client, USER, "https://example.com/a") == {"count": 2, "slugs": ["mine"]}
+    assert lookup(client, USER2, "https://EXAMPLE.com/a/") == {"count": 2, "slugs": ["theirs"]}
+    assert lookup(client, ADMIN, "https://example.com/a") == {"count": 2, "slugs": ["mine", "theirs"]}
+    # a different path, query or fragment is a different target
+    for different in ("https://example.com/a?x=1", "https://example.com/a#top", "https://example.com/A", "http://example.com/a", "https://example.com/c"):
+        assert lookup(client, USER, different)["count"] == 0, different
+
+
+def test_lookup_ignores_the_link_being_edited_and_bad_input(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="mine")
+    mine = link_row(app, "mine")["id"]
+    assert lookup(client, USER, "https://example.com/a", exclude=mine) == {"count": 0, "slugs": []}
+    assert lookup(client, USER, "javascript:alert(1)") == {"count": 0, "slugs": []}
+    assert lookup(client, USER, "") == {"count": 0, "slugs": []}
+    r = client.get("/admin/links/lookup", headers=USER, query_string={"target": "https://example.com/a"})
+    assert r.headers["Cache-Control"] == "no-store" and r.mimetype == "application/json"
+
+
+def test_lookup_requires_a_signed_in_user(client):
+    assert client.get("/admin/links/lookup", query_string={"target": "https://example.com/a"}).status_code == 403
+
+
+def test_forms_know_where_to_look_up_and_the_warning_is_brief(client):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="mine")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert html.count('data-lookup="/admin/links/lookup"') == 2                       # the new-link form and the edit form
+    assert 'data-exclude="1"' in html                                                  # an edit never counts its own link
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function alreadyShortened" in js and "Target already shortened" in js and "by someone else" in js
+    assert "function lookupThenResubmit" in js and "needsLookup(form)" in js

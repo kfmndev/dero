@@ -1,13 +1,27 @@
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
+from itertools import groupby
 from urllib.parse import urlsplit
 
-from flask import Flask, abort, current_app, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
+from markupsafe import Markup, escape
+
+from flask import Flask, abort, current_app, jsonify, flash, g, make_response, redirect, render_template, request, url_for, Blueprint
 
 from . import auth, db, resolve
 from .version import build_info
+
+
+def highlight_slug(slug: str) -> Markup:
+    """Colour a slug like Bitwarden colours passwords: digits and symbols stand out, letters stay plain."""
+    def kind(ch):
+        return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
+    out = []
+    for k, chars in groupby(slug, kind):
+        text = escape("".join(chars))
+        out.append(text if k == "letter" else Markup(f'<span class="hl-{k}">{text}</span>'))
+    return Markup("").join(out)
 
 
 def _normalise_base_url(value: str) -> str:
@@ -69,6 +83,7 @@ def create_app(test_config=None):
     app.register_blueprint(admin, url_prefix=admin_path)
     app.jinja_env.globals["csrf_token"] = auth.csrf_token
     app.context_processor(lambda: {"build": build_info()})
+    app.add_template_filter(highlight_slug, "hl_slug")
 
     @app.after_request
     def headers(resp):
@@ -93,11 +108,53 @@ def create_app(test_config=None):
 admin = Blueprint("admin", __name__)
 admin.before_request(auth.load_user)
 
-SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+# Alphabets slugs can be generated from. "default" leaves out look-alikes (i, l, o, 0, 1).
+ALPHABETS = {
+    "default": "abcdefghjkmnpqrstuvwxyz23456789",
+    "letters": "abcdefghijklmnopqrstuvwxyz",
+}
+SLUG_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+MIN_LENGTH, MAX_LENGTH, DEFAULT_LENGTH = 3, 32, 5
 
 
-def _random_slug(n=5):
-    return "".join(secrets.choice(SLUG_ALPHABET) for _ in range(n))
+def _random_slug(alphabet: str, length: int) -> str:
+    """The first character is always a letter or digit (slugs may not start with - or _)."""
+    first = [c for c in alphabet if c.isalnum()]
+    return secrets.choice(first) + "".join(secrets.choice(alphabet) for _ in range(length - 1))
+
+
+def _slug_plan(f):
+    """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
+
+    slug_mode is "custom" or "generate". Without it (API-style posts) a given slug is used, otherwise one is generated.
+    """
+    mode = f.get("slug_mode", "")
+    slug = f.get("slug", "").strip()
+    if mode == "custom" or (mode == "" and slug):
+        if not slug:
+            raise resolve.ValidationError("Enter a slug, or switch to Generate.", "slug")
+        _validated("slug", resolve.validate_slug, slug)
+        if slug in _reserved_slugs():
+            raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
+        return "custom", slug
+
+    name = f.get("alphabet", "default") or "default"
+    if name == "custom":
+        chars = "".join(dict.fromkeys(f.get("alphabet_custom", "")))        # drop duplicates, keep the order
+        if len(chars) < 2 or not set(chars) <= SLUG_CHARS or not any(c.isalnum() for c in chars):
+            raise resolve.ValidationError("Custom alphabet: at least 2 different letters, digits, - or _.", "alphabet_custom")
+        alphabet = chars
+    elif name in ALPHABETS:
+        alphabet = ALPHABETS[name]
+    else:
+        raise resolve.ValidationError("Unknown alphabet.", "alphabet")
+    try:
+        length = int(f.get("length") or DEFAULT_LENGTH)
+    except ValueError:
+        length = 0
+    if not MIN_LENGTH <= length <= MAX_LENGTH:
+        raise resolve.ValidationError(f"Length must be between {MIN_LENGTH} and {MAX_LENGTH}.", "length")
+    return "generate", (alphabet, length)
 
 
 def _own_or_admin(link_id):
@@ -190,7 +247,7 @@ def _render_index(form=None, error=None, error_field=None):
         filtered=bool(q or status or owner),
         back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
         form=form or {}, error=error, error_field=error_field,
-        today=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        alphabets=ALPHABETS, default_length=DEFAULT_LENGTH, length_range=(MIN_LENGTH, MAX_LENGTH),
         reserved=sorted(_reserved_slugs()))
 
 
@@ -212,7 +269,7 @@ def _reserved_slugs():
 
 
 def _parse_expiry(text: str):
-    """'' -> None (never expires); 'YYYY-MM-DD' -> end of that day (UTC). Past days are refused."""
+    """'' -> None (never expires); 'YYYY-MM-DD' -> end of that day (UTC). A past day is allowed (the page warns)."""
     text = (text or "").strip()
     if not text:
         return None
@@ -220,10 +277,6 @@ def _parse_expiry(text: str):
         day = datetime.strptime(text, "%Y-%m-%d").date()
     except ValueError:
         raise resolve.ValidationError("Expiry must be a date (YYYY-MM-DD).", "expires_at")
-    if day < datetime.now(timezone.utc).date():
-        raise resolve.ValidationError(
-            "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC).",
-            "expires_at")
     return day.strftime("%Y-%m-%dT23:59:59Z")
 
 
@@ -241,25 +294,23 @@ def create_link():
     f = request.form
     try:
         target = _validated("target", resolve.validate_url, f.get("target", ""))
-        slug = f.get("slug", "").strip()
-        if slug:
-            _validated("slug", resolve.validate_slug, slug)
-            if slug in _reserved_slugs():
-                raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
         expires = _parse_expiry(f.get("expires_at", ""))
-        for _ in range(10):
-            candidate = slug or _random_slug()
+        kind, plan = _slug_plan(f)
+        for _ in range(20 if kind == "generate" else 1):
+            slug = plan if kind == "custom" else _random_slug(*plan)
+            if kind == "generate" and slug in _reserved_slugs():
+                continue
             try:
                 conn.execute(
                     "INSERT INTO links(slug, target, created_by, created_at, expires_at) VALUES(?,?,?,?,?)",
-                    (candidate, target, g.user["username"], db.now_iso(), expires))
+                    (slug, target, g.user["username"], db.now_iso(), expires))
                 conn.commit()
-                flash(f"{_base_url()}{candidate}", "link")  # the template adds the wording and the open/copy icons
+                flash(f"{_base_url()}{slug}", "link")  # the template adds the wording and the open/copy icons
                 return redirect(url_for("admin.index"))
             except sqlite3.IntegrityError:
-                if slug:
+                if kind == "custom":
                     raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
-        raise resolve.ValidationError("Could not find a free slug, try again.")
+        raise resolve.ValidationError("No free slug found. Use a longer length or a bigger alphabet.", "length")
     except resolve.ValidationError as exc:
         # Show the form again with everything the user typed, and the error inside it.
         return _render_index(form=f, error=str(exc), error_field=exc.field), 400
@@ -274,21 +325,42 @@ def toggle_link(link_id):
     return _back()
 
 
+def _same_target_key(url: str):
+    """Two addresses that differ only in letter case of scheme/host or in a trailing slash count as the same."""
+    parts = urlsplit(url.strip())
+    return (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/") or "/", parts.query, parts.fragment)
+
+
+@admin.get("/links/lookup")
+def lookup_target():
+    """Which links already point to this address? Slugs are only revealed for links the user may see."""
+    url = request.args.get("target", "").strip()
+    exclude = request.args.get("exclude", type=int)            # the link being edited doesn't count
+    try:
+        resolve.validate_url(url)
+    except resolve.ValidationError:
+        return jsonify(count=0, slugs=[])
+    want = _same_target_key(url)
+    rows = db.get_db().execute("SELECT id, slug, target, created_by FROM links ORDER BY created_at, id").fetchall()
+    hits = [r for r in rows if r["id"] != exclude and _same_target_key(r["target"]) == want]
+    mine = [r["slug"] for r in hits if g.user["is_admin"] or r["created_by"] == g.user["username"]]
+    resp = jsonify(count=len(hits), slugs=mine)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @admin.post("/links/<int:link_id>/update")
 def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
     row = _own_or_admin(link_id)
     f = request.form
-    old_url = f"{_base_url()}{row['slug']}"
     try:
         target = _validated("target", resolve.validate_url, f.get("target", ""))
         slug = f.get("slug", "").strip()
         _validated("slug", resolve.validate_slug, slug)
         if slug != row["slug"] and slug in _reserved_slugs():
             raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
-        text = f.get("expires_at", "").strip()
-        # keeping an expiry date that is already in the past is allowed (e.g. only the target changes)
-        expires = row["expires_at"] if text and text == (row["expires_at"] or "")[:10] else _parse_expiry(text)
+        expires = _parse_expiry(f.get("expires_at", ""))
         conn = db.get_db()
         try:
             conn.execute("UPDATE links SET target = ?, slug = ?, expires_at = ? WHERE id = ?",
@@ -297,17 +369,17 @@ def update_link(link_id):
         except sqlite3.IntegrityError:
             raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
     except resolve.ValidationError as exc:
-        flash(f"{old_url}: {exc}", "links:error")
+        flash(str(exc), "links:error")
         return _back()
 
     changes = []
     if slug != row["slug"]:
-        changes.append(f"short link changed (was {old_url})")
+        changes.append("short link")
     if target != row["target"]:
-        changes.append("target changed")
+        changes.append("target")
     if expires != row["expires_at"]:
-        changes.append(f"now expires on {expires[:10]}" if expires else "no longer expires")
-    flash(f"{_base_url()}{slug} " + ("updated: " + ", ".join(changes) + "." if changes else "is already up to date."), "links")
+        changes.append(f"expiry {expires[:10]}" if expires else "no expiry")
+    flash("Updated · " + ", ".join(changes) if changes else "Nothing to update.", "links")
     return _back()
 
 

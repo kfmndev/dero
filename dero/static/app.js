@@ -76,33 +76,56 @@ const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const BAD_URL = "Target must be a valid http:// or https:// URL.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
-function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = false, dateWhenOn = false } = {}) {
-  const target = form.elements.target, slug = form.elements.slug, expires = form.elements.expires_at;
+// `generator` = the "New link" form (slug mode, alphabet and length); otherwise a plain slug field is checked.
+function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = false, dateWhenOn = false, generator = false } = {}) {
+  const target = form.elements.target, expires = form.elements.expires_at;
   const url = target.value.trim();
   if (!url) return [target, "Enter the URL to shorten."];
   let parsed;
   try { parsed = new URL(url); } catch { return [target, BAD_URL]; }
   if (!/^https?:$/.test(parsed.protocol) || !parsed.host || url.length > 2048) return [target, BAD_URL];
-  const s = slug.value.trim();
-  if (!s && slugRequired) return [slug, "A short link needs a slug."];
-  if (s && !SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
-  if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+  if (generator) {
+    const found = generatorProblem(form, reserved);
+    if (found) return found;
+  } else {
+    const slug = form.elements.slug, s = slug.value.trim();
+    if (!s && slugRequired) return [slug, "A short link needs a slug."];
+    if (s && !SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
+    if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+  }
   if (dateWhenOn && !expires.disabled && !expires.value) return [expires, "Pick the last day the link should work, or switch the expiry off."];
-  // min = today (UTC), set by the server; an unchanged date may stay even if it has passed
-  if (!expires.disabled && expires.value && expires.min && expires.value < expires.min && expires.value !== expires.defaultValue)
-    return [expires, "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC)."];
+  return null;
+}
+
+// Slug part of the "New link" form: a custom slug, or the alphabet and length to generate one from.
+function generatorProblem(form, reserved) {
+  if (form.elements.slug_mode.value === "custom") {
+    const slug = form.elements.slug, s = slug.value.trim();
+    if (!s) return [slug, "Enter a slug, or switch to Generate."];
+    if (!SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
+    if (reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+    return null;
+  }
+  if (form.elements.alphabet.value === "custom") {
+    const field = form.elements.alphabet_custom, chars = [...new Set(field.value)];
+    if (chars.length < 2 || !chars.every((c) => /[A-Za-z0-9_-]/.test(c)) || !chars.some((c) => /[A-Za-z0-9]/.test(c)))
+      return [field, "Custom alphabet: at least 2 different letters, digits, - or _."];
+  }
+  const length = form.elements.namedItem("length"), n = Number(length.value);       // (elements.length is the collection's size)
+  const min = Number(form.dataset.minLength), max = Number(form.dataset.maxLength);
+  if (!Number.isInteger(n) || n < min || n > max) return [length, `Length must be between ${min} and ${max}.`];
   return null;
 }
 
 // Put a message into a card's .notices container (same markup the server renders).
-function showNotice(id, message, kind = "error") {
+function showNotice(id, message, kind = "error") {          // kind: "error", "warn" or "ok"
   const box = document.getElementById(id);
   if (!box) return;
   const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" }).getAttribute("href").split("#")[0];
   const p = document.createElement("p");
-  p.className = kind === "error" ? "form-error" : "form-ok";
-  p.setAttribute("role", kind === "error" ? "alert" : "status");
-  p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${kind === "error" ? "alert" : "check"}"/></svg>`;
+  p.className = kind === "error" ? "form-error" : kind === "warn" ? "form-warn" : "form-ok";
+  p.setAttribute("role", kind === "ok" ? "status" : "alert");
+  p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${kind === "ok" ? "check" : "alert"}"/></svg>`;
   const span = document.createElement("span");
   span.textContent = message;
   p.append(span);
@@ -110,26 +133,100 @@ function showNotice(id, message, kind = "error") {
 }
 
 // ---- Is this the usual https://domain.tld/path shape? ----
-// Returns a list of short reasons why a (valid http/https) URL looks unusual; empty = nothing to warn about.
+// Returns short reasons why a (valid http/https) URL looks unusual; empty = nothing to warn about.
 function unusualUrl(value) {
   const text = value.trim();
   let url;
   try { url = new URL(text); } catch { return []; }          // invalid URLs are errors, handled elsewhere
   const reasons = [];
   const host = url.hostname;
-  if (url.protocol === "http:") reasons.push("it uses http:// instead of https://");
-  if (/\s/.test(text)) reasons.push("it contains spaces");
-  if (url.username || url.password) reasons.push("it contains a username or password");
+  if (url.protocol === "http:") reasons.push("uses http");
+  if (/\s/.test(text)) reasons.push("has spaces");
+  if (url.username || url.password) reasons.push("has a login");
   if (host.startsWith("[") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-    reasons.push("the host is an IP address, not a domain name");
+    reasons.push("is an IP address");
   } else if (!host.includes(".")) {
-    reasons.push(`the host "${host}" has no domain ending like .com`);
+    reasons.push("has no domain ending");
   } else {
     const tld = host.replace(/\.$/, "").split(".").pop();
-    if (!/^(xn--[a-z0-9-]+|[a-z]{2,})$/i.test(tld)) reasons.push(`the domain ending ".${tld}" looks unusual`);
+    if (!/^(xn--[a-z0-9-]+|[a-z]{2,})$/i.test(tld)) reasons.push("has an odd ending");
   }
-  if (url.port) reasons.push(`it contains a port number (:${url.port})`);
+  if (url.port) reasons.push("has a port");
   return reasons;
+}
+
+const joinList = (items) => (items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0] || "");
+
+// Does another link already point to this address? Asked just before sending (and only for a new or changed address).
+function alreadyShortened(slugs, count) {
+  if (!slugs.length) return "Target already shortened by someone else.";
+  const shown = slugs.slice(0, 3), more = count - shown.length;
+  return `Target already shortened: ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
+}
+
+function needsLookup(form) {
+  const target = form.elements.target, url = target.value.trim();
+  return Boolean(form.dataset.lookup) && url !== target.defaultValue.trim() && form.dataset.dupFor !== url;
+}
+
+// Asks the server, remembers the answer on the form (keyed by the address) and sends the form again.
+// A failed lookup never blocks anything: it just counts as "no duplicate".
+async function lookupThenResubmit(form) {
+  const url = form.elements.target.value.trim();
+  if (form.dataset.lookingUp === url) return;               // already asking (e.g. a double click)
+  form.dataset.lookingUp = url;
+  let answer = { count: 0, slugs: [] };
+  try {
+    const query = new URLSearchParams({ target: url });
+    if (form.dataset.exclude) query.set("exclude", form.dataset.exclude);
+    const res = await fetch(`${form.dataset.lookup}?${query}`, { credentials: "same-origin" });
+    if (res.ok) answer = await res.json();
+  } catch {}
+  delete form.dataset.lookingUp;
+  if (form.elements.target.value.trim() !== url) return;     // the user changed it meanwhile
+  form.dataset.dupFor = url;
+  form.dataset.dupCount = String(answer.count);
+  form.dataset.dupSlugs = JSON.stringify(answer.slugs);
+  form.requestSubmit();
+}
+
+// Things worth a second look but not wrong: an unusual address and an expiry in the past. Unchanged values stay quiet.
+function linkWarnings(form) {
+  const notes = [], fields = [];
+  const target = form.elements.target, expires = form.elements.expires_at;
+  const url = target.value.trim();
+  if (url !== target.defaultValue.trim() && form.dataset.dupFor === url && Number(form.dataset.dupCount) > 0) {
+    notes.push(alreadyShortened(JSON.parse(form.dataset.dupSlugs || "[]"), Number(form.dataset.dupCount)));
+    fields.push(target);
+  }
+  if (url !== target.defaultValue.trim()) {
+    const reasons = unusualUrl(url);
+    if (reasons.length) { notes.push(`Unusual address: ${joinList(reasons)}.`); fields.push(target); }
+  }
+  if (!expires.disabled && expires.value && expires.value !== expires.defaultValue && expires.value < new Date().toISOString().slice(0, 10)) {
+    notes.push("Expiry date is in the past."); fields.push(expires);
+  }
+  return { notes, fields };
+}
+
+// Warn once per combination of values; sending the same thing again goes through. True = the submit was stopped.
+function warnFirst(form, event, verb, show) {
+  [...form.elements].forEach((el) => el.removeAttribute("data-warn"));
+  const { notes, fields } = linkWarnings(form);
+  const signature = JSON.stringify([form.elements.target.value.trim(), form.elements.expires_at.value]);
+  if (!notes.length || form.dataset.warned === signature) return false;
+  event.preventDefault();
+  form.dataset.warned = signature;
+  fields.forEach((el) => el.setAttribute("data-warn", ""));
+  show(`${notes.join(" ")} Press ${verb} again to continue.`);
+  fields[0].focus();
+  return true;
+}
+
+function forgetWarning(form) {
+  delete form.dataset.warned;
+  delete form.dataset.dupFor; delete form.dataset.dupCount; delete form.dataset.dupSlugs;
+  [...form.elements].forEach((el) => el.removeAttribute("data-warn"));
 }
 
 // ---- New link form: check it before it is sent, keep what was typed ----
@@ -140,15 +237,17 @@ function unusualUrl(value) {
   if (!form) return;
   const box = document.getElementById("new-link-error");
   const reserved = (form.dataset.reserved || "").split(",").filter(Boolean);
-
-  function problem() {
-    return linkProblem(form, { reserved });
-  }
+  const alphabets = JSON.parse(form.dataset.alphabets || "{}");
+  const preview = form.querySelector(".alphabet-preview");
+  const PREFS = "dero.generator";
+  const modeOf = () => form.elements.slug_mode.value;
+  const lengthField = () => form.elements.namedItem("length");
 
   function show(message, kind = "error") {
     box.replaceChildren();
     box.className = kind === "warn" ? "form-warn" : "form-error";
     if (!message) return;
+    document.getElementById("new-link-notices")?.replaceChildren();   // an old "Created ..." would read as part of this message
     const icon = document.querySelector("svg.icon use");
     const sprite = icon ? icon.getAttribute("href").split("#")[0] : "";
     box.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#alert"/></svg>`;
@@ -157,22 +256,46 @@ function unusualUrl(value) {
     box.append(span);
   }
 
+  // Generate or provide the slug: only the fields of the chosen mode are shown.
+  function syncGenerator() {
+    const mode = modeOf(), alphabet = form.elements.alphabet.value;
+    form.querySelectorAll("[data-when]").forEach((el) => (el.hidden = el.dataset.when !== mode));
+    form.querySelectorAll("[data-when-alphabet]").forEach((el) => (el.hidden = el.dataset.whenAlphabet !== alphabet));
+    const chars = alphabet === "custom" ? [...new Set(form.elements.alphabet_custom.value)].join("") : alphabets[alphabet] || "";
+    preview.textContent = chars;
+    preview.hidden = !chars;
+  }
+
+  function savePrefs() {                       // the choice is remembered in this browser
+    try {
+      localStorage.setItem(PREFS, JSON.stringify({
+        mode: modeOf(), alphabet: form.elements.alphabet.value,
+        custom: form.elements.alphabet_custom.value, length: lengthField().value,
+      }));
+    } catch {}
+  }
+
+  function loadPrefs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PREFS) || "null");
+      if (!saved) return;
+      const radio = form.querySelector(`input[name=slug_mode][value="${saved.mode}"]`);
+      if (radio) radio.checked = true;
+      if ([...form.elements.alphabet.options].some((o) => o.value === saved.alphabet)) form.elements.alphabet.value = saved.alphabet;
+      form.elements.alphabet_custom.value = saved.custom || "";
+      if (saved.length) lengthField().value = saved.length;
+    } catch {}
+  }
+
+  if (form.dataset.fresh === "yes") loadPrefs();   // after a rejected submit the server's values win
+  syncGenerator();
+
   form.addEventListener("submit", (event) => {
     form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
-    form.elements.target.removeAttribute("data-warn");
-    const found = problem();
+    const found = linkProblem(form, { reserved, generator: true });
     if (!found) {
-      // Valid. An unusual-looking address gets one warning first; sending it again (same address) goes through.
-      const value = form.elements.target.value.trim(), reasons = unusualUrl(value);
-      if (reasons.length && form.dataset.warned !== value) {
-        event.preventDefault();
-        form.dataset.warned = value;
-        form.elements.target.setAttribute("data-warn", "");
-        show(`This doesn't look like a usual https://domain.tld/path address: ${reasons.join(", ")}. ` +
-             `Check it, or press Create again to add it as it is.`, "warn");
-        form.elements.target.focus();
-        return;
-      }
+      if (needsLookup(form)) { event.preventDefault(); lookupThenResubmit(form); return; }
+      if (warnFirst(form, event, "Create", (message) => show(message, "warn"))) return;
       return show("");                    // let the browser send it
     }
     event.preventDefault();               // invalid: nothing is sent, nothing is cleared
@@ -182,17 +305,20 @@ function unusualUrl(value) {
     field.focus();
   });
 
-  function forgetWarning() {
-    delete form.dataset.warned;
-    form.elements.target.removeAttribute("data-warn");
-  }
-
   form.addEventListener("input", (event) => {
     event.target.removeAttribute("aria-invalid");
     show("");
-    if (event.target === form.elements.target) forgetWarning();     // a different address deserves a new look
+    const name = event.target.name;
+    if (name === "target" || name === "expires_at") forgetWarning(form);    // a different value deserves a new look
+    if (["slug_mode", "alphabet", "alphabet_custom", "length"].includes(name)) { syncGenerator(); savePrefs(); }
   });
-  form.addEventListener("reset", forgetWarning);
+  form.addEventListener("change", (event) => {            // radios and the select report `change`
+    if (["slug_mode", "alphabet"].includes(event.target.name)) { syncGenerator(); savePrefs(); }
+  });
+  form.addEventListener("reset", () => {
+    forgetWarning(form);
+    setTimeout(() => { loadPrefs(); syncGenerator(); }, 0);   // reset restores the defaults; the remembered choice comes back
+  });
 })();
 
 // ---- Filters apply by themselves ----
@@ -352,6 +478,7 @@ document.addEventListener("input", (event) => {
   const form = editFormOf(event.target);
   if (!form) return;
   event.target.removeAttribute("aria-invalid");
+  if (event.target.name === "target" || event.target.name === "expires_at") forgetWarning(form);
   syncEdit(form);
 });
 
@@ -361,6 +488,7 @@ document.addEventListener("click", (event) => {
   const form = document.getElementById(discard.dataset.discard);
   form.reset();                                            // back to what is saved (reaches the inputs with form="")
   document.querySelectorAll(`[form="${form.id}"][aria-invalid]`).forEach((el) => el.removeAttribute("aria-invalid"));
+  forgetWarning(form);
   syncEdit(form);
 });
 
@@ -375,7 +503,11 @@ document.addEventListener("submit", (event) => {
     slugRequired: true,
     dateWhenOn: true,
   });
-  if (!found) return;
+  if (!found) {
+    if (needsLookup(form)) { event.preventDefault(); lookupThenResubmit(form); return; }
+    warnFirst(form, event, "Update", (message) => showNotice("links-notices", message, "warn"));
+    return;
+  }
   event.preventDefault();
   const [field, message] = found;
   field.setAttribute("aria-invalid", "true");
@@ -446,7 +578,7 @@ document.addEventListener("change", (event) => {
           form.reset();
         } else {
           for (const bad of doc.querySelectorAll("#new-link [aria-invalid]")) {
-            const mine = form.elements[bad.name];
+            const mine = form.elements.namedItem(bad.name);       // (not elements[name]: "length" is the collection's size)
             if (mine) { mine.setAttribute("aria-invalid", "true"); mine.focus(); }
           }
           return;

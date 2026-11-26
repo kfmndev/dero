@@ -52,6 +52,12 @@ Everyone who can reach `/admin` is an admin, recorded as `NONE_USER`. Only use t
 
 dero then trusts the identity headers (`Remote-User`, `Remote-Groups`) set by your proxy and does no password checking itself, so it **must only be reachable through that proxy** (don't publish its port; `PROXY_SECRET` adds a second lock). Examples for Caddy + Authelia are in [`deploy/`](deploy). Members of the group `dero-users` manage their own links, `dero-admins` everything.
 
+## 🔤 Slugs and warnings
+
+- **Generate or provide:** the New link form toggles between *Generate* and *Custom*. Generated slugs use the **Default** alphabet (letters and digits without look-alikes: `abcdefghjkmnpqrstuvwxyz23456789`), **Letters only** (`a–z`) or your own **Custom** characters, with a length of 3 to 32 (default 5). The choice is remembered in the browser.
+- **Readable slugs:** in the table, digits are blue and symbols red (like Bitwarden shows passwords), letters stay plain.
+- **Warnings, not walls:** an unusual address (http, no domain ending, IP address, port, login, spaces), an address that already has a short link, or an expiry date in the past gets a short warning; press Create (or Update) again to go ahead. Clearly invalid input is still refused.
+
 ## 🧩 Pattern rules
 
 Admin-only. Rules apply after exact links and are tried by ascending priority.

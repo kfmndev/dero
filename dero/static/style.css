@@ -578,3 +578,29 @@ input.url-input { font-family: var(--font-mono); font-size: 13px; }   /* beats t
 
 /* ---- dero: localized times (the original UTC text is the tooltip) ---- */
 time.localtime { cursor: help; text-decoration: underline dotted var(--border); text-underline-offset: 4px; }
+
+/* ---- dero: new link form (target, expiry, and generate-or-provide the slug) ---- */
+.new-link { display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.nl-row { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: flex-end; }
+.nl-row > .grow { flex: 1 1 18rem; min-width: 0; }
+.nl-row label { margin: 0; font-size: 13px; }
+.nl-row label input, .nl-row label select { margin-top: 4px; }
+.nl-row input[type="date"] { width: auto; }
+.nl-gen { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: flex-end; }
+.nl-length input { width: 5.5rem; }
+.nl-chars input { width: 13rem; }
+.alphabet-preview { align-self: center; max-width: 26rem; font: 12px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; padding-top: 18px; }
+.field-label { display: block; margin: 0 0 4px; font-weight: 600; font-size: 13px; }
+
+/* segmented toggle: two radio buttons that look like one control */
+.segmented { display: inline-flex; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
+.segmented label { position: relative; display: flex; margin: 0; }
+.segmented input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.segmented span { display: flex; align-items: center; padding: 0 14px; font: 600 12px/1 var(--font-head); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.segmented input:checked + span { background: var(--card); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+.segmented label:hover span { color: var(--text); }
+.segmented label:has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+/* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain */
+.hl-digit { color: var(--accent-ink); }
+.hl-symbol { color: var(--err); }
