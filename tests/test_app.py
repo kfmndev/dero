@@ -422,7 +422,9 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
     assert (
         "<code>s.example.com</code>" in html
-        and 'Link created <span class="base">https://s.example.com/</span><code class="slug">abc</code>' in html
+        and 'Link created <code class="urlbox"><span class="base">https://s.example.com/</span>'
+        '<code class="slug">abc</code>'
+        in html
     )
     assert "localhost" not in html
 
@@ -901,7 +903,7 @@ def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
         p,
     )
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert css_rule(css, ".confirm-urls code.slug")["font-size"] == "0.8125rem" and "rotate(90deg)" in css
+    assert css_rule(css, ".confirm-urls code.slug")["font-size"] == "var(--slug-size)" and "rotate(90deg)" in css
     assert (
         css_rule(css, ".slug-group input.url-input")["font-family"] == "var(--font-mono)"
     )  # only the slug field is mono
@@ -1790,8 +1792,8 @@ def test_slugs_look_the_same_in_every_message(client, app):
     post(client, "/admin/links", USER, target="https://example.com/c", slug="c2.d")  # created message
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert (
-        'Link created <span class="base">http://localhost/</span><code class="slug">c<span class="hl-digit">2</span>'
-        '<span class="hl-symbol">.</span>d</code>' in page
+        'Link created <code class="urlbox"><span class="base">http://localhost/</span>'
+        '<code class="slug">c<span class="hl-digit">2</span><span class="hl-symbol">.</span>d</code>' in page
     )
     js = js_source(client)
     assert "function slugBox" in js and "function setRich" in js
@@ -2019,3 +2021,23 @@ def test_the_page_scales_with_one_root_size_and_the_search_bar_keeps_its_pixel_g
         r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css
     )
     assert "media (max-width: 760px)" in css  # breakpoints stay in pixels
+
+
+def test_slugs_share_one_smaller_mono_size_everywhere(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    size = re.search(r"--slug-size: ([\d.]+rem)", css)
+    assert size and float(size.group(1)[:-3]) < 0.8125  # mono looks bigger than the text at the same size
+    # the box, the coloured copy behind the input and the input itself must have the very same size
+    assert css_rule(css, "code.slug")["font-size"] == "var(--slug-size)"
+    assert css_rule(css, ".slug-group input.url-input")["font-size"] == "var(--slug-size)"
+    assert css_rule(css, ".slug-hl code.slug")["font-size"] == "var(--slug-size)" and "font: var(--slug-size)" in css
+
+
+def test_every_icon_has_the_same_line_width_whatever_its_size(client):
+    sprite = client.get("/static/icons.svg").get_data(as_text=True)
+    assert 'stroke-width="' not in sprite  # no icon draws its own width
+    assert sprite.count("var(--icon-line, 1.4px)") == sprite.count("<symbol")  # all take the one setting
+    shapes = re.findall(r"<(?:circle|path|line|rect|polyline|polygon|ellipse)\b[^>]*>", sprite)
+    assert shapes and all('vector-effect="non-scaling-stroke"' in shape for shape in shapes)  # not scaled with the icon
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert "--icon-line: 1.4px" in css

@@ -23,7 +23,7 @@
       {%- else %}<span>Nothing to update</span><span>·</span>{{ m.slug|slug_box }}<span>is unchanged</span>{% endif %}
       {%- for label, value in m.changes %}<span>· {{ label }}</span>
         {%- if value and label == 'expires' %}{{ expiry_day(value) }}
-        {%- elif value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}
+        {%- elif value %}<code class="urlbox cut" title="{{ value }}">{{ value }}</code>{% endif %}
       {%- endfor -%}
     </span>
   </p>

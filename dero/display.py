@@ -65,11 +65,17 @@ def target_box(url: str) -> Markup:
 
 
 def highlight_url(url: str) -> Markup:
-    """A short link: the base address in the normal font, the slug in its box."""
+    """A short link in one code box: the base address plain, the slug in a box of its own (the only part coloured)."""
     base = base_url()
 
     if url.startswith(base) and len(url) > len(base):
-        return Markup('<span class="base">') + escape(base) + Markup("</span>") + slug_box(url[len(base) :])
+        return (
+            Markup('<code class="urlbox"><span class="base">')
+            + escape(base)
+            + Markup("</span>")
+            + slug_box(url[len(base) :])
+            + Markup("</code>")
+        )
 
     return escape(url)
 

@@ -57,6 +57,8 @@
   --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-head: "Hubot Sans", "Geist", system-ui, sans-serif;
   --control-h: 1.875rem;
+  --icon-line: 1.4px; /* the line width of every icon, whatever its size (the sprite does not scale it) */
+  --slug-size: 0.72rem; /* a slug (mono) at the same visual size as the text around it: mono looks bigger at the same size */
   --label-gap: 0.25rem; /* between a label and its field, in every form */
   --label-lh: 1.4; /* one line height for every label */
   --field-gap: 0.75rem; /* between fields in a row, both directions */
@@ -1141,12 +1143,37 @@ option {
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
 code.slug {
-  font-size: 0.8125rem;
+  font-size: var(--slug-size);
   color: var(--text);
 } /* the compact short link keeps the highlight */
 .url {
   font-size: 0.8125rem;
 } /* URLs use the normal font; short links (and query syntax) add .mono */
+/* an address in a toast: one code box. A short link has its slug in a box inside it, with a tint of its own, and only
+   that part is coloured; the base address and any other address stay plain. */
+code.urlbox {
+  display: inline-block;
+  padding: 0 0.4rem;
+  font-size: var(--slug-size);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: middle;
+}
+code.urlbox:has(> code.slug) {
+  padding-right: 0; /* the slug part runs to the edge on the other sides */
+}
+code.urlbox .base {
+  color: var(--muted);
+}
+code.urlbox > code.slug {
+  display: inline-block;
+  margin: -1px -1px -1px 0.2rem; /* over the border of the outer box: a block that ends at its edge */
+  padding: 1px 0.4rem;
+  border: 0;
+  border-radius: 0.1875rem 0.25rem 0.25rem 0.1875rem;
+  background: color-mix(in srgb, var(--accent-2) 20%, var(--field));
+}
 .url.wrap {
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1281,7 +1308,7 @@ input.url-input {
   overflow-wrap: anywhere;
 } /* the base address: normal font, like in the details */
 .confirm-urls code.slug {
-  font-size: 0.8125rem;
+  font-size: var(--slug-size);
 }
 .confirm-urls #confirm-detail {
   color: var(--text);
@@ -1869,7 +1896,7 @@ th.col-target {
   width: 9px;
   height: 9px;
   vertical-align: 0;
-  stroke-width: 2.5;
+  --icon-line: 1.1px; /* a small x needs a thinner line */
 }
 .qx:hover,
 .qx:focus-visible {
@@ -1984,7 +2011,7 @@ tr.detail .notices .form-ok {
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
-  font: 0.8125rem var(--font-mono);
+  font: var(--slug-size) var(--font-mono);
   color: var(--text);
 }
 .slug-edit.hl-ready .slug-hl {
@@ -2078,7 +2105,7 @@ dialog p.setting-note {
 #new-link-slug .slug-hl code.slug,
 #new-link-slug .slug-hl code.slug:empty {
   display: inline-block;
-  min-width: 6ch;
+  min-width: 7ch; /* wide enough for the placeholder 'my-link' */
   height: 1.5em; /* an empty box is as tall as one with text, and the text sits in the middle of it */
   line-height: 1.5;
   box-sizing: content-box;
@@ -2108,7 +2135,7 @@ dialog p.setting-note {
   height: 22px;
   margin: 0;
   padding: 0 5px;
-  font-size: 0.8125rem;
+  font-size: var(--slug-size);
 }
 .slug-edit input.url-input {
   padding-left: 6px;
@@ -2208,6 +2235,7 @@ details.multi > summary {
 }
 .slug-group input.url-input {
   font-family: var(--font-mono);
+  font-size: var(--slug-size);
 } /* the slug field is the one mono input */
 
 /* every cell of a row centres what it holds, so the switch, slug, icons and clock share one middle line */
