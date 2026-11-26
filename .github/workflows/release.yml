@@ -1,4 +1,4 @@
-# A pushed tag v1.2.3 becomes a GitHub release. The tag must match VERSION in dero/version.py and the version in
+# A pushed tag v1.2.3 becomes a GitHub release. The tag must match the version in
 # pyproject.toml; the notes are written from the conventional commits since the previous tag (cliff.toml).
 # The Docker image is published by docker.yml.
 name: Release
@@ -16,12 +16,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # the notes need the history back to the previous tag
-      - name: The tag matches the version in the code
+      - name: The tag matches pyproject.toml
         run: |
-          in_code=$(sed -n 's/^VERSION = "\(.*\)"$/\1/p' dero/version.py)
-          in_project=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
-          if [ "$GITHUB_REF_NAME" != "v$in_code" ] || [ "$GITHUB_REF_NAME" != "v$in_project" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME, VERSION \"$in_code\" in dero/version.py and version \"$in_project\" in pyproject.toml must agree"
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version = \"$version\" in pyproject.toml"
             exit 1
           fi
       - run: pip install -r .github/requirements-release.txt # git-cliff; a file so Dependabot can update it

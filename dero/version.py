@@ -1,5 +1,7 @@
 """Version and build information shown in the page footer.
 
+The version is read from pyproject.toml.
+
 The commit is taken from the DERO_COMMIT environment variable if set (for
 builds without a .git folder, e.g. a Docker image built with
 --build-arg DERO_COMMIT=$(git rev-parse HEAD)), otherwise from git.
@@ -10,15 +12,28 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-VERSION = "0.1.0"
 REPO_URL = "https://github.com/kfmndev/dero"
 
 ROOT = Path(__file__).resolve().parent
 _HASH = re.compile(r"^[0-9a-f]{7,40}$")
+
+
+def _project_version() -> str:
+    """The version in pyproject.toml, the one place it is written down ("unknown" if the file is missing)."""
+    try:
+        project = tomllib.loads((ROOT.parent / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return "unknown"
+
+    return str(project.get("project", {}).get("version", "unknown"))
+
+
+VERSION = _project_version()
 
 
 @dataclass(frozen=True)
