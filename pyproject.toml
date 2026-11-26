@@ -14,3 +14,8 @@ select = ["E", "W", "F", "I", "D1"]
 [tool.pyrefly]
 # the app is checked; the tests are left out for now
 project-includes = ["dero"]
+
+[tool.pytest.ini_options]
+# `pytest` (unlike `python -m pytest`) does not put the project folder on the import path
+pythonpath = ["."]
+testpaths = ["tests"]
