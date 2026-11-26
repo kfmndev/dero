@@ -1620,9 +1620,18 @@ details.multi.custom .multi-label {
   padding-right: 3px;
   margin-right: calc(-3px - var(--hair, 1px));
 }
-.qex:has(.q-term) {
+.qex:has(.q-term),
+.qex:has(.q-op),
+.qex:has(.q-paren) {
   margin-right: 0;
-} /* a chip's box reaches 2px further than a pill's: 4px between boxes either way */
+} /* a chip's background reaches 1px beyond its box, a pill's outline is inside it: the space between a pill and what
+     follows is 2px (1px of word spacing and of margin each) less, so that all gaps look the same */
+.qex:has(.q-op, .q-paren) {
+  word-spacing: 7px;
+}
+.qex .q-paren.q-open.q-pill {
+  margin-right: calc(-6px - var(--hair, 1px));
+} /* the space after an opening parenthesis is a fixed em, which would be wider than the rest */
 .qex:has(.q-empty) {
   margin: 0 7px 0 4px;
 } /* its dashed outline lies outside the box */
