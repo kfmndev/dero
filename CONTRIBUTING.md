@@ -4,57 +4,87 @@
 
 ```sh
 python -m venv .venv
-.venv/bin/pip install -r requirements.txt pytest
+.venv/bin/pip install -r requirements-dev.txt   # the app, pytest, Ruff and Pyrefly
 .venv/bin/pytest
 ```
 
 ## Commit messages
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+This project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Every commit has a
+type and a scope:
 
 ```
-<type>(<optional scope>): <short summary in imperative mood>
+<type>(<scope>): <short summary in imperative mood>
 ```
 
 | Type | Use for |
 | --- | --- |
-| `feat` | a new feature |
+| `feat` | a new feature or a visible change of behaviour or design |
 | `fix` | a bug fix |
-| `docs` | documentation only |
+| `docs` | documentation, including docstrings |
 | `test` | adding or fixing tests |
 | `refactor` | code change that neither fixes a bug nor adds a feature |
-| `chore` | maintenance, dependencies, tooling, CI |
+| `style` | formatting only (whitespace, line breaks, import order): the code means the same afterwards |
+| `perf` | a change that makes something faster |
+| `build` | the Docker image, dependencies |
+| `ci` | the GitHub Actions workflow |
+| `chore` | other maintenance and tooling |
+| `revert` | undoing an earlier commit |
 
-Breaking changes are marked with `!` after the type (`feat!: ...`) or a `BREAKING CHANGE:` footer.
+A change of how the app looks is a `feat` or a `fix`, not a `style`: in this convention `style` is about the
+formatting of the code.
 
-Examples: `feat(rules): add regex match type`, `fix: reject javascript: targets`.
+Scopes name the area: `ui` (layout, spacing, components), `search` (the search language and bar), `links`
+(the table and the details), `slugs`, `live`, `rules`, `auth`, `forms`, `deploy` (Docker, compose, Caddy),
+`python`, `types`, `static` (the scripts and the stylesheet as files), `tooling`, `ci`, `docs`, `tests`.
+Add a new one when none fits.
+
+Breaking changes are marked with `!` after the scope (`feat(rules)!: ...`) or a `BREAKING CHANGE:` footer.
+
+Examples: `feat(rules): add regex match type`, `fix(forms): reject javascript: targets`,
+`style(python): wrap long lines`.
 
 ## Code style
 
-Python is formatted and checked with [Ruff](https://docs.astral.sh/ruff/) at 120 columns (settings in
-`pyproject.toml`; it formats like black and also sorts imports). Before committing:
+Everything is formatted to 120 columns. The setting lives in `pyproject.toml` (Ruff) and `biome.jsonc` (Biome);
+the stylesheet, scripts and templates follow it too.
+
+**Python** is formatted and checked with [Ruff](https://docs.astral.sh/ruff/) (it formats like black, sorts
+imports and replaces flake8) and type-checked with [Pyrefly](https://pyrefly.org/):
 
 ```bash
-pip install -r requirements-dev.txt
 ruff format dero tests
 ruff check dero tests
+pyrefly check
 pytest
 ```
 
+Every function in `dero/` has a docstring and type hints (tests are exempt for now). Ruff checks the docstrings of
+public names; `tests/test_style.py` also covers the private helpers and the hints.
+
 Blank lines structure a function: one before an `if`, `for`, `try` or `with` that follows other statements, and
 before a closing `return` in a longer block. Long functions are split instead of padded.
+
+**Scripts and stylesheet** (`dero/static/js`, `dero/static/style.css`) are formatted and linted with
+[Biome](https://biomejs.dev/). Install it from npm (`npm install --global @biomejs/biome`) or as a standalone
+binary, then run `biome ci` to check or `biome check --write` to fix.
+
+**Templates** (`dero/templates`) are Jinja, which the formatters above would damage, so they are formatted by
+hand: attributes wrap one per line, repeated markup lives in macros (`_macros.html`), and where a line breaks
+between inline elements the template uses `{{-` or `{%-` so no stray space appears in the page.
+
+**CI**: `.github/workflows/ci.yml` runs the Ruff, Pyrefly and Biome checks and the tests on every push to `main`
+and on pull requests.
 
 ## Code layout
 
 - `dero/__init__.py` – the app factory only. Around it: `forms.py` (reading the New link and edit forms: slugs,
   expiry), `display.py` (how slugs and short links are drawn: the template filters), `urls.py` (the public base
-  address), `query.py` (the search language), `resolve.py` (slugs, URLs and rules), `auth.py`, `db.py`, `passwd.py`
-  (users and storage).
+  address), `query.py` (the search language), `resolve.py` (slugs, URLs and rules), `types.py` (what a view returns),
+  `auth.py`, `db.py`, `passwd.py` (users and storage).
 - `dero/admin/` – the admin UI as a blueprint: `links.py` (list, create, edit, delete), `live.py` (the live-visits
   stream), `rules.py` (pattern rules and the fallback), `listing.py` (building the links page), `helpers.py`.
-- `dero/templates/` – Jinja pages. Lines stay under about 120 characters: attributes wrap one per line, and
-  repeated markup lives in macros (`_macros.html`). Where a template breaks a line between inline elements it uses
-  `{{-` / `{%-` so no stray space appears in the page.
+- `dero/templates/` – Jinja pages, formatted by hand (see Code style).
 - `dero/static/style.css` – one stylesheet in commented sections (see the note at its top: the order of rules matters).
 - `dero/static/js/` – the page's scripts. They are plain scripts that share one scope and are listed in
   `templates/base.html`, **in load order** (later files use the functions of earlier ones):
