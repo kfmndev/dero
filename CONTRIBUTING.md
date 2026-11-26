@@ -29,6 +29,32 @@ Breaking changes are marked with `!` after the type (`feat!: ...`) or a `BREAKIN
 
 Examples: `feat(rules): add regex match type`, `fix: reject javascript: targets`.
 
+## Code layout
+
+- `dero/__init__.py` – the app factory and the admin routes; `query.py` – the search language; `resolve.py` – slugs, URLs
+  and rules; `auth.py`, `db.py`, `passwd.py` – users and storage.
+- `dero/templates/` – Jinja pages; `dero/static/style.css` – one stylesheet, in commented sections.
+- `dero/static/js/` – the page's scripts. They are plain scripts that share one scope and are listed in
+  `templates/base.html`, **in load order** (later files use the functions of earlier ones):
+
+  | file | what it does |
+  | --- | --- |
+  | `core.js` | copy buttons, opening a link's details, local times, swapping a region of the page |
+  | `checks.js` | the checks shared by the New link form and the edit form, messages, URL warnings |
+  | `new-link.js` | the New link form: slug source, Generate, expiry switch |
+  | `search-language.js` | parser, renderer and editing helpers of the search language (mirrors `query.py`) |
+  | `filters.js` | the search bar, the dropdowns that edit the query, columns, Reset |
+  | `live.js` | Live visits (server-sent events); uses what `filters.js` hands over in `window.deroFilters` |
+  | `slugs.js` | slug colouring and the coloured slug editor |
+  | `settings.js` | the settings dialog |
+  | `confirm.js` | the delete confirmation dialog |
+  | `edit.js` | editing a link in its details |
+  | `actions.js` | sending forms without reloading the page |
+  | `dropdowns.js` | upgrades every `<select>` to the shared dropdown (runs last) |
+
+  A function that other scripts call while the page loads must live in a file that loads earlier (`refreshSelect`
+  is in `core.js` for that reason).
+
 ## Pull requests
 
 Work on a branch, keep the tests passing (`pytest`), and describe what changed and why.

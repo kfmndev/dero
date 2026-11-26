@@ -10,6 +10,14 @@ USER2 = {"Remote-User": "bob", "Remote-Groups": "dero-users"}
 ADMIN = {"Remote-User": "root", "Remote-Groups": "dero-admins,other"}
 
 
+def js_source(client):
+    """All the page's own scripts as one text: they are plain scripts listed in the base template."""
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    paths = re.findall(r'<script src="(/static/js/[^"]+)"', html)
+    assert paths, "no scripts found in the page"
+    return "\n".join(client.get(path).get_data(as_text=True) for path in paths)
+
+
 @pytest.fixture
 def app(tmp_path):
     return create_app({"DATABASE": str(tmp_path / "t.db"), "SECRET_KEY": "test", "TESTING": True,
@@ -567,7 +575,7 @@ def test_forms_are_wired_for_updates_without_reloads(client):
         assert 'id="flashes"' not in html and ".submit()" not in html and "onchange" not in html
     assert 'id="links-results"' in links and 'id="new-link-notices"' in links and 'id="new-link-error"' in links
     assert 'id="rules-results"' in rules and "data-reset-on-success" in rules
-    app_js = client.get("/static/app.js").get_data(as_text=True)
+    app_js = js_source(client)
     assert "requestSubmit" in app_js and "swapRegion" in app_js and "form.submit()" not in app_js
 
 
@@ -624,7 +632,7 @@ def test_only_the_compact_short_link_is_highlighted(client):
 def test_unusual_url_warning_is_wired(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'id="new-link-submit"' in html and "</svg>Create</button>" in html and "novalidate" in html
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function unusualUrl" in js and "data-warn" in js and "anyway" not in js    # the button keeps its verb
     assert "markSubmit" not in js and "new-link-submit use" not in js              # ... and its icon
     css = client.get("/static/style.css").get_data(as_text=True)
@@ -651,7 +659,7 @@ def test_details_layout_buttons_and_edit_form(client):
     assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
     assert re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css   # no fixed grid
     assert re.search(r"tr\.detail td \{[^}]*padding: 14px 24px 16px", css)                                                   # margins around the details
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function syncEdit" in js and "data-discard" in js and "function linkProblem" in js
 
 
@@ -751,7 +759,7 @@ def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"\.confirm-urls code\.slug \{ font-size: 13px; \}", css) and "rotate(90deg)" in css
     assert re.search(r"input\.url-input \{ font-family: var\(--font-mono\)", css)                    # URL inputs are mono
-    assert "→" not in client.get("/static/app.js").get_data(as_text=True)                    # the arrow is an icon now
+    assert "→" not in js_source(client)                    # the arrow is an icon now
 
 
 def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(client, app):
@@ -760,7 +768,7 @@ def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     original = created.replace("T", " ").replace("Z", " UTC")
     assert f'<time class="localtime" datetime="{created}" title="{original}">{created[:16].replace("T", " ")}</time>' in html   # date and time without JavaScript, the UTC moment on hover
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function localizeTimes" in js and js.count("localizeTimes()") >= 2                           # on load and after table swaps
 
 
@@ -870,7 +878,7 @@ def test_collapsed_row_uses_the_highlight(client):
 
 # ---------------------------------------------------------------- warnings stay short
 def test_warning_texts_are_brief(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "Unusual address:" in js and "Expiry date is in the past." in js and "again to continue" in js
     assert "won't work" not in js and "(:" not in js and "odd ending (" not in js                  # no explanations, no values in parentheses
     assert "doesn't look like a usual" not in js and "dead on arrival" not in js and "Check it, or press" not in js   # the long wordings are gone
@@ -934,7 +942,7 @@ def test_forms_know_where_to_look_up_and_the_warning_is_brief(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert html.count('data-lookup="/admin/links/lookup"') == 2                       # the new-link form and the edit form
     assert 'data-exclude="1"' in html                                                  # an edit never counts its own link
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function alreadyShortened" in js and "Target already shortened" in js and "by someone else" in js
     assert "function lookupThenResubmit" in js and "needsLookup(form)" in js
 
@@ -1035,7 +1043,7 @@ def test_slugs_may_use_any_character_a_url_does_not_need_to_escape(client, app):
         assert r.status_code == 400 and "can&#39;t be just dots" in r.get_data(as_text=True), dots              # browsers fold "/." and "/.." away
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert html.count('pattern="[A-Za-z0-9._~\\-]{1,64}"') == html.count('name="slug"') >= 2                    # the browser pattern agrees
-    assert "Slug: letters, digits and - _ . ~ only, up to 64." in client.get("/static/app.js").get_data(as_text=True)
+    assert "Slug: letters, digits and - _ . ~ only, up to 64." in js_source(client)
 
 
 # ---------------------------------------------------------------- columns the user can switch on and off
@@ -1099,7 +1107,7 @@ def test_selects_are_plain_in_the_html_and_upgraded_by_the_script(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     rules = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
     assert '<select id="filter-sort">' in html and '<select name="slug_source" id="slug-source"' in html and '<select name="match_type">' in rules   # work without JavaScript
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'document.querySelectorAll("select").forEach(upgradeSelect)' in js and "function refreshSelect" in js
     assert 'className = "multi single"' in js and 'role", "listbox"' in js                      # same details/summary component as the checkbox lists
     assert js.count('querySelectorAll("details.multi[open]")') == 2                              # one outside-click and one Escape handler for all
@@ -1108,7 +1116,7 @@ def test_selects_are_plain_in_the_html_and_upgraded_by_the_script(client):
 
 
 def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'q-term q-k-${t.key}' in js and 'q-term q-k-text' in js                               # every term kind gets its own class
     css = client.get("/static/style.css").get_data(as_text=True)
     for kind in ("text", "status", "creator", "slug", "target", "sortby"):
@@ -1151,7 +1159,7 @@ def test_new_source_field_decides_what_is_used(client):
 def test_search_bar_has_a_layer_for_the_remove_buttons(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert '<div class="qx-layer"></div>' in html
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function removePart" in js and "function drawRemovers" in js and 'className = "qx"' in js
     assert 'tabIndex = -1' in js and "Remove ${label}" in js                              # mouse helper; the keyboard edits the text
     css = client.get("/static/style.css").get_data(as_text=True)
@@ -1180,7 +1188,7 @@ def test_slug_colour_option_and_small_expiry_switch(client):
     assert re.search(r'<input name="expires_at" type="date"[^>]*disabled', html)             # off until the switch is on
     css = client.get("/static/style.css").get_data(as_text=True)
     assert 'html[data-hl="off"] .hl-digit' in css and "table.no-target td.col-slug" in css
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "dero_hl=" in js and "function coloredSlug" in js and "new-expiry-switch" in js
 def test_detail_inputs_use_card_background(client):
     css = client.get("/static/style.css").get_data(as_text=True)
@@ -1202,7 +1210,7 @@ def test_generate_button_and_settings_dialog(client):
     assert re.search(r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S)       # the user name opens the settings
     dialog = html[html.index('<dialog id="settings"'):html.index("</dialog>", html.index('<dialog id="settings"'))]
     assert 'id="hl-switch"' in dialog and "Colour slugs" in dialog and 'class="header-tools"' not in html
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function randomSlug" in js and "settings-open" in js
 
 
@@ -1217,7 +1225,7 @@ def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
     start = html.index('<span class="base">', html.index('id="new-link-notices"'))
     created = html[start:html.index("</code>", start)].rsplit(">", 1)[1]                  # the shown text (the full slug is in the title)
     assert created == "z" * 20 + "…"             # the message after creating cuts it as well
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "code.style.transform" in js                                       # only the coloured box scrolls, the clip stays put
 
 
@@ -1239,7 +1247,7 @@ def test_custom_characters_errors_name_the_problem(client):
     assert "Characters: '|', '?' and '#' can't be used" in error("ab|?#")                                           # more: commas, and before the last
     assert "Characters: '|', '?', '#', '%', '\"', '<', … can't be used" in error("ab|?#%\"<>")                         # more than six are cut
     assert "Characters: use at least 2 different ones." in error("aaaa")
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "can't be used. Allowed are letters, digits and - _ . ~" in js and "use at least 2 different ones." in js
 
 
@@ -1253,7 +1261,7 @@ def test_slugs_look_the_same_in_every_message(client, app):
     created = post(client, "/admin/links", USER, target="https://example.com/c", slug="c2.d")                 # created message
     page = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'Created <span class="base">http://localhost/</span><code class="slug">c<span class="hl-digit">2</span><span class="hl-symbol">.</span>d</code>' in page
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function slugBox" in js and "function setRich" in js
 
 
@@ -1292,7 +1300,7 @@ def test_live_option_markup(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'id="live-switch"' in html and "Live visits" in html and 'data-live-url="/admin/links/visits/stream"' in html
     assert re.search(r'<tr class="item " data-id="\d+" data-visits="\d+">', html) if 'class="item' in html else True
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "new EventSource" in js and "dero:live" in js and "function poll" not in js
     assert "tr.item.visited td" in client.get("/static/style.css").get_data(as_text=True)
 
@@ -1306,7 +1314,7 @@ def test_at_least_one_column_stays(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     menu = html[html.index('id="filter-columns"'):html.index('id="reset-filters"')]
     assert re.search(r'value="target" checked disabled>', menu) and menu.count(" disabled>") == 1       # the only one on can't be turned off
-    assert "lockLastColumn" in client.get("/static/app.js").get_data(as_text=True)
+    assert "lockLastColumn" in js_source(client)
 
 
 def test_detail_buttons_are_the_last_thing_in_the_details(client):
@@ -1332,18 +1340,18 @@ def test_query_names_follow_the_dropdowns_and_the_old_ones_still_work(client, ap
     assert new == shown(client, ADMIN, "creator=bob sortby=slug") == shown(client, ADMIN, "owner=bob sort=slug") and new
     html = client.get("/admin/", headers=ADMIN, query_string={"q": "created_by=bob"}).get_data(as_text=True)
     assert 'q-k-creator' not in html                                                   # (chips are drawn in the browser)
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'created_by: "creator"' in js and 'sort_by: "sortby"' in js and '"created_by", sortby: "sort_by"' in js
 
 
 def test_operators_get_a_remove_button_too(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function removeOperator" in js and 'dataset.kind = "operator"' in js and '.q-term, .q-group, .q-op' in js
     assert "#x" in js and 'button.textContent = "×"' not in js                       # an icon, not a text glyph
 
 
 def test_operators_stuck_to_other_tokens_are_not_highlighted(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'span(apart ? "q-op" : "q-op-tight", raw)' in js and "const gap = (other) => !other || other.kind === \"ws\"" in js
     assert ".q-op-tight" in client.get("/static/style.css").get_data(as_text=True)
 
@@ -1361,7 +1369,7 @@ def test_labels_use_hubot_sans_and_inputs_keep_the_text_font(client):
 
 
 def test_spaces_are_added_around_parentheses_while_typing(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert "function spaceOut" in js and 'event.inputType.startsWith("insert")' in js        # not when deleting
 
 
@@ -1374,12 +1382,12 @@ def test_row_cells_centre_their_content(client):
 
 
 def test_a_negated_word_keeps_its_exclamation_mark_inside_its_chip(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'word.classList.add("q-neg"); word.append(last);' in js
 
 
 def test_all_options_of_status_and_created_by_can_be_deselected(client):
-    js = client.get("/static/app.js").get_data(as_text=True)
+    js = js_source(client)
     assert 'none = checked.length === 0 && all.length > 0' in js and 'label.textContent = "None"' in js
     assert 'negated ? "!=" : "="' in js and "set.length || mine[0].negated" in js
     # what such a selection sends: everything excluded, so nothing matches

@@ -8,7 +8,19 @@
   <title>{% block title %}dero{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
-  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {#- loaded in this order, as plain scripts that share one scope: later files use the functions of earlier ones #}
+  <script src="{{ url_for('static', filename='js/core.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/checks.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/new-link.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/search-language.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/filters.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/live.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/slugs.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/settings.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/confirm.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/edit.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/actions.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/dropdowns.js') }}" defer></script>
 </head>
 <body>
 <main>

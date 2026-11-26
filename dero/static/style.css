@@ -373,7 +373,6 @@ tr.off td:last-child { opacity: 1; }
 .copy { cursor: pointer; }
 .copy.done { color: var(--accent-2-ink); border-color: var(--accent-2-ink); }
 
-.hint-inline { font-weight: 400; color: var(--muted); }
 .form-grid select { display: block; width: 100%; margin-top: 4px; }
 .hint + form { margin-top: 12px; }
 
@@ -592,7 +591,6 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 .nl-row label { margin: 0; font-size: 13px; }
 .nl-row label input, .nl-row label select { margin-top: 4px; }
 .nl-row input[type="date"] { width: auto; }
-.nl-gen { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: flex-end; }
 .nl-length input { width: 5.5rem; }
 .nl-chars input { width: 13rem; }
 .field-label { display: block; margin: 0 0 4px; font-weight: 600; font-size: 13px; }
@@ -737,7 +735,7 @@ tr.detail .slug-group input.url-input { background: transparent; }
 
 /* ---- inline notices: in the row of the field, or in the details of the link ---- */
 .nl-row > .form-error, .nl-row > .form-warn { flex: 1 0 100%; margin: 0; }
-.detail-notes, tr.detail .notices { margin-top: 2px; }
+tr.detail .notices { margin-top: 2px; }
 tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notices .form-ok { margin: 6px 0 0; }
 .note-line { display: flex; align-items: baseline; gap: 0 .45em; min-width: 0; }
 .note-line > span { flex: 0 0 auto; }
