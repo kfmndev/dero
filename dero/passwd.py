@@ -1,4 +1,5 @@
 """Create a users-file line:  python -m dero.passwd [--file users.txt] alice --role admin"""
+
 import argparse
 import getpass
 import re
@@ -43,7 +44,10 @@ def main(argv=None) -> int:
     if args.file:
         with open(args.file, "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
-        print(f"Added {args.username} ({args.role}) to {args.file}. A later line for the same user overrides an earlier one.")
+        print(
+            f"Added {args.username} ({args.role}) to {args.file}. "
+            "A later line for the same user overrides an earlier one."
+        )
     else:
         print(line)
     return 0

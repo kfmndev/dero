@@ -1,8 +1,10 @@
 """Pattern rules and the fallback address (admins only)."""
+
 from flask import flash, g, redirect, render_template, request, url_for
 
 from .. import auth, db, resolve
 from . import bp
+
 
 # ---- admin only: rules + fallback
 @bp.get("/rules")
@@ -10,6 +12,7 @@ from . import bp
 def rules():
     rows = db.get_db().execute("SELECT * FROM rules ORDER BY priority, id").fetchall()
     return render_template("rules.html", rules=rows, fallback=db.get_setting("fallback_url"))
+
 
 @bp.post("/rules")
 @auth.admin_required
@@ -25,13 +28,15 @@ def create_rule():
         except ValueError:
             raise resolve.ValidationError("Priority must be a number.")
         conn = db.get_db()
-        conn.execute("INSERT INTO rules(pattern, match_type, target, priority, created_by, created_at) "
-                     "VALUES(?,?,?,?,?,?)",
-                     (pattern, mtype, target, priority, g.user["username"], db.now_iso()))
+        conn.execute(
+            "INSERT INTO rules(pattern, match_type, target, priority, created_by, created_at) " "VALUES(?,?,?,?,?,?)",
+            (pattern, mtype, target, priority, g.user["username"], db.now_iso()),
+        )
         conn.commit()
     except resolve.ValidationError as exc:
         flash(str(exc), "rules:error")
     return redirect(url_for("admin.rules"))
+
 
 @bp.post("/rules/<int:rule_id>/priority")
 @auth.admin_required
@@ -46,6 +51,7 @@ def rule_priority(rule_id):
     conn.commit()
     return redirect(url_for("admin.rules"))
 
+
 @bp.post("/rules/<int:rule_id>/toggle")
 @auth.admin_required
 def rule_toggle(rule_id):
@@ -54,6 +60,7 @@ def rule_toggle(rule_id):
     conn.commit()
     return redirect(url_for("admin.rules"))
 
+
 @bp.post("/rules/<int:rule_id>/delete")
 @auth.admin_required
 def rule_delete(rule_id):
@@ -61,6 +68,7 @@ def rule_delete(rule_id):
     conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
     conn.commit()
     return redirect(url_for("admin.rules"))
+
 
 @bp.post("/settings/fallback")
 @auth.admin_required

@@ -1,4 +1,5 @@
 """Small helpers the admin routes share."""
+
 from flask import abort, current_app, g, redirect, request, url_for
 
 from .. import db
@@ -10,6 +11,7 @@ def back():
     if back.startswith(current_app.config["ADMIN_PATH"]) and not back.startswith("//") and "\\" not in back:
         return redirect(back)
     return redirect(url_for("admin.index"))
+
 
 def own_or_admin(link_id):
     row = db.get_db().execute("SELECT * FROM links WHERE id = ?", (link_id,)).fetchone()

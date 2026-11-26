@@ -29,6 +29,20 @@ Breaking changes are marked with `!` after the type (`feat!: ...`) or a `BREAKIN
 
 Examples: `feat(rules): add regex match type`, `fix: reject javascript: targets`.
 
+## Code style
+
+Python is formatted with [black](https://black.readthedocs.io/) at 120 columns (the setting lives in
+`pyproject.toml`) and checked with flake8 (`.flake8`). Before committing:
+
+```bash
+pip install black flake8
+black dero tests
+flake8 dero tests
+```
+
+Blank lines structure a function: one before an `if`, `for`, `try` or `with` that follows other statements, and
+before a closing `return` in a longer block. Long functions are split instead of padded.
+
 ## Code layout
 
 - `dero/__init__.py` – the app factory only. Around it: `forms.py` (reading the New link and edit forms: slugs,

@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 120
+# E203: black puts spaces around ":" in slices; the rest of the defaults stay on
+extend-ignore = E203
+exclude = .git,__pycache__,.venv

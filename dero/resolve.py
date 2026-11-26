@@ -2,6 +2,7 @@
 
 Order: exact link -> pattern rules (by priority) -> fallback URL -> 404.
 """
+
 import re
 from functools import lru_cache
 from urllib.parse import quote, urlsplit
@@ -10,7 +11,9 @@ import regex  # third-party: supports match timeouts, so a bad pattern can't han
 
 from .db import get_db, get_setting, now_iso
 
-SLUG_RE = re.compile(r"[A-Za-z0-9._~-]{1,64}")      # the characters a URL path never needs to escape (RFC 3986 "unreserved")
+SLUG_RE = re.compile(
+    r"[A-Za-z0-9._~-]{1,64}"
+)  # the characters a URL path never needs to escape (RFC 3986 "unreserved")
 PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 REGEX_TIMEOUT = 0.05  # seconds
 
@@ -25,7 +28,7 @@ def validate_slug(slug: str) -> str:
     if not SLUG_RE.fullmatch(slug):
         raise ValidationError("Slug: letters, digits and - _ . ~ only, up to 64.")
     if not slug.strip("."):
-        raise ValidationError("A slug can't be just dots.")                 # "/." and "/.." are folded away by browsers
+        raise ValidationError("A slug can't be just dots.")  # "/." and "/.." are folded away by browsers
     return slug
 
 
@@ -74,8 +77,9 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
         raise ValidationError(f"Invalid pattern: {exc}") from exc
     indices = [int(n) for n in PLACEHOLDER_RE.findall(target)]
     if any(n < 1 or n > compiled.groups for n in indices):
-        raise ValidationError(f"Target uses a placeholder the pattern doesn't capture "
-                              f"(pattern has {compiled.groups} group(s)).")
+        raise ValidationError(
+            f"Target uses a placeholder the pattern doesn't capture " f"(pattern has {compiled.groups} group(s))."
+        )
     validate_url(PLACEHOLDER_RE.sub("x", target))
 
 
@@ -83,6 +87,7 @@ def fill_target(template: str, groups: tuple) -> str:
     def sub(m):
         idx = int(m.group(1)) - 1
         return quote(groups[idx] or "", safe="/") if 0 <= idx < len(groups) else ""
+
     return PLACEHOLDER_RE.sub(sub, template)
 
 
@@ -100,8 +105,8 @@ def resolve(path: str):
     path = path.strip("/")
 
     link = db.execute(
-        "SELECT id, target FROM links WHERE slug = ? AND enabled = 1 "
-        "AND (expires_at IS NULL OR expires_at > ?)", (path, now_iso())
+        "SELECT id, target FROM links WHERE slug = ? AND enabled = 1 " "AND (expires_at IS NULL OR expires_at > ?)",
+        (path, now_iso()),
     ).fetchone()
     if link:
         db.execute("UPDATE links SET visits = visits + 1 WHERE id = ?", (link["id"],))

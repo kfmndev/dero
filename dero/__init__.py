@@ -1,14 +1,15 @@
 """dero: a small, privacy-first URL shortener. `create_app()` builds the Flask app; the pieces are
 
-    resolve.py   slugs, URLs and rules: what a request resolves to
-    query.py     the search language of the links table
-    forms.py     reading the New link / edit forms
-    display.py   how slugs and short links are drawn in pages
-    urls.py      the public base address
-    auth.py      who the user is (basic, proxy or none) and CSRF
-    db.py        the SQLite connection and settings
-    admin/       the admin UI (links, live visits, rules)
+resolve.py   slugs, URLs and rules: what a request resolves to
+query.py     the search language of the links table
+forms.py     reading the New link / edit forms
+display.py   how slugs and short links are drawn in pages
+urls.py      the public base address
+auth.py      who the user is (basic, proxy or none) and CSRF
+db.py        the SQLite connection and settings
+admin/       the admin UI (links, live visits, rules)
 """
+
 import os
 import secrets
 
@@ -43,12 +44,17 @@ def create_app(test_config=None):
     if app.config["AUTH_MODE"] not in ("basic", "proxy", "none"):
         raise RuntimeError("AUTH_MODE must be 'basic', 'proxy' or 'none'")
     if app.config["AUTH_MODE"] == "none":
-        app.logger.warning("AUTH_MODE=none: the admin UI at %s has NO authentication. "
-                           "Anyone who can reach it is an admin.", app.config["ADMIN_PATH"])
+        app.logger.warning(
+            "AUTH_MODE=none: the admin UI at %s has NO authentication. " "Anyone who can reach it is an admin.",
+            app.config["ADMIN_PATH"],
+        )
     if app.config["AUTH_MODE"] == "basic" and not auth.load_users(app.config["USERS_FILE"]):
-        app.logger.warning("No users found in %s: nobody can sign in. "
-                           "Create one with: python -m dero.passwd --file %s <name> --role admin",
-                           app.config["USERS_FILE"], app.config["USERS_FILE"])
+        app.logger.warning(
+            "No users found in %s: nobody can sign in. "
+            "Create one with: python -m dero.passwd --file %s <name> --role admin",
+            app.config["USERS_FILE"],
+            app.config["USERS_FILE"],
+        )
     db_dir = os.path.dirname(os.path.abspath(app.config["DATABASE"]))
     os.makedirs(db_dir, exist_ok=True)
     with app.app_context():

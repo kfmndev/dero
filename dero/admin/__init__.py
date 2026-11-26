@@ -1,4 +1,5 @@
 """The admin UI (a Flask blueprint; the routes are in links.py, live.py and rules.py)."""
+
 from flask import Blueprint
 
 from .. import auth

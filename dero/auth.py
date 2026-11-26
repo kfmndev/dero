@@ -4,6 +4,7 @@ AUTH_MODE=basic  HTTP Basic auth against a users file (`username:role:hash`, rol
 AUTH_MODE=none   no authentication: everyone is an admin named NONE_USER (trusted networks only!).
 AUTH_MODE=proxy  identity headers set by a reverse proxy doing SSO (e.g. Authelia forward auth).
 """
+
 import hmac
 import os
 from functools import wraps
@@ -50,9 +51,13 @@ def load_users(path: str) -> dict:
 
 
 def _unauthorized():
-    abort(Response("Authentication required.", 401,
-                   {"WWW-Authenticate": 'Basic realm="dero", charset="UTF-8"',
-                    "Cache-Control": "no-store"}))
+    abort(
+        Response(
+            "Authentication required.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="dero", charset="UTF-8"', "Cache-Control": "no-store"},
+        )
+    )
 
 
 def _identify_basic():
@@ -111,4 +116,5 @@ def admin_required(view):
         if not g.user["is_admin"]:
             abort(403)
         return view(*a, **kw)
+
     return wrapper

@@ -13,11 +13,13 @@
 
 Terms next to each other are joined with "and"; "and" binds tighter than "or".
 The names are the dropdowns' names in snake case (status, created_by, sort_by); creator, owner, by, sortby, sort and
-order are older spellings that still work. Unknown keys are plain text (so `a=b` or a pasted URL just searches for that text).
+order are older spellings that still work. Unknown keys are plain text
+(so `a=b` or a pasted URL just searches for that text).
 
 The browser has a tokenizer with the same rules (static/app.js, parseQuery) for highlighting and for keeping
 the dropdowns in sync; this module is the authority that actually filters.
 """
+
 from __future__ import annotations
 
 import re
@@ -26,10 +28,18 @@ from datetime import datetime
 
 KEYS = {
     "status": "status",
-    "created_by": "creator", "creator": "creator", "owner": "creator", "by": "creator",       # created_by matches the dropdown
-    "slug": "slug", "target": "target",
-    "created": "created", "expires": "expires",
-    "sort_by": "sortby", "sortby": "sortby", "sort": "sortby", "order": "sortby",             # sort_by matches the dropdown
+    "created_by": "creator",
+    "creator": "creator",
+    "owner": "creator",
+    "by": "creator",  # created_by matches the dropdown
+    "slug": "slug",
+    "target": "target",
+    "created": "created",
+    "expires": "expires",
+    "sort_by": "sortby",
+    "sortby": "sortby",
+    "sort": "sortby",
+    "order": "sortby",  # sort_by matches the dropdown
 }
 STATUSES = ("active", "disabled", "expired")
 SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
@@ -43,19 +53,19 @@ _KEYED = re.compile(r"^([A-Za-z_]+)(!?=)(.*)$", re.S)
 
 @dataclass
 class Tok:
-    kind: str                       # ws, lpar, rpar, and, or, not, term
+    kind: str  # ws, lpar, rpar, and, or, not, term
     start: int
     end: int
-    key: str | None = None          # canonical key of a keyed term, else None (free text)
-    negated: bool = False           # key!=value
+    key: str | None = None  # canonical key of a keyed term, else None (free text)
+    negated: bool = False  # key!=value
     values: tuple = ()
 
 
 @dataclass
 class Parsed:
-    where: str | None = None        # SQL for the filter part, None = no filter
+    where: str | None = None  # SQL for the filter part, None = no filter
     params: list = field(default_factory=list)
-    sort: tuple | None = None       # (key, reverse) or None
+    sort: tuple | None = None  # (key, reverse) or None
     problems: list = field(default_factory=list)
 
 
@@ -107,7 +117,7 @@ def tokenize(text: str) -> list[Tok]:
         else:
             j = i
             while j < n and not text[j].isspace() and text[j] not in "()":
-                if text[j] == '"':                          # a quoted part may hold spaces and parentheses
+                if text[j] == '"':  # a quoted part may hold spaces and parentheses
                     k = text.find('"', j + 1)
                     j = n if k == -1 else k + 1
                 else:
@@ -145,7 +155,7 @@ class _Parser:
 
     def parse(self):
         nodes = [self.or_expr()]
-        while self.i < len(self.toks):                      # only reachable on a stray ")"
+        while self.i < len(self.toks):  # only reachable on a stray ")"
             self.problems.append("Unbalanced )")
             self.i += 1
             nodes.append(self.or_expr())
@@ -181,7 +191,7 @@ class _Parser:
         if self.kind() == "not":
             self.i += 1
             if self.kind() in (None, "or", "and", "rpar"):
-                return NOOP                                 # a dangling "!"
+                return NOOP  # a dangling "!"
             inner = self.unary()
             return NOOP if inner == NOOP else ("not", inner)
         return self.primary()
@@ -196,7 +206,7 @@ class _Parser:
             else:
                 self.problems.append("Missing )")
             return node
-        if tok.kind != "term":                              # cannot happen (and/or/rpar are handled by the callers)
+        if tok.kind != "term":  # cannot happen (and/or/rpar are handled by the callers)
             return NOOP
         if tok.key is None:
             return ("text", tok.values[0])
@@ -208,7 +218,7 @@ class _Parser:
                     self.sort = (name, raw.startswith("-"))
                 else:
                     self.problems.append(f"Unknown sort: {raw}")
-            return NOOP                                     # a directive, not a filter (and never negated)
+            return NOOP  # a directive, not a filter (and never negated)
         if not tok.values:
             return NOOP
         node = ("kv", tok.key, tok.values)
@@ -274,7 +284,7 @@ def _compile(node, now, params, problems):
         if key == "creator":
             params += [v.lower() for v in values]
             return "(lower(created_by) IN (" + ",".join("?" * len(values)) + "))"
-        column = key                                        # slug or target
+        column = key  # slug or target
         params += [like(v) for v in values]
         return "(" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for _ in values) + ")"
     if kind == "not":
@@ -314,7 +324,7 @@ def _remove(text: str, toks: list[Tok]) -> str:
         while end < len(text) and text[end].isspace():
             end += 1
         start = t.start
-        if end == len(text):                                # at the end: take the whitespace before it instead
+        if end == len(text):  # at the end: take the whitespace before it instead
             while start > 0 and text[start - 1].isspace():
                 start -= 1
         text = text[:start] + text[end:]

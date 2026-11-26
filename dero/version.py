@@ -39,9 +39,7 @@ class BuildInfo:
 
 def _git(*args: str) -> str | None:
     try:
-        result = subprocess.run(
-            ["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=5, check=True
-        )
+        result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=5, check=True)
     except (OSError, subprocess.SubprocessError):
         return None
     return result.stdout.strip()

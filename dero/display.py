@@ -1,4 +1,5 @@
 """How slugs and short links are drawn in pages: one coloured, truncated box everywhere (template filters)."""
+
 import json
 import re
 from itertools import groupby
@@ -7,7 +8,7 @@ from markupsafe import Markup, escape
 
 from .urls import base_url
 
-SLUG_SHOWN = 20     # longer slugs are cut after this many characters wherever they are only displayed
+SLUG_SHOWN = 20  # longer slugs are cut after this many characters wherever they are only displayed
 
 
 def highlight_slug(slug: str, limit: int = 0) -> Markup:
@@ -16,8 +17,10 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
     cut = bool(limit) and len(slug) > limit
     if cut:
         slug = slug[:limit]
+
     def kind(ch):
         return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
+
     out = []
     for k, chars in groupby(slug, kind):
         text = escape("".join(chars))
@@ -26,17 +29,21 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
         out.append("…")
     return Markup("").join(out)
 
+
 def slug_box(slug: str) -> Markup:
-    """A slug as it is shown everywhere: in its code box, coloured, cut after SLUG_SHOWN characters (full slug on hover)."""
+    """A slug as it is shown everywhere: in its code box, coloured, cut after SLUG_SHOWN characters
+    (the full slug is on hover)."""
     title = Markup(f' title="{escape(slug)}"') if len(slug) > SLUG_SHOWN else Markup("")
     return Markup('<code class="slug"') + title + Markup(">") + highlight_slug(slug, SLUG_SHOWN) + Markup("</code>")
+
 
 def highlight_url(url: str) -> Markup:
     """A short link: the base address in the normal font, the slug in its box."""
     base = base_url()
     if url.startswith(base) and len(url) > len(base):
-        return Markup('<span class="base">') + escape(base) + Markup("</span>") + slug_box(url[len(base):])
+        return Markup('<span class="base">') + escape(base) + Markup("</span>") + slug_box(url[len(base) :])
     return escape(url)
+
 
 def rich(text: str) -> Markup:
     """A message with ‹slugs› marked: those parts are shown as slugs (a slug can't contain these marks)."""
