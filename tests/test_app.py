@@ -1242,12 +1242,12 @@ def test_filter_bar_markup(client, app):
     # the sort dropdown holds sortby values; the current one is selected
     assert (
         '<option value="+visits" selected>Fewest visits</option>' in html
-        and '<option value="">Newest first</option>' in html
+        and '<option value="-created">Newest first</option>' in html
     )
     # sortable headers carry the new query; Reset goes back to the plain page
     assert (
-        'href="/admin/?q=status%3Dexpired+sort_by%3Dvisits"' in html
-        or 'href="/admin/?q=status%3Dexpired%20sort_by%3Dvisits"' in html
+        'href="/admin/?q=status%3Dexpired+sort_by%3D-visits"' in html
+        or 'href="/admin/?q=status%3Dexpired%20sort_by%3D-visits"' in html
     )
     assert re.search(r'id="reset-filters" href="/admin/"', html) and 'aria-disabled="false"' in html
     # people who can't see others have no "created by" dropdown
@@ -1360,7 +1360,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     expire(app, "abc")
     client.set_cookie("dero_cols", "slug,expires,created,creator")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "sort_by%3Dexpires" in html and "sort_by%3Dcreator" in html  # new sort links for the new columns
+    assert "sort_by%3D%2Bexpires" in html and "sort_by%3D%2Bcreator" in html  # new sort links for the new columns
     assert "sort_by%3D%2Bcreated" in html  # (created is the current sort, so its link reverses it: oldest first)
     row = html[html.index('<tr class="item') : html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')  # the clock comes after the open/copy icons
@@ -1551,6 +1551,9 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    # the dropdowns write explicit terms: a signed sort even for the default, "every creator" as a *
+    assert 'DEFAULT_SORT = "-created"' in js and 'editQuery(input.value, "sortby", [sortSelect.value])' in js
+    assert 'details.dataset.key === "creator" ? ["*"] : all' in js and 'values.includes("*")' in js
     assert "q-empty" in js and "empty: values.length === 0" in js and not re.search(r"t\.key !== \"sortby\"\)", js)
     assert css_rule(css, ".q-term.q-empty")["background"] == "none"  # no value yet: drawn as an outline
     assert css_rule(css, ".target-head")["color"] == "var(--muted)"  # the ellipsis of a cut target is grey ...

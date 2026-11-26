@@ -175,9 +175,7 @@ def render_index(
 
     def sort_url(key: str) -> str:
         """The address that sorts by this column (a second click reverses it)."""
-        q = query.with_sort(text, key, (not reverse) if key == sort_key else False)
-
-        return url_for("admin.index", q=q) if q else url_for("admin.index")
+        return url_for("admin.index", q=query.with_sort(text, key, (not reverse) if key == sort_key else False))
 
     return render_template(
         "index.html",

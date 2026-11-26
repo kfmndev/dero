@@ -164,14 +164,20 @@ def test_values_are_bound_never_interpolated():
 
 # ------------------------------------------------------------------ editing queries as text
 def test_sort_term_and_with_sort():
-    assert query.sort_term("created", False) == "" and query.sort_term("created", True) == "sort_by=+created"
-    assert query.sort_term("visits", False) == "sort_by=visits" and query.sort_term("slug", True) == "sort_by=-slug"
-    assert query.sort_term("visits", True) == "sort_by=+visits" and query.sort_term("slug", False) == "sort_by=slug"
-    assert query.with_sort("status=expired", "visits", False) == "status=expired sort_by=visits"
+    # always with a sign, the usual order of a key included
+    assert (
+        query.sort_term("created", False) == "sort_by=-created"
+        and query.sort_term("created", True) == "sort_by=+created"
+    )
+    assert (
+        query.sort_term("visits", False) == "sort_by=-visits" and query.sort_term("visits", True) == "sort_by=+visits"
+    )
+    assert query.sort_term("slug", False) == "sort_by=+slug" and query.sort_term("slug", True) == "sort_by=-slug"
+    assert query.with_sort("status=expired", "visits", False) == "status=expired sort_by=-visits"
     assert query.with_sort("status=expired sortby=visits", "slug", True) == "status=expired sort_by=-slug"
     assert (
         query.with_sort("sortby=visits status=expired creator=julian", "created", False)
-        == "status=expired creator=julian"
+        == "status=expired creator=julian sort_by=-created"  # the default sort is written out too
     )
     assert query.with_sort("", "visits", True) == "sort_by=+visits"
 
@@ -395,8 +401,9 @@ def test_sort_signs_name_the_direction_and_no_sign_is_the_usual_order():
         assert plus == (key, usually_desc) and minus == (key, not usually_desc)  # + ascending, - descending
         # the text of every sort round-trips to the same sort
         for reverse in (False, True):
-            assert find(query.sort_term(key, reverse) or "sort_by=created")[1].sort in ((key, reverse), None)
+            assert find(query.sort_term(key, reverse))[1].sort == (key, reverse)
     assert query.sort_value("visits", True) == "+visits" and query.sort_value("slug", True) == "-slug"
-    assert query.sort_value("created", True) == "+created" and query.sort_value("created", False) == ""
+    assert query.sort_value("created", True) == "+created" and query.sort_value("created", False) == "-created"
+    assert query.sort_value("visits", False) == "-visits" and query.sort_value("slug", False) == "+slug"
     for text in ("sort_by=++visits", "sort_by=-", "sort_by=+", "sort_by=+nonsense"):
         assert find(text)[1].problems, text

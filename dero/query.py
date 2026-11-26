@@ -13,8 +13,9 @@
     expires                   links that expire at all (short for expires!=never)
                               expires=never         links that never expire (also: expires=none, !expires)
     visits>100  visits=0      the visit counter: a number, with < <= > >= and = !=
-    sort_by=visits            sort: the key's usual order (newest and most first for created and visits, A-Z for the
-                              rest); -visits is descending and +visits ascending (write %2B for a + in an address)
+    sort_by=-visits           sort: - is descending, + ascending (write %2B for a + in an address); no sign is the
+                              key's usual order (newest and most first for created and visits, A-Z for the rest)
+                              The Sort by dropdown always writes the sign, the usual order included (sort_by=-created)
     !term   key!=value        negate
     and  &&   or  ||   ( )    combine and group
     created_by="Anna Maria"   quotes for values with spaces
@@ -521,22 +522,16 @@ def parse(text: str, now: str) -> Parsed:
 
 # ------------------------------------------------------------------ editing queries as text (sort links, legacy URLs)
 def sort_value(key: str, reverse: bool) -> str:
-    """What follows `sort_by=` for a sort, or "" for the default (newest first): the key alone is its usual order,
-    and a sign only where it is the other direction (`+visits` is fewest first, `-slug` is Z to A)."""
+    """What follows `sort_by=` for a sort, always with its sign: `-` is descending and `+` ascending, the usual order
+    of the key included (`-created` is newest first, `+slug` is A to Z)."""
+    descending = DESC_BY_DEFAULT[key] != reverse
 
-    if key == "created" and not reverse:
-        return ""
-
-    if not reverse:
-        return key
-
-    return ("+" if DESC_BY_DEFAULT[key] else "-") + key
+    return ("-" if descending else "+") + key
 
 
 def sort_term(key: str, reverse: bool) -> str:
-    """The whole sort_by term for a sort, or "" for the default."""
-    value = sort_value(key, reverse)
-    return f"sort_by={value}" if value else ""
+    """The whole sort_by term for a sort."""
+    return f"sort_by={sort_value(key, reverse)}"
 
 
 def _remove(text: str, toks: list[Tok]) -> str:
@@ -582,12 +577,10 @@ def add_term(text: str, term: str) -> str:
 
 
 def with_sort(text: str, key: str, reverse: bool) -> str:
-    """The query with its sort_by term replaced by this sort (the default sort has no term)."""
+    """The query with its sort_by term replaced by this sort (the default sort is written out too)."""
     toks = [t for t in tokenize(text) if t.kind == "term" and t.key == "sortby"]
-    base = _remove(text, toks)
-    term = sort_term(key, reverse)
 
-    return f"{base} {term}".strip() if term else base
+    return f"{_remove(text, toks)} {sort_term(key, reverse)}".strip()
 
 
 def quote_value(value: str) -> str:

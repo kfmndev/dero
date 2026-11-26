@@ -153,7 +153,7 @@
     <div class="qhelp" id="q-help" hidden>
       <p>{{ syntax('free text') }} searches slug, target and creator · {{ syntax('"exact phrase"') }}</p>
       <p>{{ syntax('status=expired,disabled') }} · {{ syntax('created_by=julian') }} · {{ syntax('slug=abc') }}
-         · {{ syntax('target=github') }} · a comma means or</p>
+         · {{ syntax('target=github') }} · a comma means or · {{ syntax('created_by=*') }} everyone</p>
       <p>{{ syntax('slug=abc*') }} · {{ syntax('target=*.pdf') }} a {{ syntax('*') }} is any text and the whole value
          must match (start, end, middle) · {{ syntax('slug==abc') }} exactly this</p>
       <p>{{ syntax('created=2026-11') }} · {{ syntax('expires<2027-01-01') }} · {{ syntax('created>=2026') }}

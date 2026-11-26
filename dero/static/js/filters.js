@@ -121,7 +121,7 @@
       showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))),
     );
     const wanted = deriveSort(parsed, lists.sortKeys, lists.defaultDesc);
-    sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : "";
+    sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : DEFAULT_SORT;
     refreshSelect(sortSelect);
     setClear(input.value.trim() !== "" || columnsDiffer());
   }
@@ -138,14 +138,16 @@
     details.addEventListener("change", () => {
       const all = JSON.parse(details.dataset.all || "[]");
       const checked = [...details.querySelectorAll("input[type=checkbox]:checked")].map((b) => b.value);
-      // all = no filter; none = everything excluded (key!=a,b,c), so nothing is shown
+      // the query always says what the boxes say: all = every value, none = every value excluded (key!=...), so
+      // nothing is shown. The creators are the open-ended list, so "every creator" is a * (new users are included).
       const everything = checked.length === all.length,
         none = checked.length === 0 && all.length > 0;
+      const every = details.dataset.key === "creator" ? ["*"] : all;
       setQuery(
         editQuery(
           input.value,
           details.dataset.key,
-          everything ? null : none ? all : all.filter((v) => checked.includes(v)),
+          everything || none ? every : all.filter((v) => checked.includes(v)),
           none,
         ),
       );
@@ -180,9 +182,7 @@
     });
   }
 
-  sortSelect.addEventListener("change", () =>
-    setQuery(editQuery(input.value, "sortby", sortSelect.value ? [sortSelect.value] : null)),
-  );
+  sortSelect.addEventListener("change", () => setQuery(editQuery(input.value, "sortby", [sortSelect.value]))); // signed, always
 
   document.addEventListener("click", (event) => {
     // sortable column headers set the sort in the query

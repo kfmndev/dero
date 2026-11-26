@@ -34,6 +34,7 @@ const ALLOWED_OPS = {
   sortby: ["="],
 };
 const SORT_ALIASES = { created_by: "creator" }; // sort_by=created_by, like the key and the dropdown
+const DEFAULT_SORT = "-created"; // what no sort term at all means: newest first
 const sortName = (raw) => {
   const name = raw.replace(/^[+-]/, "").toLowerCase();
   return SORT_ALIASES[name] || name;
@@ -215,6 +216,7 @@ function deriveSet(parsed, key, all) {
   if (mine.length === 0) return { set: all };
   if (mine.length > 1) return { custom: true };
   if (!mine[0].supported) return { custom: true };
+  if (key === "creator" && mine[0].values.includes("*")) return { set: mine[0].negated ? [] : all }; // created_by=* is everyone
   const wanted = mine[0].values.map((v) => v.toLowerCase());
   const hit = all.filter((v) => wanted.includes(v.toLowerCase()));
   const set = mine[0].negated ? all.filter((v) => !hit.includes(v)) : hit;
@@ -222,19 +224,16 @@ function deriveSet(parsed, key, all) {
 }
 
 // The sort the query asks for, as the value of the "Sort by" dropdown ("" = the default, newest first)
-// The sort as the value of the "Sort by" dropdown, written like dero/query.py sort_value: the key alone is its usual
-// order (defaultDesc says which keys go newest or most first), a sign only where it is the other way round
+// The sort as the value of the "Sort by" dropdown, written like dero/query.py sort_value: always with its sign, a
+// missing sign meaning the key's usual order (defaultDesc says which keys go newest or most first)
 function deriveSort(parsed, sortKeys, defaultDesc) {
   const mine = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby" && t.values.length);
-  if (!mine.length) return "";
+  if (!mine.length) return DEFAULT_SORT;
   const raw = mine[mine.length - 1].values[0],
     name = sortName(raw);
-  if (!sortKeys.includes(name)) return "";
-  const usuallyDesc = Boolean(defaultDesc[name]),
-    sign = raw[0] === "+" || raw[0] === "-" ? raw[0] : "";
-  const reversed = sign !== "" && (sign === "-") !== usuallyDesc;
-  const value = reversed ? `${usuallyDesc ? "+" : "-"}${name}` : name;
-  return value === "created" ? "" : value;
+  if (!sortKeys.includes(name)) return DEFAULT_SORT;
+  const descending = raw[0] === "-" || (raw[0] !== "+" && Boolean(defaultDesc[name]));
+  return `${descending ? "-" : "+"}${name}`;
 }
 
 // A date: 2026 / 2026-11 / 2026-11-25 (the operator < <= > >= belongs to the key, not the value), or relative to today:
