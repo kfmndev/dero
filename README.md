@@ -66,7 +66,7 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | --- | --- |
 | `github "exact phrase"` | free text: searches slug, target and creator; terms are joined with *and* |
 | `status=expired,disabled` | status (`active`, `disabled`, `expired`); a comma means *or* |
-| Status / Created by / Sort by dropdowns | every click writes its choice into the search bar, the defaults included: all ticked is `status=active,disabled,expired` or `created_by=*` (everyone, new users too), none ticked is `status!=active,disabled,expired` or `created_by!=*` (nothing is shown), and Sort by writes the signed term, e.g. `sort_by=-created`. Reset empties the bar again |
+| Status / Created by / Sort by dropdowns | a click writes its choice into the search bar; none ticked is `status!=active,disabled,expired` or `created_by!=*` (nothing is shown). Terms that change nothing are left out (all ticked: no term; newest first: no `sort_by`; the usual order of a key: `sort_by=visits`). With the setting **Explicit search terms** the defaults are written too: `status=active,disabled,expired`, `created_by=*` (everyone, new users too), `sort_by=-created`. Reset empties the bar |
 | `created_by=julian` · `slug=abc` · `target=github` | creator (exact), parts of slug or target |
 | `slug=abc*` · `target=*.pdf` · `created_by=ann*` | a `*` is any text, and then the whole value must match: `abc*` starts with, `*.pdf` ends with, `a*c` both. Upper and lower case never matter |
 | `slug==abc` | exactly this: no parts and no wildcards (a `*` is just a `*`) |

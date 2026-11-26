@@ -206,6 +206,16 @@ function editQuery(text, key, values, negated = false) {
   return applyEdits(text, edits);
 }
 
+// The values of a sort_by term for the value of the "Sort by" dropdown ("-visits"), or null for no term at all.
+// Explicit: always the whole signed value. Otherwise the usual order is left out: no term for newest
+// first, the bare key for the other usual orders (sort_by=visits), a sign only where it is the other way (+visits).
+function sortTermValues(value, defaultDesc, explicit) {
+  if (explicit) return [value];
+  if (value === DEFAULT_SORT) return null;
+  const name = value.slice(1);
+  return [(value[0] === "-") === Boolean(defaultDesc[name]) ? name : value];
+}
+
 // What a dropdown should show for one key: { set: [...] } = those boxes are checked, { custom: true } = too complex for a dropdown
 function deriveSet(parsed, key, all) {
   const used = parsed.terms.filter((t) => t.key === key && !t.empty); // an empty term (status=) filters nothing

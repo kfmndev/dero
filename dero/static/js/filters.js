@@ -18,6 +18,14 @@
     sortKeys: JSON.parse(form.dataset.sortKeys || "[]"),
     defaultDesc: JSON.parse(form.dataset.sortDefaultDesc || "{}"), // which sorts go newest or most first by default
   };
+  // the setting "Explicit search terms" (settings dialog): the dropdowns write even the choices that mean the default
+  const explicit = () => {
+    try {
+      return localStorage.getItem("dero.explicit") === "1";
+    } catch {
+      return false;
+    }
+  };
   const SPRITE = live.querySelector("use").getAttribute("href").split("#")[0];
   const IDLE = live.querySelector("span").textContent;
   let seq = 0,
@@ -138,19 +146,14 @@
     details.addEventListener("change", () => {
       const all = JSON.parse(details.dataset.all || "[]");
       const checked = [...details.querySelectorAll("input[type=checkbox]:checked")].map((b) => b.value);
-      // the query always says what the boxes say: all = every value, none = every value excluded (key!=...), so
-      // nothing is shown. The creators are the open-ended list, so "every creator" is a * (new users are included).
+      // none = every value excluded (key!=...), so nothing is shown. All = no term, or with explicit terms every value.
+      // The creators are the open-ended list, so "every creator" is a * (new users are included).
       const everything = checked.length === all.length,
         none = checked.length === 0 && all.length > 0;
       const every = details.dataset.key === "creator" ? ["*"] : all;
-      setQuery(
-        editQuery(
-          input.value,
-          details.dataset.key,
-          everything || none ? every : all.filter((v) => checked.includes(v)),
-          none,
-        ),
-      );
+      const values =
+        none || (everything && explicit()) ? every : everything ? null : all.filter((v) => checked.includes(v));
+      setQuery(editQuery(input.value, details.dataset.key, values, none));
     });
   });
 
@@ -182,14 +185,16 @@
     });
   }
 
-  sortSelect.addEventListener("change", () => setQuery(editQuery(input.value, "sortby", [sortSelect.value]))); // signed, always
+  const writeSort = (text, value) => editQuery(text, "sortby", sortTermValues(value, lists.defaultDesc, explicit()));
+  sortSelect.addEventListener("change", () => setQuery(writeSort(input.value, sortSelect.value)));
 
   document.addEventListener("click", (event) => {
     // sortable column headers set the sort in the query
     const link = event.target.closest("#links-results th a");
     if (link) {
       event.preventDefault();
-      setQuery(new URL(link.href).searchParams.get("q") || "");
+      const q = new URL(link.href).searchParams.get("q") || ""; // the address spells the sort out; write it as set
+      setQuery(writeSort(q, deriveSort(parseQuery(q), lists.sortKeys, lists.defaultDesc)));
       return;
     }
   });

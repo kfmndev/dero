@@ -1511,6 +1511,11 @@ def test_generate_button_and_settings_dialog(client):
     )  # the user name opens the settings
     dialog = html[html.index('<dialog id="settings"') : html.index("</dialog>", html.index('<dialog id="settings"'))]
     assert 'id="hl-switch"' in dialog and "Colour slugs" in dialog and 'class="header-tools"' not in html
+    assert (
+        'id="explicit-switch"' in dialog
+        and "Explicit search terms" in dialog
+        and "checked" not in dialog.split('id="explicit-switch"')[1].split("</label>")[0]
+    )  # off by default: terms that change nothing are left out
     js = js_source(client)
     assert "function randomSlug" in js and "settings-open" in js
 
@@ -1551,8 +1556,10 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
-    # the dropdowns write explicit terms: a signed sort even for the default, "every creator" as a *
-    assert 'DEFAULT_SORT = "-created"' in js and 'editQuery(input.value, "sortby", [sortSelect.value])' in js
+    # the dropdowns can write explicit terms (a setting, off by default): a signed sort even for the default and
+    # "every creator" as a *; otherwise what changes nothing is left out
+    assert 'DEFAULT_SORT = "-created"' in js and "function sortTermValues(value, defaultDesc, explicit)" in js
+    assert 'localStorage.getItem("dero.explicit") === "1"' in js and "writeSort(q, deriveSort(" in js
     assert 'details.dataset.key === "creator" ? ["*"] : all' in js and 'values.includes("*")' in js
     assert "q-empty" in js and "empty: values.length === 0" in js and not re.search(r"t\.key !== \"sortby\"\)", js)
     assert css_rule(css, ".q-term.q-empty")["background"] == "none"  # no value yet: drawn as an outline

@@ -1,4 +1,4 @@
-// ---- Settings dialog (opens from the user name): colour slugs, live visits ----
+// ---- Settings dialog (opens from the user name): colour slugs, live visits, explicit search terms ----
 (() => {
   const dialog = document.getElementById("settings"),
     open = document.getElementById("settings-open");
@@ -19,6 +19,17 @@
       } catch {}
       document.dispatchEvent(new Event("dero:live"));
     });
+  }
+  const explicitSwitch = document.getElementById("explicit-switch");
+  if (explicitSwitch) {
+    try {
+      explicitSwitch.checked = localStorage.getItem("dero.explicit") === "1";
+    } catch {}
+    explicitSwitch.addEventListener("change", () => {
+      try {
+        localStorage.setItem("dero.explicit", explicitSwitch.checked ? "1" : "0");
+      } catch {}
+    }); // read by filters.js whenever a dropdown is used
   }
   const toggle = document.getElementById("hl-switch");
   if (!toggle) return;
