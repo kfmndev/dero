@@ -74,7 +74,8 @@ hand: attributes wrap one per line, repeated markup lives in macros (`_macros.ht
 between inline elements the template uses `{{-` or `{%-` so no stray space appears in the page.
 
 **CI**: `.github/workflows/ci.yml` runs the Ruff, Pyrefly and Biome checks and the tests on every push to `main`
-and on pull requests.
+and on pull requests. The actions in it are pinned to commit SHAs; Dependabot (`.github/dependabot.yml`) opens a pull
+request weekly when one has a newer release.
 
 ## Code layout
 

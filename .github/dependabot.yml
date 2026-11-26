@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # keeps the SHA-pinned actions in .github/workflows current: it opens a pull request when a newer release
+  # appears and updates the SHA together with the "# vX.Y.Z" comment next to it
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(actions)"
