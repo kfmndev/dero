@@ -153,26 +153,57 @@
     <noscript><button class="btn">{{ icon('check') }}Apply</button></noscript>
     <span class="live" id="filter-live">{{ icon('refresh') }}<span>Applies as you change it</span></span>
     <div class="qhelp" id="q-help" hidden>
-      <p>{{ syntax('free text') }} searches slug, target and creator · {{ syntax('"exact phrase"') }}</p>
-      <p>{{ syntax('status=expired,disabled') }} · {{ syntax('created_by=julian') }} · {{ syntax('slug=abc') }}
-         · {{ syntax('target=github') }} · a comma means or · {{ syntax('created_by=*') }} everyone</p>
-      <p>{{ syntax('slug=abc*') }} · {{ syntax('target=*.pdf') }} a {{ syntax('*') }} is any text and the whole value
-         must match (start, end, middle) · {{ syntax('slug==abc') }} exactly this</p>
-      <p>{{ syntax('created=2026-11') }} · {{ syntax('expires<2027-01-01') }} · {{ syntax('created>=2026') }}
-         dates: a year, month or day (UTC), compared with {{ syntax('< <= > >=') }} (no = in front of it)</p>
-      <p>{{ syntax('created>-7d') }} · {{ syntax('expires<30d') }} · {{ syntax('created=today') }}
-         relative to today: today, yesterday, tomorrow or a number of d, w, m, y; a minus is the past</p>
-      <p>{{ syntax('visits>100') }} · {{ syntax('visits=0') }} the visit counter, with {{ syntax('< <= > >= = !=') }}</p>
-      <p>{{ syntax('expires') }} links that expire · {{ syntax('!expires') }} or {{ syntax('expires=never') }}
-         links that never do</p>
-      <p>{{ syntax('sort_by=visits') }} the usual order of a key (created and visits: newest and most first, the others
-         A to Z) · {{ syntax('sort_by=-slug') }} descending · {{ syntax('sort_by=+visits') }} ascending
-         (keys: created, visits, slug, target, created_by, expires; in an address write %2B for the +)</p>
-      <p>A term with nothing after the operator yet, such as {{ syntax('status=') }}, filters nothing and is drawn dashed.</p>
-      <p>{{ syntax('!status=expired') }} or {{ syntax('status!=expired') }} negates
-         · {{ syntax('created_by="Anna Maria"') }} for spaces</p>
-      <p>{{ syntax('and') }} {{ syntax('&&') }} · {{ syntax('or') }} {{ syntax('||') }} · {{ syntax('( )') }} to group,
-         e.g. {{ syntax('(created_by=julian or created_by=anna) status=active') }}</p>
+      <div>
+        <h4>Text</h4>
+        <p>{{ syntax('github') }} searches slug, target and creator.</p>
+        <p>{{ syntax('"exact phrase"') }} matches the words together; quotes also allow spaces:
+           {{ syntax('created_by="Anna Maria"') }}.</p>
+      </div>
+      <div>
+        <h4>Fields</h4>
+        <p>{{ syntax('status=expired,disabled') }} · {{ syntax('created_by=julian') }} · {{ syntax('slug=abc') }}
+           · {{ syntax('target=github') }}</p>
+        <p>A comma means or. {{ syntax('created_by=*') }} is everyone.</p>
+        <p>A term with nothing after the operator yet, such as {{ syntax('status=') }}, filters nothing and is drawn
+           dashed.</p>
+      </div>
+      <div>
+        <h4>Wildcards</h4>
+        <p>{{ syntax('slug=abc*') }} · {{ syntax('target=*.pdf') }} · {{ syntax('target=*docs*') }}</p>
+        <p>A {{ syntax('*') }} is any text, and the whole value must match. {{ syntax('slug==abc') }} means exactly
+           this.</p>
+      </div>
+      <div>
+        <h4>Numbers</h4>
+        <p>{{ syntax('visits>100') }} · {{ syntax('visits=0') }} · {{ syntax('visits!=0') }}</p>
+        <p>Compare the visit counter with {{ syntax('< <= > >= = !=') }}.</p>
+      </div>
+      <div>
+        <h4>Dates</h4>
+        <p>{{ syntax('created=2026-11') }} · {{ syntax('expires<2027-01-01') }} · {{ syntax('created>=2026') }}</p>
+        <p>A year, month or day (UTC), compared with {{ syntax('< <= > >=') }}. No {{ syntax('=') }} in front of
+           the operator.</p>
+        <p>{{ syntax('created>-7d') }} · {{ syntax('expires<30d') }} · {{ syntax('created=today') }}</p>
+        <p>Relative to today: today, yesterday, tomorrow, or a number of d, w, m or y. A minus is the past.</p>
+      </div>
+      <div>
+        <h4>Expiry</h4>
+        <p>{{ syntax('expires') }} links that expire. {{ syntax('!expires') }} or {{ syntax('expires=never') }}
+           links that never do.</p>
+      </div>
+      <div>
+        <h4>Sorting</h4>
+        <p>{{ syntax('sort_by=visits') }} · {{ syntax('sort_by=-slug') }} · {{ syntax('sort_by=+visits') }}</p>
+        <p>No sign is the usual order (created and visits: newest and most first, the others A to Z). {{ syntax('-') }}
+           is descending, {{ syntax('+') }} ascending; in an address write {{ syntax('%2B') }} for the +.</p>
+        <p>Keys: created, visits, slug, target, created_by, expires.</p>
+      </div>
+      <div>
+        <h4>Logic</h4>
+        <p>{{ syntax('!status=expired') }} or {{ syntax('status!=expired') }} negates.</p>
+        <p>{{ syntax('and') }} {{ syntax('&&') }} · {{ syntax('or') }} {{ syntax('||') }} · {{ syntax('( )') }} to
+           group, e.g. {{ syntax('(created_by=julian or created_by=anna) status=active') }}</p>
+      </div>
     </div>
   </form>
 

@@ -1574,12 +1574,23 @@ details.multi.custom .multi-label {
 
 .qhelp {
   flex: 1 0 100%;
-  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 12px 24px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--field);
   font-size: 13px;
   color: var(--muted);
+}
+.qhelp h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 .qhelp p {
   margin: 3px 0;
