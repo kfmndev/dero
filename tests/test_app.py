@@ -1629,9 +1629,12 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert (
         css_rule(css, ".q-op, .q-paren.q-pill")["padding"] == "1px 10px 1px 3px"
     )  # parentheses are pills like and / or
-    # the text of the highlight and of the real input start at the same place, close to the edge (chips pull in 3px)
-    assert css_rule(css, ".qhighlight")["padding"] == "0 11px 0 7px"
-    assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 11px 0 7px"
+    # the text of the highlight and of the real input start at the same place, with the inset of every other input
+    assert css_rule(css, ".qhighlight")["padding"] == "0 0.6875rem"
+    assert css_rule(css, ".qfield input.qinput, .qfield input.qinput:focus")["padding"] == "0 0.6875rem"
+    assert css_rule(css, 'input[type="url"], input[type="date"], input[type="number"], input[type="text"]')[
+        "padding"
+    ] == ("0 0.6875rem")
     assert css_rule(css, ".qx")["opacity"] == "0.6"  # the x is a little faded until it is hovered
     # the commas between values have their own style, so a negated term does not turn them red like its operator
     assert 'span("q-comma", ",")' in js and 'span("q-eq", ",")' not in js
@@ -1716,7 +1719,9 @@ def test_search_placeholder_has_plain_spacing_and_ends_in_an_ellipsis(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     placeholder = re.search(r'<input[^>]*id="q"[^>]*placeholder="([^"]*)"', html).group(1)
     assert "  " not in placeholder  # no double space (the CSS word spacing made it a huge gap)
-    assert placeholder.startswith("&#8196;Search links, or try: status=expired")  # a small indent, like other inputs
+    assert placeholder.startswith(
+        "Search links, or try: status=expired"
+    )  # no indent of its own: the padding is the inset
     for example in ("visits&gt;10", "created&gt;-7d", "sort_by=-visits"):
         assert example in placeholder  # examples of what the language can do
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))

@@ -1446,7 +1446,7 @@ html[data-hl~="toast"] .toasts .hl-symbol {
   inset: 0;
   display: flex;
   align-items: center;
-  padding: 0 11px 0 7px; /* the first chip starts close to the edge: its own 3px padding sits in these 7px */
+  padding: 0 0.6875rem; /* the same inset as every other input: the text of the first chip (its box reaches 3px further) */
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
@@ -1465,7 +1465,7 @@ html[data-hl~="toast"] .toasts .hl-symbol {
   width: 100%;
   height: 100%;
   margin: 0;
-  padding: 0 11px 0 7px; /* the same as .qhighlight, or the text of the two layers drifts apart */
+  padding: 0 0.6875rem; /* the same as .qhighlight, or the text of the two layers drifts apart */
   border: 0;
   border-radius: 0;
   background: transparent;
