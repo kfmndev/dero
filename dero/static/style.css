@@ -1421,6 +1421,11 @@ time.localtime {
 }
 .qfield input.qinput::placeholder {
   color: var(--muted);
+  word-spacing: normal; /* not the wide spaces between the chips */
+}
+/* a placeholder that does not fit ends in an ellipsis (on a phone), and not in the middle of a word */
+.qfield input.qinput:placeholder-shown {
+  text-overflow: ellipsis;
 }
 .qfield input.qinput::selection {
   background: color-mix(in srgb, var(--accent) 25%, transparent);

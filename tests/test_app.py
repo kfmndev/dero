@@ -1684,6 +1684,18 @@ def test_share_button_sits_next_to_the_search_label(client):
     assert 'id="share"' in client.get("/static/icons.svg").get_data(as_text=True)
 
 
+def test_search_placeholder_has_plain_spacing_and_ends_in_an_ellipsis(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    placeholder = re.search(r'<input[^>]*id="q"[^>]*placeholder="([^"]*)"', html).group(1)
+    assert "  " not in placeholder  # no double space (the CSS word spacing made it a huge gap)
+    assert placeholder.startswith("&#8196;Search links, or try: status=expired")  # a small indent, like other inputs
+    for example in ("visits&gt;10", "created&gt;-7d", "sort_by=-visits"):
+        assert example in placeholder  # examples of what the language can do
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".qfield input.qinput::placeholder")["word-spacing"] == "normal"
+    assert css_rule(css, ".qfield input.qinput:placeholder-shown")["text-overflow"] == "ellipsis"
+
+
 def test_the_leave_dialog_is_on_the_list_page(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     dialog = html[
