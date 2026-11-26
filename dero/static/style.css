@@ -1448,6 +1448,15 @@ time.localtime {
 .q-not {
   color: var(--q-not);
 }
+/* what the x under the pointer would remove: dimmed, and a group (it has no tint of its own) outlined */
+.q-doomed {
+  opacity: 0.35;
+}
+.q-group.q-doomed {
+  outline: 1px dashed var(--err);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 .q-star {
   color: var(--accent-ink);
 } /* a wildcard in a value */
@@ -1708,11 +1717,12 @@ th.col-target {
   background: color-mix(in srgb, var(--c) 13%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent);
 }
-/* a group that is not closed yet has room for its x after what is typed so far, like a chip after its text (a closed one
-   has it in its closing parenthesis): the margin cancels the padding, so the text stays where the input has it */
+/* a group has the box of a chip (so its outline, shown when its x is hovered, matches the pills at its ends) and, while it
+   is not closed yet, room for its x after what is typed so far (a closed one has it in its closing parenthesis): the
+   margins cancel the padding, so the text stays where the input has it */
 .q-group {
-  padding-right: 10px;
-  margin-right: -10px;
+  padding: 1px 10px 1px 3px;
+  margin: 0 -10px 0 -3px;
 }
 .q-term .q-key {
   color: var(--c);

@@ -95,6 +95,25 @@
     });
   }
 
+  // While the pointer is on an x, everything a click on it would remove is marked (dimmed; a group is outlined too):
+  // a group's x removes the parentheses and what is inside, and the term's or group's x also the and / or joining it
+  function markRemoval(button) {
+    const from = Number(button.dataset.from),
+      to = Number(button.dataset.to);
+    const { start, end } =
+      button.dataset.kind === "operator" ? { start: from, end: to } : partRange(input.value, from, to);
+    highlight.querySelectorAll("[data-from]").forEach((el) => {
+      const inside = Number(el.dataset.from) >= start && Number(el.dataset.to) <= end;
+      if (inside && !el.parentElement.closest(".q-doomed")) el.classList.add("q-doomed");
+    });
+  }
+  const unmarkRemoval = () => highlight.querySelectorAll(".q-doomed").forEach((el) => el.classList.remove("q-doomed"));
+  removers.addEventListener("mouseover", (event) => {
+    const button = event.target.closest(".qx");
+    if (button) markRemoval(button);
+  });
+  removers.addEventListener("mouseout", unmarkRemoval);
+
   removers.addEventListener("mousedown", (event) => event.preventDefault()); // keep the focus where it is
   removers.addEventListener("click", (event) => {
     const button = event.target.closest(".qx");

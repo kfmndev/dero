@@ -1564,8 +1564,13 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
         rule = css_rule(css, selector)
         assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
     assert "x - (padding - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
+    # hovering an x marks what a click would remove (dimmed, a group outlined too), the joining and / or included
+    assert "function markRemoval(button)" in js and "function partRange(text, from, to)" in js
+    assert css_rule(css, ".q-doomed")["opacity"] == "0.35" and css_rule(css, ".q-group.q-doomed")["outline"].startswith(
+        "1px dashed"
+    )
     # a group's x sits after its closing parenthesis (not on it): the group has room for it, the same as a chip has
-    assert css_rule(css, ".q-group") == {"padding-right": "10px", "margin-right": "-10px"}
+    assert css_rule(css, ".q-group") == {"padding": "1px 10px 1px 3px", "margin": "0 -10px 0 -3px"}  # the box of a chip
     assert (
         css_rule(css, ".q-op, .q-paren.q-pill")["padding"] == "1px 10px 1px 3px"
     )  # parentheses are pills like and / or
@@ -1855,7 +1860,7 @@ def test_operators_are_outlined_and_groups_are_not_tinted(client):
         r" box-shadow: 0 0 0 1px",
         css,
     )
-    # parentheses and groups carry no highlight: a group only has room (padding cancelled by a margin) for its x
+    # parentheses and groups carry no highlight: a group only has a chip's box (padding cancelled by margins)
     assert not {"background", "box-shadow", "border", "outline"} & set(css_rule(css, ".q-group"))
     assert ".q-group .q-group" not in css
 

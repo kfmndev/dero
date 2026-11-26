@@ -397,8 +397,9 @@ function removeOperator(text, from, to) {
   return applyEdits(text, [{ start, end, text: "" }]).trim();
 }
 
-// Take one part (a term or a group) out of a query, together with the "and"/"or" that joined it to its neighbour.
-function removePart(text, from, to) {
+// What taking one part (a term or a group) out of a query removes: the part and the "and"/"or" that joined it to its
+// neighbour, as { start, end }.
+function partRange(text, from, to) {
   const toks = parseQuery(text).toks.filter((t) => t.kind !== "ws");
   const joins = (t) => t && (t.kind === "and" || t.kind === "or");
   const before = [...toks].reverse().find((t) => t.end <= from),
@@ -407,5 +408,11 @@ function removePart(text, from, to) {
     end = to;
   if (joins(before)) start = before.start;
   else if (joins(after)) end = after.end;
+  return { start, end };
+}
+
+// Take one part out of a query (see partRange).
+function removePart(text, from, to) {
+  const { start, end } = partRange(text, from, to);
   return applyEdits(text, [{ start, end, text: "" }]);
 }
