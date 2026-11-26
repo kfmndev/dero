@@ -89,10 +89,12 @@
       if (el.classList.contains("q-op") || el.classList.contains("q-stray")) button.dataset.kind = "operator"; // just itself
       // the x sits in the middle of the space after the text: for a chip that is the right padding plus the 1px ring of
       // the chip, for a group the padding after its closing parenthesis (a group has no ring)
-      // the x sits in the middle of the space after the text: the right padding, plus the 1px ring of a chip or pill
-      const padding = Number.parseFloat(getComputedStyle(anchor).paddingRight);
-      const ring = anchor.classList.contains("q-group") ? 0 : 1;
-      button.style.left = `${x - (padding - ring) / 2 - 5}px`; // (the x is 10px wide)
+      // the x sits in the middle of the space after the text: the right padding, plus the border of a pill or the 1px
+      // ring around a chip (which is outside its box)
+      const style = getComputedStyle(anchor);
+      const space = Number.parseFloat(style.paddingRight) + Number.parseFloat(style.borderRightWidth);
+      const ring = anchor.classList.contains("q-term") ? 1 : 0;
+      button.style.left = `${x - (space - ring) / 2 - 5}px`; // (the x is 10px wide)
       button.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${SPRITE}#x"/></svg>`; // an icon sits exactly in the middle
       removers.append(button);
     });
@@ -125,12 +127,35 @@
     setQuery(cut(input.value, Number(button.dataset.from), Number(button.dataset.to)));
     input.focus();
   });
-  window.addEventListener("resize", drawRemovers);
+  // The pills have an outline one pixel wide, and their text (so the pill) sits at fractional positions: at some the
+  // outline is smeared over two device pixels and looks heavier or lighter than at others, which the browser does not
+  // snap for text. So every edge of a pill is moved onto a whole device pixel, by moving its padding and its margin
+  // the same amount in opposite directions: the text of the pill, and everything after it, stays where it is.
+  function snapPills() {
+    const scale = window.devicePixelRatio || 1;
+    // the outline is a whole number of device pixels wide (one css pixel, or at a fractional ratio the nearest whole)
+    highlight.style.setProperty("--hair", `${Math.max(1, Math.round(scale)) / scale}px`);
+    const snap = (edge) => (Math.round(edge * scale) - edge * scale) / scale; // css px to a whole device pixel
+    highlight.querySelectorAll(".q-op, .q-paren.q-pill").forEach((el) => {
+      el.style.padding = "";
+      el.style.margin = "";
+      const style = getComputedStyle(el),
+        rect = el.getBoundingClientRect();
+      const px = (name) => Number.parseFloat(style[name]);
+      const [left, right, top, bottom] = [rect.left, rect.right, rect.top, rect.bottom].map(snap);
+      el.style.padding = `${px("paddingTop") - top}px ${px("paddingRight") + right}px ${px("paddingBottom") + bottom}px ${px("paddingLeft") - left}px`;
+      el.style.marginLeft = `${px("marginLeft") + left}px`;
+      el.style.marginRight = `${px("marginRight") - right}px`;
+    });
+  }
 
   function syncScroll() {
     highlight.style.transform = `translateX(${-input.scrollLeft}px)`;
+    snapPills();
     drawRemovers(); // the chips moved with the scroll
   }
+  window.addEventListener("resize", syncScroll); // (also when the zoom changes the pixel ratio)
+  document.fonts?.ready.then(syncScroll); // the text moves a little when the font arrives
 
   function draw() {
     renderQuery(parseQuery(input.value), input.value, highlight, lists);

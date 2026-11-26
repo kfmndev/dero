@@ -1560,20 +1560,32 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
     # a chip's padding is cancelled by its negative margins, or every term shifts the text after it (a 2 px difference
     # drifts 2 px per term away from the real text of the input); the x sits in the middle of the right padding
-    for selector in (".q-term", ".q-op, .q-paren.q-pill"):
-        rule = css_rule(css, selector)
-        assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px", selector
-    assert "x - (padding - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
+    rule = css_rule(css, ".q-term")
+    assert rule["padding"] == "1px 10px 1px 3px" and rule["margin"] == "0 -10px 0 -3px"
+    # the pills have a real border (1px) on top of that, which their margins cancel as well
+    rule = css_rule(css, ".q-op, .q-paren.q-pill")
+    assert (
+        rule["padding"] == "1px 10px 1px 3px"
+        and rule["margin"] == "0 calc(-10px - var(--hair, 1px)) 0 calc(-3px - var(--hair, 1px))"
+        and rule["border"].startswith("var(--hair, 1px) solid")
+    )
+    assert "x - (space - ring) / 2 - 5" in js and "field.clientLeft" in js  # middle of the padding (and the ring)
     # room for an x exists only where there is one: an opening parenthesis is compact, a ) that closes nothing and every
     # term, operator and inner group have an x of their own (a group's removes it whole)
     assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
     assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
-    assert css_rule(css, ".q-paren.q-open.q-pill") == {"padding-right": "3px", "margin-right": "-3px"}
+    assert css_rule(css, ".q-paren.q-open.q-pill") == {
+        "padding-right": "3px",
+        "margin-right": "calc(-3px - var(--hair, 1px))",
+    }
     # parentheses next to each other are spaced out too, so each one is a pill; a query that comes from the address or a
     # dropdown is spaced the same way as one that is typed
     assert "function missingSpaces(text)" in js and "function spaced(text)" in js
     assert "if (special(a) || special(b)) at.push(a.end);" in js and "paren(a) && paren(b)" not in js
     assert "input.value = spaceQuotes(spaced(text));" in js
+    # the outline of a pill is drawn on whole device pixels, so it looks the same on every pill at any pixel ratio
+    assert "function snapPills()" in js and 'setProperty("--hair"' in js and "snapPills();" in js
+    assert "document.fonts?.ready.then(syncScroll)" in js and 'window.addEventListener("resize", syncScroll)' in js
     # an opening parenthesis that is never closed has room for an x that removes just it; its group has none (it would
     # sit on the x of the last term); the space after a closed one is narrower (an em), so the gap to the chip is small
     assert 'open.classList.replace("q-open", "q-stray")' in js and 'group.classList.add("q-unclosed")' in js
@@ -1835,7 +1847,7 @@ def test_detail_buttons_are_the_last_thing_in_the_details(client):
 
 def test_operators_are_pills_with_the_same_padding_as_terms_and_visits_are_mono(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert re.search(r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px;", css)
+    assert re.search(r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 calc\(-10px - var", css)
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert '<td class="col-visits num mono">' in html
@@ -1870,11 +1882,10 @@ def test_operators_stuck_to_other_tokens_are_not_highlighted(client):
 def test_operators_are_outlined_and_groups_are_not_tinted(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert re.search(
-        r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 -10px 0 -3px; border-radius: 4px;"
-        r" background: none;"
-        r" box-shadow: 0 0 0 1px",
+        r"\.q-op, \.q-paren\.q-pill \{ padding: 1px 10px 1px 3px; margin: 0 calc\(-10px - var\(--hair, 1px\)\)"
+        r" 0 calc\(-3px - var\(--hair, 1px\)\); border: var\(--hair, 1px\) solid",
         css,
-    )
+    )  # a real border: a box-shadow ring is smeared differently at each fractional position
     # parentheses and groups carry no highlight: a group only has a chip's box (padding cancelled by margins)
     assert not {"background", "box-shadow", "border", "outline"} & set(css_rule(css, ".q-group"))
     assert ".q-group .q-group" not in css
