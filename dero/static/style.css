@@ -1604,8 +1604,7 @@ details.multi.custom .multi-label {
   padding: 1px 3px;
   margin: 0 2px 0 1px;
   white-space: pre;
-  word-spacing: 10px; /* the bar's 15px minus the 10px+3px of padding it hides, plus 3px of ours: the same 6px between boxes
-                         as after an opening parenthesis (its space is a fixed em) */
+  word-spacing: 8px; /* 4px between the boxes, as in the bar (there 15px, less the padding it hides) */
   font: 400 13px / 1.3 var(--font-text);
   font-variant-ligatures: none;
   color: var(--text);
@@ -1621,6 +1620,9 @@ details.multi.custom .multi-label {
   padding-right: 3px;
   margin-right: calc(-3px - var(--hair, 1px));
 }
+.qex:has(.q-term) {
+  margin-right: 0;
+} /* a chip's box reaches 2px further than a pill's: 4px between boxes either way */
 .qex:has(.q-empty) {
   margin: 0 7px 0 4px;
 } /* its dashed outline lies outside the box */
