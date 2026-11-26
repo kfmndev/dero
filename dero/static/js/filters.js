@@ -178,10 +178,10 @@
   const queryText = () => plainQuery(input.value); // what the box says, with plain spaces: for the address, the server, drafts
 
   function setQuery(text, { fetch = true } = {}) {
-    input.value = spaceQuotes(text);
+    input.value = spaceQuotes(spaced(text));
     draw();
     syncControls();
-    remember(plainQuery(text));
+    remember(queryText());
     if (fetch) update();
   }
 
@@ -359,22 +359,12 @@
     if (input.value !== text) input.value = text; // the browser refused: set it (the undo history is lost then)
   }
 
-  // A parenthesis (or an operator next to one) typed against a term gets a space on each side, so the chips and
-  // their x never run into it. Only while typing or pasting: deleting a space must stay possible.
+  // A parenthesis (or an operator next to one) typed against a term or another parenthesis gets a space on each side
+  // (see missingSpaces), so the chips and their x never run into it. Only while typing or pasting: deleting a space
+  // must stay possible. A query that comes from elsewhere (the address, a dropdown) is spaced the same way in setQuery.
   function spaceOut() {
     const text = input.value;
-    const toks = parseQuery(text).toks.filter((t) => t.kind !== "ws");
-    const special = (t) => ["lpar", "rpar", "and", "or"].includes(t.kind);
-    const paren = (t) => t.kind === "lpar" || t.kind === "rpar";
-    const at = [];
-    for (let i = 0; i < toks.length - 1; i++) {
-      const a = toks[i],
-        b = toks[i + 1];
-      if (a.end !== b.start || a.kind === "not") continue; // already apart, or a "!" that belongs to the next term
-      if (!special(a) && !special(b)) continue;
-      if (paren(a) && paren(b)) continue; // ((a)) stays as typed
-      at.push(a.end);
-    }
+    const at = missingSpaces(text);
     if (!at.length) return false;
     let caret = input.selectionStart,
       out = "",

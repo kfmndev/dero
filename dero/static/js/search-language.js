@@ -76,6 +76,33 @@ function spaceQuotes(text) {
   return out;
 }
 
+// Where a space is missing in a query (positions in text): between a parenthesis or an and / or and whatever touches it,
+// another parenthesis included, so that every one of them is drawn as a pill and the chips and their x never run into
+// it. A "!" stays with the term after it.
+function missingSpaces(text) {
+  const toks = parseQuery(text).toks.filter((t) => t.kind !== "ws");
+  const special = (t) => ["lpar", "rpar", "and", "or"].includes(t.kind);
+  const at = [];
+  for (let i = 0; i < toks.length - 1; i++) {
+    const a = toks[i],
+      b = toks[i + 1];
+    if (a.end !== b.start || a.kind === "not") continue; // already apart, or a "!" that belongs to the next term
+    if (special(a) || special(b)) at.push(a.end);
+  }
+  return at;
+}
+
+// The query with those spaces put in
+function spaced(text) {
+  let out = "",
+    last = 0;
+  for (const p of missingSpaces(text)) {
+    out += `${text.slice(last, p)} `;
+    last = p;
+  }
+  return out + text.slice(last);
+}
+
 function unquote(raw) {
   const text = plainQuery(raw);
   if (text.length >= 2 && text[0] === '"' && text.endsWith('"')) return text.slice(1, -1);

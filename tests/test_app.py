@@ -1569,6 +1569,11 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
     assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
     assert css_rule(css, ".q-paren.q-open.q-pill") == {"padding-right": "3px", "margin-right": "-3px"}
+    # parentheses next to each other are spaced out too, so each one is a pill; a query that comes from the address or a
+    # dropdown is spaced the same way as one that is typed
+    assert "function missingSpaces(text)" in js and "function spaced(text)" in js
+    assert "if (special(a) || special(b)) at.push(a.end);" in js and "paren(a) && paren(b)" not in js
+    assert "input.value = spaceQuotes(spaced(text));" in js
     # an opening parenthesis that is never closed has room for an x that removes just it; its group has none (it would
     # sit on the x of the last term); the space after a closed one is narrower (an em), so the gap to the chip is small
     assert 'open.classList.replace("q-open", "q-stray")' in js and 'group.classList.add("q-unclosed")' in js
@@ -1594,7 +1599,7 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     # a space inside quotes is drawn as a look-alike that the CSS word spacing does not stretch, in the box and the
     # copy alike; the address, drafts, the server and the clipboard get plain spaces
     assert 'const QUOTED_SPACE = "\\u2005";' in js and "function spaceQuotes(text)" in js
-    assert "const queryText = () => plainQuery(input.value)" in js and "input.value = spaceQuotes(text)" in js
+    assert "const queryText = () => plainQuery(input.value)" in js and "spaceQuotes(spaced(text))" in js
     assert 'event.clipboardData.setData("text/plain", plainQuery(' in js and "showQuotedSpaces();" in js
     # ... also when dragging text out, and not while an input method is composing (that would cancel the composition)
     assert 'input.addEventListener("dragstart"' in js and 'input.addEventListener("compositionend"' in js

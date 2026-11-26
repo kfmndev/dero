@@ -71,7 +71,7 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | `slug=abc*` · `target=*.pdf` · `created_by=ann*` | a `*` is any text, and then the whole value must match: `abc*` starts with, `*.pdf` ends with, `a*c` both. Upper and lower case never matter |
 | `slug==abc` | exactly this: no parts and no wildcards (a `*` is just a `*`) |
 | *×* behind a term | removes that term (and its *and*/*or*); the × behind an operator (`and`, `or`, `&&`, `||`) removes just the operator |
-| `( … )` | group; typing or pasting a parenthesis against a term adds a space on each side |
+| `( … )` | group; every parenthesis is drawn as a pill like `and` and `or`. Typing or pasting one against a term or another parenthesis (`((a or b))`) adds a space on each side, and a query from a link or a dropdown is spaced the same way. A × on the closing one removes the whole group (the hover shows what goes); every term inside has its own ×, and a parenthesis that closes or opens nothing has one that removes just it |
 | `created>-7d` · `expires<30d` · `created=today` | dates relative to today (UTC): `today`, `yesterday`, `tomorrow`, or a number of days, weeks, months or years (`d` `w` `m` `y`); `-` for the past, nothing for the future: `-7d`, `2w`, `-1y`. `expires<30d` also matches links that have expired already, so use `expires>=today expires<30d` for "expiring soon" |
 | `visits>100` · `visits=0` · `visits!=5` | the visit counter: a whole number, with `<` `<=` `>` `>=` `=` `!=` |
 | `created=2026-11` · `expires<2027-01-01` · `created>=2026` | creation or expiry date: a year, month or day (UTC); compare with `<` `<=` `>` `>=` written directly after the key (not after the `=`). A link without an expiry matches no date |
