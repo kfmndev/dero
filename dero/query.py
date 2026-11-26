@@ -28,21 +28,18 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-KEYS = {
-    "status": "status",
-    "created_by": "creator",
-    "creator": "creator",
-    "owner": "creator",
-    "by": "creator",  # created_by matches the dropdown
-    "slug": "slug",
-    "target": "target",
-    "created": "created",
-    "expires": "expires",
-    "sort_by": "sortby",
-    "sortby": "sortby",
-    "sort": "sortby",
-    "order": "sortby",  # sort_by matches the dropdown
+# each key (the name used in the code) with every spelling that is accepted for it; the first spelling is the
+# dropdown's name in snake case, the others are older ones
+KEY_ALIASES = {
+    "status": ("status",),
+    "creator": ("created_by", "creator", "owner", "by"),
+    "slug": ("slug",),
+    "target": ("target",),
+    "created": ("created",),
+    "expires": ("expires",),
+    "sortby": ("sort_by", "sortby", "sort", "order"),
 }
+KEYS = {alias: key for key, aliases in KEY_ALIASES.items() for alias in aliases}  # spelling -> key
 STATUSES = ("active", "disabled", "expired")
 SORT_KEYS = ("created", "visits", "slug", "target", "creator", "expires")
 # keys whose usual order is newest/most first; the others start at A (or soonest)
