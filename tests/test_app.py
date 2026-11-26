@@ -2008,7 +2008,7 @@ def test_enabling_and_disabling_a_link_is_announced(client):
 
 def test_the_page_scales_with_one_root_size_and_the_search_bar_keeps_its_pixel_geometry(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
-    assert css_rule(css, "html")["font-size"] == "112.5%"  # the one value that sizes the whole page
+    assert css_rule(css, "html")["font-size"] == "115%"  # the one value that sizes the whole page
     assert css_rule(css, "main")["max-width"] == "62.5rem" and css_rule(css, ".btn")["height"] == "var(--control-h)"
     # the chips' padding, their negative margins and the word spacing are exact pixels the script relies on
     assert (

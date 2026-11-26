@@ -149,7 +149,7 @@
 /* The size of the whole page: everything outside the search bar's own geometry is in rem, so this one value scales it
    (the browser's own text size setting still counts on top of it). */
 html {
-  font-size: 112.5%;
+  font-size: 115%;
 }
 body {
   margin: 0;
