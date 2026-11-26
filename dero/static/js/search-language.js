@@ -340,7 +340,7 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       }
       const wildcard = TEXT_KEYS.includes(t.key) && t.op !== "=="; // with "==" a * is just a *
       (t.op ? splitRaw(t.rest) : []).forEach((piece, i) => {
-        if (i) pill.append(span("q-eq", ","));
+        if (i) pill.append(span("q-comma", ","));
         const value = unquote(piece);
         const bad =
           (t.key === "status" && value && !statuses.includes(value.toLowerCase())) ||

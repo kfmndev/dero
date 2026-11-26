@@ -1429,10 +1429,11 @@ time.localtime {
 
 /* pieces of the query */
 .q-eq,
+.q-comma,
 .q-op,
 .q-op-tight {
   color: var(--muted);
-}
+} /* the commas between values stay grey, also in a negated term (only its operator turns red) */
 /* and / or / && / || are outlined like a chip, without its background, with the same padding as the terms,
    so the space is the same on both sides */
 .q-op {
