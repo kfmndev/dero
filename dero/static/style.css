@@ -291,7 +291,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 .topnav a:hover { color: var(--text); }
 .topnav a[aria-current="page"] { color: var(--text); border-color: var(--accent-2-ink); }
-.topnav .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+.topnav .who { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.topnav .who:hover, .topnav .who:focus-visible { border-color: var(--border); color: var(--text); }
+.topnav .who .icon { width: 14px; height: 14px; vertical-align: 0; }
 .topnav .who .role { margin-left: 4px; font-family: var(--font-mono); font-size: 12px; }
 
 /* ---- dero: cards, headings, forms ---- */
@@ -566,8 +568,8 @@ input.url-input { font-family: var(--font-mono); font-size: 13px; }   /* beats t
 .field-row > input.url-input { flex: 1 1 auto; width: 100%; }
 .slug-group { display: flex; flex: 1 1 auto; min-width: 0; align-items: stretch; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
 .slug-group:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
-.slug-prefix { display: flex; align-items: center; padding: 0 2px 0 10px; font: 13px var(--font-mono); color: var(--muted); white-space: nowrap; }
-.slug-group input.url-input { flex: 1 1 6rem; width: 100%; height: auto; border: 0; border-radius: 0; background: transparent; padding-left: 2px; box-shadow: none; }
+.slug-prefix { display: flex; align-items: center; padding: 0 0 0 10px; font: 13px var(--font-mono); color: var(--muted); white-space: nowrap; }
+.slug-group input.url-input { flex: 1 1 6rem; width: 100%; height: auto; border: 0; border-radius: 0; background: transparent; padding-left: 0; box-shadow: none; }
 .slug-group input.url-input:focus { outline: none; box-shadow: none; }
 .details input[aria-invalid="true"], .slug-group:has(input[aria-invalid="true"]) { border-color: var(--err); }
 
@@ -589,17 +591,8 @@ time.localtime { cursor: help; text-decoration: underline dotted var(--border); 
 .nl-gen { display: flex; flex-wrap: wrap; gap: 12px 14px; align-items: flex-end; }
 .nl-length input { width: 5.5rem; }
 .nl-chars input { width: 13rem; }
-.alphabet-preview { align-self: center; max-width: 26rem; font: 12px/1.4 var(--font-mono); color: var(--muted); overflow-wrap: anywhere; padding-top: 18px; }
 .field-label { display: block; margin: 0 0 4px; font-weight: 600; font-size: 13px; }
 
-/* segmented toggle: two radio buttons that look like one control */
-.segmented { display: inline-flex; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
-.segmented label { position: relative; display: flex; margin: 0; }
-.segmented input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.segmented span { display: flex; align-items: center; padding: 0 14px; font: 600 12px/1 var(--font-head); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.segmented input:checked + span { background: var(--card); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
-.segmented label:hover span { color: var(--text); }
-.segmented label:has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 
 /* Bitwarden-style colouring of the compact short link: digits blue, symbols red, letters plain */
 .hl-digit { color: var(--accent-ink); }
@@ -649,17 +642,20 @@ details.multi.custom .multi-label { color: var(--muted); font-style: italic; }
   position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 100%; padding: 4px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--card); box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
 }
-.multi-panel label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 10px; border-radius: 6px; font-weight: 400; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.multi-panel label { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 5px 10px; border-radius: 6px; font-weight: 400; font-size: 13px; white-space: nowrap; cursor: pointer; }
 .multi-panel label:hover { background: var(--field); }
-.multi-panel input[type="checkbox"] { margin: 0; }
+.multi-panel input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none; }   /* the tick on the right is the indicator, as in the single dropdowns */
+.multi-panel label .icon { flex: none; visibility: hidden; }
+.multi-panel label:has(input:checked) { color: var(--accent-ink); }
+.multi-panel label:has(input:checked) .icon { visibility: visible; }
+.multi-panel label:has(input:focus-visible) { background: var(--field); }
 
 .qhelp { flex: 1 0 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--field); font-size: 13px; color: var(--muted); }
 .qhelp p { margin: 3px 0; }
 .query-problems { margin: 0 0 10px; }
 
 /* code-like text must show exactly what to type: no ligatures (JetBrains Mono turns != into a single "≠") */
-code, .url, .mono, .slug-prefix, .url-input, .alphabet-preview { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
-
+code, .url, .mono, .slug-prefix, .url-input { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 /* ---- dero: compact rows and shrink-to-fit columns ---- */
 td { padding: 6px 8px; }
 th { padding: 7px 8px; }
@@ -684,11 +680,12 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 .multi-panel .option[aria-selected="true"] .icon { visibility: visible; }
 
 /* ---- dero: search bar -- every kind of term has its own colour, and the terms get some air ---- */
-.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 6px; }    /* in both layers, so the text stays aligned */
+.qhighlight, .qfield input.qinput, .qfield input.qinput:focus { word-spacing: 15px; }    /* in both layers, so the text stays aligned */
 :root { --q-text: var(--muted); --q-status: #0b7a4b; --q-creator: #6d28d9; --q-slug: #b45309; --q-target: #0e7490; --q-sortby: var(--accent-2-ink); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; } }
 :root[data-theme="dark"] { --q-status: #34d399; --q-creator: #a78bfa; --q-slug: #fb923c; --q-target: #22d3ee; }
-.q-term { --c: var(--accent-ink); border-radius: 4px; background: color-mix(in srgb, var(--c) 13%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent); }
+.q-term { --c: var(--accent-ink); padding: 1px 10px 1px 5px; margin: 0 -10px 0 -5px; border-radius: 4px;   /* the x lives in the right padding; the margins keep the text where the input has it */
+  background: color-mix(in srgb, var(--c) 13%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 13%, transparent); }
 .q-term .q-key { color: var(--c); }
 .q-k-text { --c: var(--q-text); }
 .q-k-status { --c: var(--q-status); }
@@ -702,3 +699,63 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 
 /* the search bar has a row to itself (queries get long); the dropdowns sit below it */
 .filters > .field.grow { flex: 1 1 100%; }
+
+/* ---- dero: a small x after every part of the query ---- */
+.qx-layer { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.qx {
+  position: absolute; top: 50%; width: 9px; height: 16px; padding: 0; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: none;
+  color: var(--muted); font: 400 13px/1 var(--font-text); opacity: .55; cursor: pointer; pointer-events: auto;
+}
+.qx:hover { opacity: 1; color: var(--err); background: color-mix(in srgb, var(--err) 14%, transparent); }
+
+/* ---- dero: expired links: a small clock after the icons (the row is dimmed as before) ---- */
+.expired-mark { display: inline-flex; vertical-align: middle; margin-left: 5px; color: var(--err); }
+.expired-mark .icon { width: 14px; height: 14px; vertical-align: 0; }
+
+/* ---- dero: the short-link row of the new-link form ---- */
+.nl-slug .grow { flex: 1 1 14rem; min-width: 0; }
+.nl-chars { flex: 1 1 14rem; max-width: 26rem; min-width: 0; }
+.nl-chars input { width: 100%; }
+.alphabet-hint { flex: 1 0 100%; margin: -4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px/1.4 var(--font-mono); color: var(--muted); }
+
+/* ---- dero: slug colouring is a stored user option (cookie dero_hl, html[data-hl]) ---- */
+html[data-hl="off"] .hl-digit, html[data-hl="off"] .hl-symbol { color: inherit; }
+.nl-expires .field-label { display: flex; align-items: center; gap: 8px; }
+.nl-expires input[type=date]:disabled { opacity: .5; }
+/* with no target column the short link takes the slack, so chevron, switch and link stay together */
+table.no-target td.col-slug, table.no-target th.col-slug { width: 100%; }
+
+/* inputs in the detail row use the surface behind the row (the card), so they stand out from the row's own background */
+tr.detail input[type="text"], tr.detail input[type="url"], tr.detail input[type="date"], tr.detail .slug-group { background: var(--card); }
+tr.detail .slug-group input.url-input { background: transparent; }
+
+/* ---- inline notices: in the row of the field, or in the details of the link ---- */
+.nl-row > .form-error, .nl-row > .form-warn { flex: 1 0 100%; margin: 0; }
+.detail-notes, tr.detail .notices { margin-top: 2px; }
+tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notices .form-ok { margin: 6px 0 0; }
+.note-line { display: flex; align-items: baseline; gap: 0 .45em; min-width: 0; }
+.note-line > span { flex: 0 0 auto; }
+.note-line > .cut { flex: 0 1 auto; min-width: 0; max-width: 44ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- dero: the slug being edited is coloured like everywhere else: a coloured copy behind the (transparent) input text ---- */
+.slug-edit { position: relative; display: flex; flex: 1 1 6rem; min-width: 0; }
+.slug-edit input.url-input { position: relative; flex: 1 1 auto; }
+.slug-hl { display: none; position: absolute; inset: 0; align-items: center; overflow: hidden; pointer-events: none; white-space: pre; font: 13px var(--font-mono); color: var(--text); }
+.slug-edit.hl-ready .slug-hl { display: flex; }
+.slug-edit.hl-ready input.url-input { color: transparent; caret-color: var(--text); }
+.slug-edit.hl-ready input.url-input::selection { color: var(--text); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ---- dero: settings dialog (opens from the user name) ---- */
+.setting { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 8px; }
+.setting .switch { margin-top: 2px; flex: none; }
+.setting > div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.setting > div span { color: var(--muted); }
+dialog p.setting-note { margin: 0 0 18px; font-size: 12px; }
+#settings { min-width: min(24rem, 92vw); }
+.alphabet-hint { min-height: 1.4em; }   /* keeps its line, so changing the short link type does not move the form */
+.nl-slug > label { display: flex; flex-direction: column; gap: 4px; }   /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
+.nl-slug > label input { margin-top: 0; }
+.nl-slug > label, .nl-slug .field-label { line-height: 1.3; }
+.nl-slug > .field { display: flex; flex-direction: column; gap: 4px; }
+.nl-slug .field-label { margin: 0; }

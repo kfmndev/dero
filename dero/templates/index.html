@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icon, link_actions, notices %}
+{% from "_macros.html" import icon, link_actions, notices, link_notices %}
 {% block content %}
+{% set slug_error = error_field in ('slug', 'slug_source', 'alphabet', 'alphabet_custom', 'length') %}
+{% set err_box %}<p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error }}</span>{% endif %}</p>{% endset %}
 {% set host = base | replace("https://", "") | replace("http://", "") %}
 <section>
   <h2>New link</h2>
-  {% set mode = form.get('slug_mode') or ('custom' if form.get('slug') else 'generate') %}
-  {% set chosen = form.get('alphabet', 'default') %}
   <form method="post" action="{{ url_for('admin.create_link') }}" class="new-link" id="new-link" novalidate
         data-reserved="{{ reserved|join(',') }}" data-alphabets="{{ alphabets|tojson|forceescape }}"
         data-min-length="{{ length_range[0] }}" data-max-length="{{ length_range[1] }}"
@@ -17,48 +17,49 @@
         <input name="target" type="url" placeholder="https://example.com/a/long/url" value="{{ form.get('target', '') }}" required
                {% if error_field == 'target' %}aria-invalid="true" autofocus{% endif %}>
       </label>
-      <label>Expires <span class="hint-inline">(optional)</span>
-        <input name="expires_at" type="date" value="{{ form.get('expires_at', '') }}" title="Last day the link works (UTC)"
-               {% if error_field == 'expires_at' %}aria-invalid="true" autofocus{% endif %}>
-      </label>
+      <div class="field nl-expires">
+        <span class="field-label">Expires
+          <label class="switch small" title="Expires on a date (UTC)">
+            <input type="checkbox" role="switch" id="new-expiry-switch" aria-label="Link expires"{% if form.get('expires_at') %} checked{% endif %}>
+            <span class="track"></span>
+          </label>
+        </span>
+        <input name="expires_at" type="date" value="{{ form.get('expires_at', '') }}" title="Last day the link works (UTC)" aria-label="Expiry date (UTC)"
+               {% if not form.get('expires_at') %}disabled{% endif %} {% if error_field == 'expires_at' %}aria-invalid="true" autofocus{% endif %}>
+      </div>
       <button class="btn primary" id="new-link-submit">{{ icon('plus') }}Create</button>
+      {% if not slug_error %}{{ err_box }}{% endif %}
     </div>
     <div class="nl-row nl-slug">
       <div class="field">
-        <span class="field-label" id="slug-mode-label">Short link</span>
-        <div class="segmented" role="radiogroup" aria-labelledby="slug-mode-label">
-          <label><input type="radio" name="slug_mode" value="generate"{% if mode != 'custom' %} checked{% endif %}><span>Generate</span></label>
-          <label><input type="radio" name="slug_mode" value="custom"{% if mode == 'custom' %} checked{% endif %}><span>Custom</span></label>
-        </div>
+        <label class="field-label" for="slug-source">Short link</label>
+        <select name="slug_source" id="slug-source"{% if error_field in ('slug_source', 'alphabet') %} aria-invalid="true" autofocus{% endif %}>
+          <option value="default"{% if slug_source == 'default' %} selected{% endif %}>Random · default</option>
+          <option value="letters"{% if slug_source == 'letters' %} selected{% endif %}>Random · letters only</option>
+          <option value="chars"{% if slug_source == 'chars' %} selected{% endif %}>Random · own characters</option>
+          <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom slug</option>
+        </select>
       </div>
-      <div class="nl-gen" data-when="generate">
-        <label>Alphabet
-          <select name="alphabet"{% if error_field == 'alphabet' %} aria-invalid="true" autofocus{% endif %}>
-            <option value="default"{% if chosen == 'default' %} selected{% endif %}>Default</option>
-            <option value="letters"{% if chosen == 'letters' %} selected{% endif %}>Letters only</option>
-            <option value="custom"{% if chosen == 'custom' %} selected{% endif %}>Custom</option>
-          </select>
-        </label>
-        <label class="nl-chars" data-when-alphabet="custom">Characters
-          <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}" placeholder="e.g. abc123" maxlength="64" autocomplete="off" spellcheck="false"
-                 {% if error_field == 'alphabet_custom' %}aria-invalid="true" autofocus{% endif %}>
-        </label>
-        <label class="nl-length">Length
-          <input name="length" type="number" value="{{ form.get('length', default_length) }}" min="{{ length_range[0] }}" max="{{ length_range[1] }}"
-                 {% if error_field == 'length' %}aria-invalid="true" autofocus{% endif %}>
-        </label>
-        <span class="alphabet-preview" aria-live="polite"></span>
-      </div>
-      <label class="grow" data-when="custom">Slug
-        <input name="slug" type="text" placeholder="my-link" value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
-               pattern="[A-Za-z0-9_\-]{1,64}" {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
+      <button type="button" class="btn" id="new-link-generate" title="Generate a short link of the selected type, then edit or create it">{{ icon('refresh') }}Generate</button>
+      <label class="nl-chars" data-when-source="chars">Characters
+        <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}" placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
+               {% if error_field == 'alphabet_custom' %}aria-invalid="true" autofocus{% endif %}>
       </label>
+      <label class="nl-length" data-when-source="default letters chars">Length
+        <input name="length" type="number" value="{{ form.get('length', default_length) }}" min="{{ length_range[0] }}" max="{{ length_range[1] }}"
+               {% if error_field == 'length' %}aria-invalid="true" autofocus{% endif %}>
+      </label>
+      <label class="grow" data-when-source="slug">Slug
+        <input name="slug" type="text" placeholder="my-link" value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
+               pattern="[A-Za-z0-9._~\-]{1,64}" {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>
+      </label>
+      <p class="alphabet-hint" aria-live="polite"></p>
+      {% if slug_error %}{{ err_box }}{% endif %}
     </div>
   </form>
-  <p class="form-error" id="new-link-error" role="alert">{% if error %}{{ icon('alert') }}<span>{{ error }}</span>{% endif %}</p>
   <div class="notices" id="new-link-notices">
   {% for message in get_flashed_messages(category_filter=['link']) %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span>Created <span class="url">{{ message }}</span>{{ link_actions(message, 'short link') }}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}<span>Created <span class="url">{{ message|hl_url }}</span>{{ link_actions(message, 'short link') }}</span></p>
   {% endfor %}
   </div>
 </section>
@@ -80,6 +81,7 @@
         <div class="qhighlight" aria-hidden="true"><span class="qhl"></span></div>
         <input type="text" name="q" id="q" class="qinput" value="{{ query }}" autocomplete="off" spellcheck="false" autocapitalize="off"
                placeholder="Search…  e.g. status=expired creator=julian sortby=-visits">
+        <div class="qx-layer"></div>
       </div>
     </div>
     <div class="field">
@@ -87,7 +89,7 @@
       <details class="multi" id="filter-status" data-key="status" data-all="{{ statuses|map(attribute=0)|list|tojson|forceescape }}">
         <summary aria-labelledby="status-label"><span class="multi-label">All</span></summary>
         <div class="multi-panel" role="group" aria-labelledby="status-label">
-          {% for value, label in statuses %}<label><input type="checkbox" value="{{ value }}" checked><span>{{ label }}</span></label>{% endfor %}
+          {% for value, label in statuses %}<label><input type="checkbox" value="{{ value }}" checked><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
         </div>
       </details>
     </div>
@@ -97,7 +99,7 @@
       <details class="multi" id="filter-creator" data-key="creator" data-all="{{ owners|tojson|forceescape }}">
         <summary aria-labelledby="creator-label"><span class="multi-label">Everyone</span></summary>
         <div class="multi-panel" role="group" aria-labelledby="creator-label">
-          {% for o in owners %}<label><input type="checkbox" value="{{ o }}" checked><span>{{ o }}</span></label>{% endfor %}
+          {% for o in owners %}<label><input type="checkbox" value="{{ o }}" checked><span>{{ o }}</span>{{ icon('check') }}</label>{% endfor %}
         </div>
       </details>
     </div>
@@ -115,7 +117,7 @@
       <details class="multi" id="filter-columns" data-cookie="dero_cols" data-cookie-path="{{ admin_path }}" data-all="{{ column_choices|map(attribute=0)|list|tojson|forceescape }}">
         <summary aria-labelledby="columns-label"><span class="multi-label">{{ cols|length }} of {{ column_choices|length }}</span></summary>
         <div class="multi-panel multi-right" role="group" aria-labelledby="columns-label">
-          {% for value, label in column_choices %}<label><input type="checkbox" value="{{ value }}"{% if value in cols %} checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+          {% for value, label in column_choices %}<label><input type="checkbox" value="{{ value }}"{% if value in cols %} checked{% endif %}><span>{{ label }}</span>{{ icon('check') }}</label>{% endfor %}
         </div>
       </details>
     </div>
@@ -144,7 +146,7 @@
   <div id="links-results" data-count="{{ links|length }}" data-overall="{{ overall }}">
   {% if problems %}<p class="form-warn query-problems" role="status">{{ icon('alert') }}<span>{{ problems|join(' · ') }}</span></p>{% endif %}
   <div class="table-wrap">
-  <table>
+  <table class="{{ 'no-target' if 'target' not in cols else '' }}">
     <thead><tr>
       <th></th><th></th>{% for c in cols %}{{ th(c, column_labels[c], 'col-' ~ c ~ (' num' if c == 'visits' else '')) }}{% endfor %}
     </tr></thead>
@@ -169,7 +171,7 @@
         {% for c in cols %}
         {% if c == 'slug' %}
         <td class="col-slug nowrap">
-          <code class="slug">{{ l.slug|hl_slug }}</code>{{ link_actions(base ~ l.slug, 'short link') }}{% if expired %} <span class="badge">expired</span>{% endif %}
+          <code class="slug">{{ l.slug|hl_slug }}</code>{{ link_actions(base ~ l.slug, 'short link') }}{% if expired %}<span class="expired-mark" data-expired="{{ l.expires_at }}" role="img" aria-label="Expired on {{ l.expires_at[:10] }}" title="Expired on {{ l.expires_at[:10] }}">{{ icon('clock') }}</span>{% endif %}
         </td>
         {% elif c == 'target' %}
         <td class="col-target target">
@@ -180,7 +182,7 @@
         {% elif c == 'created' %}
         <td class="col-created nowrap mono"><time class="localtime short" datetime="{{ l.created_at }}" title="{{ l.created_at.replace('T', ' ').replace('Z', ' UTC') }}">{{ l.created_at[:10] }}</time></td>
         {% elif c == 'expires' %}
-        <td class="col-expires nowrap mono">{{ l.expires_at[:10] if l.expires_at else '–' }}</td>
+        <td class="col-expires nowrap mono">{% if l.expires_at %}<time class="localtime" datetime="{{ l.expires_at }}" title="{{ l.expires_at.replace('T', ' ').replace('Z', ' UTC') }}">{{ l.expires_at.replace('T', ' ').replace('Z', ' UTC') }}</time>{% else %}–{% endif %}</td>
         {% elif c == 'visits' %}
         <td class="col-visits num">{{ l.visits }}</td>
         {% endif %}
@@ -214,13 +216,12 @@
                 </dd></div>
               <div class="grow-1"><dt>Short link</dt>
                 <dd class="field-row">
-                  <span class="slug-group"><span class="slug-prefix">{{ base }}</span><input type="text" name="slug" form="x{{ l.id }}" class="url-input" value="{{ l.slug }}" required maxlength="64" pattern="[A-Za-z0-9_\-]{1,64}" autocomplete="off" spellcheck="false" aria-label="Short link slug"></span>
+                  <span class="slug-group"><span class="slug-prefix">{{ base }}</span><span class="slug-edit"><span class="slug-hl" aria-hidden="true"></span><input type="text" name="slug" form="x{{ l.id }}" class="url-input" value="{{ l.slug }}" required maxlength="64" pattern="[A-Za-z0-9._~\-]{1,64}" autocomplete="off" spellcheck="false" aria-label="Short link slug"></span></span>
                   {{ link_actions(base ~ l.slug, 'short link') }}
                 </dd></div>
             </dl>
+            {{ link_notices(l.id) }}
             <div class="detail-actions">
-              <button type="button" class="btn small" data-discard="x{{ l.id }}" hidden disabled>{{ icon('rotate') }}Discard</button>
-              <button type="submit" form="x{{ l.id }}" class="btn small" disabled>{{ icon('check') }}Update</button>
               <form method="post" action="{{ url_for('admin.delete_link', link_id=l.id) }}"
                     data-confirm-title="Delete this link?" data-confirm-name="{{ base ~ l.slug }}"
                     data-confirm-detail="{{ l.target }}" data-confirm-yes="Delete">
@@ -228,6 +229,8 @@
                 <input type="hidden" name="back" value="{{ back }}">
                 <button class="btn small danger">{{ icon('trash') }}Delete</button>
               </form>
+              <button type="button" class="btn small" data-discard="x{{ l.id }}" hidden disabled>{{ icon('rotate') }}Discard</button>
+              <button type="submit" form="x{{ l.id }}" class="btn small" disabled>{{ icon('check') }}Update</button>
             </div>
           </div>
         </td>

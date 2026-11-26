@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 import sqlite3
@@ -22,6 +23,14 @@ def highlight_slug(slug: str) -> Markup:
         text = escape("".join(chars))
         out.append(text if k == "letter" else Markup(f'<span class="hl-{k}">{text}</span>'))
     return Markup("").join(out)
+
+
+def highlight_url(url: str) -> Markup:
+    """A short link with only its slug coloured (the base address stays plain)."""
+    base = _base_url()
+    if url.startswith(base) and len(url) > len(base):
+        return escape(base) + highlight_slug(url[len(base):])
+    return escape(url)
 
 
 def _normalise_base_url(value: str) -> str:
@@ -82,8 +91,10 @@ def create_app(test_config=None):
     app.config["ADMIN_PATH"] = admin_path
     app.register_blueprint(admin, url_prefix=admin_path)
     app.jinja_env.globals["csrf_token"] = auth.csrf_token
-    app.context_processor(lambda: {"build": build_info()})
+    app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
     app.add_template_filter(highlight_slug, "hl_slug")
+    app.add_template_filter(highlight_url, "hl_url")
+    app.add_template_filter(json.loads, "fromjson")
 
     @app.after_request
     def headers(resp):
@@ -113,7 +124,7 @@ ALPHABETS = {
     "default": "abcdefghjkmnpqrstuvwxyz23456789",
     "letters": "abcdefghijklmnopqrstuvwxyz",
 }
-SLUG_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+SLUG_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._~-")
 MIN_LENGTH, MAX_LENGTH, DEFAULT_LENGTH = 3, 32, 5
 
 
@@ -124,28 +135,40 @@ def _random_slug(alphabet: str, length: int) -> str:
 def _slug_plan(f):
     """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
 
-    slug_mode is "custom" or "generate". Without it (API-style posts) a given slug is used, otherwise one is generated.
+    slug_source is one of: default, letters (random from that alphabet), chars (random from the characters in
+    alphabet_custom, where a repeated character is more likely), slug (use the typed slug).
+    Older posts without it: slug_mode/alphabet are read, and a given slug is used, otherwise one is generated.
     """
-    mode = f.get("slug_mode", "")
+    source = f.get("slug_source", "")
     slug = f.get("slug", "").strip()
-    if mode == "custom" or (mode == "" and slug):
+    if not source:
+        mode, name = f.get("slug_mode", ""), f.get("alphabet", "default") or "default"
+        if mode == "custom" or (mode == "" and slug):
+            source = "slug"
+        elif name == "custom":
+            source = "chars"
+        elif name in ALPHABETS:
+            source = name
+        else:
+            raise resolve.ValidationError("Unknown alphabet.", "slug_source")
+
+    if source == "slug":
         if not slug:
-            raise resolve.ValidationError("Enter a slug, or switch to Generate.", "slug")
+            raise resolve.ValidationError("Enter a slug, or pick a random one.", "slug")
         _validated("slug", resolve.validate_slug, slug)
         if slug in _reserved_slugs():
             raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
         return "custom", slug
 
-    name = f.get("alphabet", "default") or "default"
-    if name == "custom":
-        chars = "".join(dict.fromkeys(f.get("alphabet_custom", "")))        # drop duplicates, keep the order
-        if len(chars) < 2 or not set(chars) <= SLUG_CHARS:
-            raise resolve.ValidationError("Custom alphabet: at least 2 different letters, digits, - or _.", "alphabet_custom")
+    if source == "chars":
+        chars = f.get("alphabet_custom", "")                                  # duplicates stay: they make a character more likely
+        if len(set(chars)) < 2 or not set(chars) <= SLUG_CHARS:
+            raise resolve.ValidationError("Characters: at least 2 different letters, digits or - _ . ~", "alphabet_custom")
         alphabet = chars
-    elif name in ALPHABETS:
-        alphabet = ALPHABETS[name]
+    elif source in ALPHABETS:
+        alphabet = ALPHABETS[source]
     else:
-        raise resolve.ValidationError("Unknown alphabet.", "alphabet")
+        raise resolve.ValidationError("Unknown option.", "slug_source")
     try:
         length = int(f.get("length") or DEFAULT_LENGTH)
     except ValueError:
@@ -214,6 +237,15 @@ def _effective_query(args, is_admin: bool) -> str:
     return text
 
 
+def _slug_source_of(form) -> str:
+    """Which "Short link" option a (rejected) form was using."""
+    if form.get("slug_source") in ("default", "letters", "chars", "slug"):
+        return form["slug_source"]
+    if form.get("slug_mode") == "custom" or (not form.get("slug_mode") and form.get("slug")):
+        return "slug"
+    return {"letters": "letters", "custom": "chars"}.get(form.get("alphabet", ""), "default")
+
+
 def _render_index(form=None, error=None, error_field=None):
     conn = db.get_db()
     is_admin = g.user["is_admin"]
@@ -262,7 +294,7 @@ def _render_index(form=None, error=None, error_field=None):
         admin_path=current_app.config["ADMIN_PATH"],
         filtered=bool(parsed.where), query_sort_only=query.sort_term(sort_key, reverse) if parsed.sort else "",
         back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
-        form=form or {}, error=error, error_field=error_field,
+        form=form or {}, error=error, error_field=error_field, slug_source=_slug_source_of(form or {}),
         alphabets=ALPHABETS, default_length=DEFAULT_LENGTH, length_range=(MIN_LENGTH, MAX_LENGTH),
         reserved=sorted(_reserved_slugs()))
 
@@ -314,7 +346,7 @@ def create_link():
         kind, plan = _slug_plan(f)
         for _ in range(20 if kind == "generate" else 1):
             slug = plan if kind == "custom" else _random_slug(*plan)
-            if kind == "generate" and slug in _reserved_slugs():
+            if kind == "generate" and (slug in _reserved_slugs() or not slug.strip(".")):
                 continue
             try:
                 conn.execute(
@@ -370,7 +402,6 @@ def update_link(link_id):
     """Change the target, the slug and the expiry of a link in one go."""
     row = _own_or_admin(link_id)
     f = request.form
-    old_url = f"{_base_url()}{row['slug']}"
     try:
         target = _validated("target", resolve.validate_url, f.get("target", ""))
         slug = f.get("slug", "").strip()
@@ -386,18 +417,17 @@ def update_link(link_id):
         except sqlite3.IntegrityError:
             raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
     except resolve.ValidationError as exc:
-        flash(f"{old_url}: {exc}", "links:error")
+        flash(str(exc), f"link:{link_id}:error")        # shown in that link's details, next to the fields
         return _back()
 
-    changes = []
+    changes = []                                         # [label, value]: the template shows the value after the label
     if slug != row["slug"]:
-        changes.append("short link")
+        changes.append(["new short link", ""])
     if target != row["target"]:
-        changes.append("target")
+        changes.append(["new target", target])
     if expires != row["expires_at"]:
-        changes.append(f"expiry {expires[:10]}" if expires else "expiry removed")
-    url = f"{_base_url()}{slug}"
-    flash(f"{url} updated · " + ", ".join(changes) if changes else f"{url} · nothing to update", "links")
+        changes.append(["expires", expires[:10]] if expires else ["no expiry", ""])
+    flash(json.dumps({"slug": slug, "changes": changes}), f"link:{link_id}")
     return _back()
 
 
@@ -479,7 +509,7 @@ def set_fallback():
     value = request.form.get("fallback_url", "").strip()
     try:
         db.set_setting("fallback_url", resolve.validate_url(value) if value else "")
-        flash("Fallback saved." if value else "Fallback cleared (unknown links return 404).", "fallback")
+        flash("Fallback saved." if value else "Fallback cleared.", "fallback")
     except resolve.ValidationError as exc:
         flash(str(exc), "fallback:error")
     return redirect(url_for("admin.rules"))

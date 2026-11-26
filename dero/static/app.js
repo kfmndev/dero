@@ -45,6 +45,12 @@ function localizeTimes(root = document) {
     const date = new Date(el.getAttribute("datetime"));
     if (!Number.isNaN(date.getTime())) el.textContent = (el.classList.contains("short") ? LOCAL_DATE : LOCAL_TIME).format(date);
   });
+  root.querySelectorAll(".expired-mark[data-expired]").forEach((el) => {     // "Expired on <local date>", the UTC time stays in the column's tooltip
+    const date = new Date(el.dataset.expired);
+    if (Number.isNaN(date.getTime())) return;
+    el.title = `Expired on ${LOCAL_DATE.format(date)}`;
+    el.setAttribute("aria-label", el.title);
+  });
 }
 
 // Replace one region of the page with the same region from a freshly fetched page.
@@ -61,6 +67,7 @@ function swapRegion(id, doc) {
     if (detail && detail.previousElementSibling) toggleRow(detail.previousElementSibling);
   }
   if (typeof syncAllEdit === "function") syncAllEdit();
+  if (typeof initSlugEdits === "function") initSlugEdits();
   localizeTimes();
   return true;
 }
@@ -74,7 +81,10 @@ document.addEventListener("click", (event) => {
 });
 
 // ---- Checks shared by the "New link" form and the edit form in a link's details ----
-const SLUG_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const SLUG_RE = /^[A-Za-z0-9._~-]{1,64}$/;                    // what a URL path never needs to escape
+const BAD_SLUG = "Slug: letters, digits and - _ . ~ only, up to 64.";
+const DOTS_ONLY = "A slug can't be just dots.";
+const slugProblem = (value) => (!SLUG_RE.test(value) ? BAD_SLUG : /^\.+$/.test(value) ? DOTS_ONLY : null);
 const BAD_URL = "Target must be a valid http:// or https:// URL.";
 
 // Returns [field, message] for the first problem, or null. The server repeats every check.
@@ -92,26 +102,26 @@ function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = fal
   } else {
     const slug = form.elements.slug, s = slug.value.trim();
     if (!s && slugRequired) return [slug, "A short link needs a slug."];
-    if (s && !SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
+    if (s && slugProblem(s)) return [slug, slugProblem(s)];
     if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
   }
   if (dateWhenOn && !expires.disabled && !expires.value) return [expires, "Pick the last day the link should work, or switch the expiry off."];
   return null;
 }
 
-// Slug part of the "New link" form: a custom slug, or the alphabet and length to generate one from.
-function generatorProblem(form, reserved) {
-  if (form.elements.slug_mode.value === "custom") {
+// Slug part of the "New link" form: a typed slug, or the characters and length to generate one from.
+function generatorProblem(form, reserved, source = form.elements.slug_source.value) {
+  if (source === "slug") {
     const slug = form.elements.slug, s = slug.value.trim();
-    if (!s) return [slug, "Enter a slug, or switch to Generate."];
-    if (!SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
+    if (!s) return [slug, "Enter a slug, or pick a random one."];
+    if (slugProblem(s)) return [slug, slugProblem(s)];
     if (reserved.includes(s)) return [slug, `'${s}' is reserved.`];
     return null;
   }
-  if (form.elements.alphabet.value === "custom") {
-    const field = form.elements.alphabet_custom, chars = [...new Set(field.value)];
-    if (chars.length < 2 || !chars.every((c) => /[A-Za-z0-9_-]/.test(c)))
-      return [field, "Custom alphabet: at least 2 different letters, digits, - or _."];
+  if (source === "chars") {
+    const field = form.elements.alphabet_custom, chars = [...field.value];
+    if (new Set(chars).size < 2 || !chars.every((c) => /[A-Za-z0-9._~-]/.test(c)))
+      return [field, "Characters: at least 2 different letters, digits or - _ . ~"];
   }
   const length = form.elements.namedItem("length"), n = Number(length.value);       // (elements.length is the collection's size)
   const min = Number(form.dataset.minLength), max = Number(form.dataset.maxLength);
@@ -220,7 +230,7 @@ function warnFirst(form, event, verb, show) {
   event.preventDefault();
   form.dataset.warned = signature;
   fields.forEach((el) => el.setAttribute("data-warn", ""));
-  show(`${notes.join(" ")} Press ${verb} again to continue.`);
+  show(`${notes.join(" ")} Press ${verb} again to continue.`, fields[0]);
   fields[0].focus();
   return true;
 }
@@ -240,12 +250,14 @@ function forgetWarning(form) {
   const box = document.getElementById("new-link-error");
   const reserved = (form.dataset.reserved || "").split(",").filter(Boolean);
   const alphabets = JSON.parse(form.dataset.alphabets || "{}");
-  const preview = form.querySelector(".alphabet-preview");
+  const hint = form.querySelector(".alphabet-hint");
   const PREFS = "dero.generator";
-  const modeOf = () => form.elements.slug_mode.value;
+  const sourceOf = () => form.elements.slug_source.value;
   const lengthField = () => form.elements.namedItem("length");
 
-  function show(message, kind = "error") {
+  function show(message, kind = "error", field = null) {
+    const row = (field && field.closest(".nl-row")) || form.querySelector(".nl-row");   // the message sits in the row of the field it is about
+    if (message && box.parentElement !== row) row.append(box);
     box.replaceChildren();
     box.className = kind === "warn" ? "form-warn" : "form-error";
     if (!message) return;
@@ -258,22 +270,54 @@ function forgetWarning(form) {
     box.append(span);
   }
 
-  // Generate or provide the slug: only the fields of the chosen mode are shown.
+  // Random or typed: only the fields that belong to the chosen option are shown, and a line below says what it draws from.
   function syncGenerator() {
-    const mode = modeOf(), alphabet = form.elements.alphabet.value;
-    form.querySelectorAll("[data-when]").forEach((el) => (el.hidden = el.dataset.when !== mode));
-    form.querySelectorAll("[data-when-alphabet]").forEach((el) => (el.hidden = el.dataset.whenAlphabet !== alphabet));
-    const chars = alphabet === "custom" ? [...new Set(form.elements.alphabet_custom.value)].join("") : alphabets[alphabet] || "";
-    preview.textContent = chars;
-    preview.hidden = !chars;
+    const source = sourceOf();
+    form.querySelectorAll("[data-when-source]").forEach((el) => (el.hidden = !el.dataset.whenSource.split(" ").includes(source)));
+    let text = "";
+    if (source === "chars") {
+      const chars = [...form.elements.alphabet_custom.value];
+      if (chars.length) text = `${chars.length} characters, ${new Set(chars).size} different: ${chars.join("")}`;
+    } else if (alphabets[source]) text = alphabets[source];
+    hint.textContent = text;
+    hint.title = text;                          // long sets are cut with an ellipsis; the tooltip has all of it
   }
+
+  // Generate: draw a slug of the selected type now, put it into the Custom slug field to look at, edit or create.
+  // From Custom it uses the random type that was selected last.
+  let lastRandom = sourceOf() === "slug" ? "default" : sourceOf();
+  const generate = form.querySelector("#new-link-generate");
+  const reservedSet = new Set(reserved);
+  function randomSlug(kind) {
+    const alphabet = kind === "chars" ? [...form.elements.alphabet_custom.value] : [...(alphabets[kind] || alphabets.default)];
+    const length = Number(lengthField().value), pool = new Uint32Array(length);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      crypto.getRandomValues(pool);
+      const slug = [...pool].map((n) => alphabet[n % alphabet.length]).join("");
+      if (!reservedSet.has(slug) && slug.replace(/\./g, "")) return slug;
+    }
+    return "";
+  }
+  generate.addEventListener("click", () => {
+    form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
+    const kind = sourceOf() === "slug" ? lastRandom : sourceOf();
+    const found = generatorProblem(form, reserved, kind);
+    if (found) { found[0].setAttribute("aria-invalid", "true"); show(found[1], "error", found[0]); found[0].focus(); return; }
+    show("");
+    const select = form.elements.slug_source;
+    select.value = "slug";
+    refreshSelect(select);
+    form.elements.slug.value = randomSlug(kind);
+    syncGenerator();
+    savePrefs();
+    forgetWarning(form);
+    form.elements.slug.focus();
+    form.elements.slug.select();
+  });
 
   function savePrefs() {                       // the choice is remembered in this browser
     try {
-      localStorage.setItem(PREFS, JSON.stringify({
-        mode: modeOf(), alphabet: form.elements.alphabet.value,
-        custom: form.elements.alphabet_custom.value, length: lengthField().value,
-      }));
+      localStorage.setItem(PREFS, JSON.stringify({ source: sourceOf(), custom: form.elements.alphabet_custom.value, length: lengthField().value }));
     } catch {}
   }
 
@@ -281,9 +325,8 @@ function forgetWarning(form) {
     try {
       const saved = JSON.parse(localStorage.getItem(PREFS) || "null");
       if (!saved) return;
-      const radio = form.querySelector(`input[name=slug_mode][value="${saved.mode}"]`);
-      if (radio) radio.checked = true;
-      if ([...form.elements.alphabet.options].some((o) => o.value === saved.alphabet)) { form.elements.alphabet.value = saved.alphabet; refreshSelect(form.elements.alphabet); }
+      const select = form.elements.slug_source;
+      if ([...select.options].some((o) => o.value === saved.source)) { select.value = saved.source; refreshSelect(select); }
       form.elements.alphabet_custom.value = saved.custom || "";
       if (saved.length) lengthField().value = saved.length;
     } catch {}
@@ -297,13 +340,13 @@ function forgetWarning(form) {
     const found = linkProblem(form, { reserved, generator: true });
     if (!found) {
       if (needsLookup(form)) { event.preventDefault(); lookupThenResubmit(form); return; }
-      if (warnFirst(form, event, "Create", (message) => show(message, "warn"))) return;
+      if (warnFirst(form, event, "Create", (message, field) => show(message, "warn", field))) return;
       return show("");                    // let the browser send it
     }
     event.preventDefault();               // invalid: nothing is sent, nothing is cleared
     const [field, message] = found;
     field.setAttribute("aria-invalid", "true");
-    show(message);
+    show(message, "error", field);
     field.focus();
   });
 
@@ -312,10 +355,10 @@ function forgetWarning(form) {
     show("");
     const name = event.target.name;
     if (name === "target" || name === "expires_at") forgetWarning(form);    // a different value deserves a new look
-    if (["slug_mode", "alphabet", "alphabet_custom", "length"].includes(name)) { syncGenerator(); savePrefs(); }
+    if (["slug_source", "alphabet_custom", "length"].includes(name)) { syncGenerator(); savePrefs(); }
   });
-  form.addEventListener("change", (event) => {            // radios and the select report `change`
-    if (["slug_mode", "alphabet"].includes(event.target.name)) { syncGenerator(); savePrefs(); }
+  form.addEventListener("change", (event) => {            // the dropdown reports `change`
+    if (event.target.name === "slug_source") { if (sourceOf() !== "slug") lastRandom = sourceOf(); syncGenerator(); savePrefs(); }
   });
   form.addEventListener("reset", () => {
     forgetWarning(form);
@@ -489,17 +532,25 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
     if (t.kind === "ws") top().append(document.createTextNode(raw));
     else if (t.kind === "lpar") {
       const group = span("q-group", "");
+      group.dataset.from = t.start;
       top().append(group);
       stack.push(group);
       group.append(span("q-paren", "("));
     } else if (t.kind === "rpar") {
       top().append(span("q-paren", ")"));
-      if (stack.length > 1) stack.pop();
+      if (stack.length > 1) { top().dataset.to = t.end; stack.pop(); }
     } else if (t.kind === "and" || t.kind === "or") top().append(span("q-op", raw));
     else if (t.kind === "not") top().append(span("q-not", "!"));
-    else if (!t.key) top().append(span("q-term q-k-text", raw));
+    else if (!t.key) {
+      const word = span("q-term q-k-text", raw);
+      word.dataset.from = t.removeStart;
+      word.dataset.to = t.end;
+      top().append(word);
+    }
     else {
       const pill = span(`q-term q-k-${t.key}${t.negated ? " q-neg" : ""}`, "");
+      pill.dataset.from = t.removeStart;
+      pill.dataset.to = t.end;
       const before = parsed.toks[idx - 1], last = top().lastChild;
       if (before && before.kind === "not" && last && last.classList && last.classList.contains("q-not")) pill.append(last);
       pill.append(span("q-key", t.rawKey), span("q-eq", t.op));
@@ -513,6 +564,18 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       top().append(pill);
     }
   });
+  stack.slice(1).forEach((group) => { if (!group.dataset.to) group.dataset.to = text.length; });    // a group that is never closed
+}
+
+// Take one part (a term or a group) out of a query, together with the "and"/"or" that joined it to its neighbour.
+function removePart(text, from, to) {
+  const toks = parseQuery(text).toks.filter((t) => t.kind !== "ws");
+  const joins = (t) => t && (t.kind === "and" || t.kind === "or");
+  const before = [...toks].reverse().find((t) => t.end <= from), after = toks.find((t) => t.start >= to);
+  let start = from, end = to;
+  if (joins(before)) start = before.start;
+  else if (joins(after)) end = after.end;
+  return applyEdits(text, [{ start, end, text: "" }]);
 }
 
 // ---- Filters, search and sorting apply by themselves ----
@@ -556,7 +619,45 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
   }
 
   // ---- the highlighted search bar
-  function syncScroll() { highlight.style.transform = `translateX(${-input.scrollLeft}px)`; }
+  const field = form.querySelector(".qfield"), removers = form.querySelector(".qx-layer");
+
+  // one small x after every term and every outermost group, in the gap the word spacing leaves between them
+  function drawRemovers() {
+    removers.replaceChildren();
+    const base = field.getBoundingClientRect();
+    highlight.querySelectorAll(".q-term, .q-group").forEach((el) => {
+      if (el.classList.contains("q-group") && el.parentElement.closest(".q-group")) return;
+      if (el.classList.contains("q-term") && el.closest(".q-group")) return;   // a group is removed as a whole
+      const x = el.getBoundingClientRect().right - base.left;
+      if (x < 6 || x > base.width - 6) return;                              // scrolled out of view
+      const label = input.value.slice(Number(el.dataset.from), Number(el.dataset.to)).trim();
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "qx";
+      button.tabIndex = -1;                                                  // the text itself is the keyboard way to edit
+      button.title = `Remove ${label}`;
+      button.setAttribute("aria-label", `Remove ${label}`);
+      button.dataset.from = el.dataset.from;
+      button.dataset.to = el.dataset.to;
+      button.style.left = `${x - 10}px`;                                   // inside the chip's right padding
+      button.textContent = "×";
+      removers.append(button);
+    });
+  }
+
+  removers.addEventListener("mousedown", (event) => event.preventDefault());   // keep the focus where it is
+  removers.addEventListener("click", (event) => {
+    const button = event.target.closest(".qx");
+    if (!button) return;
+    setQuery(removePart(input.value, Number(button.dataset.from), Number(button.dataset.to)));
+    input.focus();
+  });
+  window.addEventListener("resize", drawRemovers);
+
+  function syncScroll() {
+    highlight.style.transform = `translateX(${-input.scrollLeft}px)`;
+    drawRemovers();                                                           // the chips moved with the scroll
+  }
 
   function draw() {
     renderQuery(parseQuery(input.value), input.value, highlight, lists);
@@ -675,6 +776,67 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
   setQuery(input.value, { fetch: false });    // draw the first time
 })();
 
+// ---- Slug colouring: a stored user option (cookie dero_hl, read by the server; CSS reacts to html[data-hl]) ----
+// Digits blue and symbols red, like Bitwarden does for passwords. Same grouping as highlight_slug in Python.
+function coloredSlug(slug) {
+  const out = document.createDocumentFragment();
+  for (const run of slug.match(/\d+|[^\p{L}\d]+|\p{L}+/gu) || []) {
+    if (/^\p{L}/u.test(run)) { out.append(run); continue; }
+    const span = document.createElement("span");
+    span.className = /^\d/.test(run) ? "hl-digit" : "hl-symbol";
+    span.textContent = run;
+    out.append(span);
+  }
+  return out;
+}
+
+(function () {
+  const dialog = document.getElementById("settings"), open = document.getElementById("settings-open");
+  if (dialog && open && typeof dialog.showModal === "function") {
+    open.addEventListener("click", () => dialog.showModal());
+    dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });   // a click outside closes it
+  }
+  const toggle = document.getElementById("hl-switch");
+  if (!toggle) return;
+  toggle.addEventListener("change", () => {
+    document.documentElement.dataset.hl = toggle.checked ? "on" : "off";
+    document.cookie = `dero_hl=${toggle.checked ? 1 : 0}; path=/; max-age=31536000; SameSite=Lax`;
+  });
+})();
+
+// ---- The slug input of a link's details: coloured text behind the transparent input ----
+function paintSlugEdit(box) {
+  const input = box.querySelector("input"), layer = box.querySelector(".slug-hl");
+  layer.replaceChildren(coloredSlug(input.value));
+  layer.style.transform = `translateX(${-input.scrollLeft}px)`;
+}
+function initSlugEdits(root = document) {
+  root.querySelectorAll(".slug-edit:not(.hl-ready)").forEach(initSlugEdit);
+}
+function initSlugEdit(box) {
+  box.classList.add("hl-ready");
+  paintSlugEdit(box);
+  const input = box.querySelector("input");
+  input.addEventListener("input", () => paintSlugEdit(box));
+  input.addEventListener("scroll", () => paintSlugEdit(box));
+  input.form?.addEventListener("reset", () => setTimeout(() => paintSlugEdit(box), 0));
+}
+initSlugEdits();
+
+// ---- New link: the small switch enables the expiry date (off = never expires) ----
+(function () {
+  const toggle = document.getElementById("new-expiry-switch");
+  if (!toggle) return;
+  const date = toggle.form.elements.expires_at;
+  const sync = () => { date.disabled = !toggle.checked; };
+  toggle.addEventListener("change", () => {
+    sync();
+    if (toggle.checked) date.focus(); else { date.value = ""; date.removeAttribute("aria-invalid"); }
+  });
+  toggle.form.addEventListener("reset", () => setTimeout(sync, 0));
+  sync();
+})();
+
 // ---- Confirmation dialog (replaces window.confirm) ----
 // A form with data-confirm-title asks first. The dialog is a native <dialog>:
 // Esc and a click outside cancel, focus starts on Cancel, and the confirming
@@ -685,7 +847,9 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
 
   function ask(data) {
     dialog.querySelector("#confirm-title").textContent = data.confirmTitle || "Are you sure?";
-    dialog.querySelector("#confirm-name").textContent = data.confirmName || "";
+    const name = dialog.querySelector("#confirm-name"), full = data.confirmName || "", cut = full.lastIndexOf("/") + 1;
+    name.textContent = full.slice(0, cut);
+    name.append(coloredSlug(full.slice(cut)));
     dialog.querySelector("#confirm-detail").textContent = data.confirmDetail || "";
     dialog.querySelector("#confirm-text .icon").hidden = !data.confirmDetail;       // the arrow only makes sense with a second URL
     dialog.querySelector("#confirm-yes span").textContent = data.confirmYes || "Confirm";
@@ -776,13 +940,13 @@ document.addEventListener("submit", (event) => {
   });
   if (!found) {
     if (needsLookup(form)) { event.preventDefault(); lookupThenResubmit(form); return; }
-    warnFirst(form, event, "Update", (message) => showNotice("links-notices", message, "warn"));
+    warnFirst(form, event, "Update", (message) => showNotice(`link-${form.id.slice(1)}-notices`, message, "warn"));
     return;
   }
   event.preventDefault();
   const [field, message] = found;
   field.setAttribute("aria-invalid", "true");
-  showNotice("links-notices", message);
+  showNotice(`link-${form.id.slice(1)}-notices`, message);
   field.focus();
 });
 
@@ -843,7 +1007,11 @@ document.addEventListener("change", (event) => {
 
       if (isCreate) {                                  // keep the typed values on an error, clear them on success
         const box = document.getElementById("new-link-error"), theirs = doc.getElementById("new-link-error");
-        if (box && theirs) box.innerHTML = theirs.innerHTML;
+        if (box && theirs) {
+          box.innerHTML = theirs.innerHTML;
+          const rows = form.querySelectorAll(".nl-row"), at = [...doc.querySelectorAll("#new-link .nl-row")].findIndex((r) => r.contains(theirs));
+          if (at >= 0 && rows[at] && box.parentElement !== rows[at]) rows[at].append(box);
+        }
         form.querySelectorAll("[aria-invalid]").forEach((el) => el.removeAttribute("aria-invalid"));
         if (res.ok) {
           form.reset();

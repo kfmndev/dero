@@ -10,7 +10,7 @@ import regex  # third-party: supports match timeouts, so a bad pattern can't han
 
 from .db import get_db, get_setting, now_iso
 
-SLUG_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+SLUG_RE = re.compile(r"[A-Za-z0-9._~-]{1,64}")      # the characters a URL path never needs to escape (RFC 3986 "unreserved")
 PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
 REGEX_TIMEOUT = 0.05  # seconds
 
@@ -23,7 +23,9 @@ class ValidationError(ValueError):
 
 def validate_slug(slug: str) -> str:
     if not SLUG_RE.fullmatch(slug):
-        raise ValidationError("Slug may only contain letters, digits, '-' and '_' (max 64).")
+        raise ValidationError("Slug: letters, digits and - _ . ~ only, up to 64.")
+    if not slug.strip("."):
+        raise ValidationError("A slug can't be just dots.")                 # "/." and "/.." are folded away by browsers
     return slug
 
 

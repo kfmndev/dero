@@ -1,6 +1,6 @@
 {% from "_macros.html" import icon %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-hl="{{ 'on' if highlight_on else 'off' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,7 +20,7 @@
   <nav class="topnav">
     <a href="{{ url_for('admin.index') }}"{% if request.endpoint == 'admin.index' %} aria-current="page"{% endif %}>Links</a>
     {% if g.user.is_admin %}<a href="{{ url_for('admin.rules') }}"{% if request.endpoint == 'admin.rules' %} aria-current="page"{% endif %}>Rules &amp; fallback</a>{% endif %}
-    <span class="who">{{ g.user.username }}<span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span></span>
+    <button type="button" class="who" id="settings-open" aria-haspopup="dialog" title="Settings">{{ icon('sliders') }}<span>{{ g.user.username }}</span><span class="badge role">{{ 'admin' if g.user.is_admin else 'user' }}</span>{{ icon('chevron') }}</button>
   </nav>
 
   {% block content %}{% endblock %}
@@ -33,6 +33,20 @@
       <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">{{ icon('trash') }}<span>Delete</span></button>
       <button type="submit" value="no" class="btn" autofocus>{{ icon('x') }}Cancel</button>
     </div>
+  </form>
+</dialog>
+<dialog id="settings" aria-labelledby="settings-title">
+  <form method="dialog">
+    <h2 id="settings-title">Settings</h2>
+    <div class="setting">
+      <label class="switch small">
+        <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %} checked{% endif %}>
+        <span class="track"></span>
+      </label>
+      <div><strong id="hl-name">Colour short links</strong><span>Digits blue and symbols red, like Bitwarden shows passwords.</span></div>
+    </div>
+    <p class="setting-note">Saved in this browser.</p>
+    <div class="dialog-actions"><button type="submit" class="btn" autofocus>{{ icon('x') }}Close</button></div>
   </form>
 </dialog>
 <footer>

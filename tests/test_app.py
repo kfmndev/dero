@@ -1,3 +1,4 @@
+import html as html_lib
 import re
 
 import pytest
@@ -307,7 +308,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     assert r.status_code == 400
     # what was typed is still in the fields
     assert 'value="https://example.com/mine?a=1&amp;b=2"' in html
-    assert 'name="slug" type="text" placeholder="my-link" value="taken"' in html and 'value="custom" checked' in html   # custom mode restored
+    assert 'name="slug" type="text" placeholder="my-link" value="taken"' in html and '<option value="slug" selected>' in html   # "Custom slug" restored
     assert 'value="2031-05-06"' in html
     # the message is inside the "New link" card (before the "links" card), next to the offending field
     card = html[html.index("New link"):html.index("Short links are served from")]
@@ -392,7 +393,7 @@ def test_an_already_expired_link_can_be_created(client):
     assert r.status_code == 302
     assert client.get("/late").status_code == 404                                  # expired, so it doesn't redirect
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert 'class="badge">expired</span>' in html
+    assert re.search(r'<span class="expired-mark" data-expired="[^"]+" role="img" aria-label="Expired on \d{4}-\d\d-\d\d"', html) and 'class="badge"' not in html
     assert not any(" min=" in tag for tag in re.findall(r'<input[^>]*type="date"[^>]*>', html))     # past days are selectable
 
 
@@ -576,6 +577,13 @@ def notice_box(html, scope):
     return html[start:html.index("</div>", start)]
 
 
+def link_note(client, link_id, html=None):
+    """The text of the notice in a link's details, tags removed."""
+    html = html or client.get("/admin/", headers=USER).get_data(as_text=True)
+    box = notice_box(html, f"link-{link_id}").split(">", 1)[1]
+    return html_lib.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", box))).strip()
+
+
 def test_messages_appear_in_the_card_they_belong_to(client, app):
     from datetime import datetime, timedelta, timezone
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
@@ -584,13 +592,13 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
 
     edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert f"updated · expiry {day}" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
+    assert f"abc updated · expires {day}" in link_note(client, link_id, html) and 'class="form-ok"' in notice_box(html, f"link-{link_id}")
     assert 'id="flashes"' not in html and 'class="flash' not in html
     assert "updated" not in notice_box(html, "new-link")
 
     edit(client, app, "abc", expires_at="31/12/2030")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert "must be a date" in notice_box(html, "links") and 'class="form-error"' in notice_box(html, "links")
+    assert "must be a date" in link_note(client, link_id, html) and 'class="form-error"' in notice_box(html, f"link-{link_id}")
 
     post(client, "/admin/rules", ADMIN, pattern="x", target="javascript:alert(1)")
     html = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
@@ -637,8 +645,8 @@ def test_details_layout_buttons_and_edit_form(client):
     assert d.count('form="x1"') == 3 and re.search(r'name="target" form="x1"', d) and re.search(r'name="slug" form="x1"', d)
     assert re.search(r'<button type="submit" form="x1" class="btn small" disabled><svg[^>]*>.*?</svg>Update</button>', d)
     assert re.search(r'<button type="button" class="btn small" data-discard="x1" hidden disabled><svg[^>]*>.*?</svg>Discard</button>', d)
-    # order: Discard, Update, Delete
-    assert d.index("data-discard") < d.index('form="x1" class="btn small"') < d.index("Delete</button>")
+    # order: Delete, Discard, Update
+    assert d.index("Delete</button>") < d.index("data-discard") < d.index('form="x1" class="btn small"')
     css = client.get("/static/style.css").get_data(as_text=True)
     assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
     assert re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css   # no fixed grid
@@ -678,7 +686,7 @@ def test_details_buttons_neutral_except_the_red_delete(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     actions = html[html.index('class="detail-actions"'):html.index("</tr>", html.index('class="detail-actions"'))]
     classes = re.findall(r'<button [^>]*class="(btn[^"]*)"', actions)
-    assert classes == ["btn small", "btn small", "btn small danger"]                       # Discard, Update: neutral; Delete: red
+    assert classes == ["btn small danger", "btn small", "btn small"]                       # Delete: red; Discard, Update: neutral
     assert 'class="btn solid-danger" id="confirm-yes"' in html
 
 
@@ -700,21 +708,20 @@ def test_edit_target_and_slug(client, app):
     assert row["target"] == "https://example.com/new?x=1" and row["visits"] == 3 and row["created_by"] == "alice"   # same link, just renamed
     assert client.get("/abc").status_code == 404                                                                   # the old short link is gone
     assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
-    page = client.get("/admin/", headers=USER).get_data(as_text=True)
-    note = notice_box(page, "links")
-    assert "http://localhost/renamed updated · short link, target" in note and "was" not in note              # the (new) short link, then what changed
+    note = link_note(client, row["id"])
+    assert "renamed updated · new short link · new target https://example.com/new?x=1" in note and "was" not in note   # the new short link, then what changed
 
 
 def test_edit_rejections_keep_the_link_unchanged(client, app):
     post(client, "/admin/links", USER, target="https://example.com/a", slug="aaa")
     post(client, "/admin/links", USER, target="https://example.com/b", slug="bbb")
     cases = [({"slug": "bbb"}, "already taken"), ({"slug": "static"}, "reserved"), ({"slug": "admin"}, "reserved"),
-             ({"slug": "bad slug!"}, "Slug may only"), ({"slug": ""}, "Slug may only"),
+             ({"slug": "bad slug!"}, "Slug: letters"), ({"slug": ""}, "Slug: letters"),
              ({"target": "javascript:alert(1)"}, "http:// or https://"), ({"target": ""}, "http:// or https://")]
     for over, message in cases:
         assert edit(client, app, "aaa", **over).status_code == 302
-        assert message in notice_box(client.get("/admin/", headers=USER).get_data(as_text=True), "links"), over
         row = link_row(app, "aaa")
+        assert message in link_note(client, row["id"]), over
         assert (row["slug"], row["target"]) == ("aaa", "https://example.com/a")
 
 
@@ -795,15 +802,21 @@ def test_generate_letters_only_and_custom_alphabets(client):
 
 
 def test_generator_validation(client):
-    bad = [({"alphabet": "custom", "alphabet_custom": "a"}, "alphabet_custom"),            # needs two different characters
-           ({"alphabet": "custom", "alphabet_custom": "aaaa"}, "alphabet_custom"),
-           ({"alphabet": "custom", "alphabet_custom": "ab c"}, "alphabet_custom"),         # space isn't allowed in a slug
-           ({"alphabet": "klingon"}, "alphabet"), ({"length": "2"}, "length"), ({"length": "33"}, "length"), ({"length": "x"}, "length")]
+    bad = [({"slug_source": "chars", "alphabet_custom": "a"}, "alphabet_custom"),            # needs two different characters
+           ({"slug_source": "chars", "alphabet_custom": "aaaa"}, "alphabet_custom"),
+           ({"slug_source": "chars", "alphabet_custom": "ab c"}, "alphabet_custom"),         # a space would break the URL
+           ({"slug_source": "chars", "alphabet_custom": "ab/"}, "alphabet_custom"), ({"slug_source": "chars", "alphabet_custom": "a?b#"}, "alphabet_custom"),
+           ({"slug_source": "klingon"}, "slug_source"), ({"slug_source": "default", "length": "2"}, "length"),
+           ({"slug_source": "letters", "length": "33"}, "length"), ({"slug_source": "default", "length": "x"}, "length"),
+           ({"slug_source": "slug", "slug": ""}, "slug"), ({"slug_source": "slug", "slug": "a b"}, "slug")]
     for extra, field in bad:
-        r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", **{"alphabet": "default", **extra})
+        r = post(client, "/admin/links", USER, target="https://example.com/g", **extra)
         html = r.get_data(as_text=True)
         assert r.status_code == 400 and re.search(rf'name="{field}"[^>]*aria-invalid="true"', html), (extra, html[:200])
     assert "No links yet." in client.get("/admin/", headers=USER).get_data(as_text=True)
+    # older posts (slug_mode + alphabet) are still understood
+    r = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", alphabet="klingon")
+    assert r.status_code == 400 and re.search(r'name="slug_source"[^>]*aria-invalid="true"', r.get_data(as_text=True))
 
 
 def test_slug_mode_decides_what_is_used(client):
@@ -826,12 +839,16 @@ def test_generator_gives_up_politely_when_the_alphabet_is_exhausted(client):
 
 def test_new_link_form_markup_and_remembered_choice(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert re.search(r'name="slug_mode" value="generate" checked', html) and 'name="slug_mode" value="custom"' in html
-    assert re.search(r'<select name="alphabet">.*?Default.*?Letters only.*?Custom.*?</select>', html, re.S)
+    assert "slug_mode" not in html and "segmented" not in html                              # the two-way toggle is gone
+    assert re.search(r'<select name="slug_source" id="slug-source">\s*<option value="default" selected>Random · default</option>'
+                     r'\s*<option value="letters">Random · letters only</option>\s*<option value="chars">Random · own characters</option>'
+                     r'\s*<option value="slug">Custom slug</option>', html)
     assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
-    assert 'data-fresh="yes"' in html and "&#34;default&#34;" in html                       # alphabets are handed to the page for the preview
-    failed = post(client, "/admin/links", USER, target="https://example.com/g", slug_mode="generate", alphabet="custom", alphabet_custom="a").get_data(as_text=True)
-    assert 'data-fresh="no"' in failed and '<option value="custom" selected>' in failed          # the server's values win over remembered ones
+    assert 'data-when-source="chars"' in html and 'data-when-source="default letters chars"' in html and 'data-when-source="slug"' in html
+    assert '<p class="alphabet-hint"' in html                                              # what it draws from: one line that can't overflow
+    assert 'data-fresh="yes"' in html and "&#34;default&#34;" in html                       # the alphabets are handed to the page for that line
+    failed = post(client, "/admin/links", USER, target="https://example.com/g", slug_source="chars", alphabet_custom="a").get_data(as_text=True)
+    assert 'data-fresh="no"' in failed and '<option value="chars" selected>' in failed       # the server's values win over remembered ones
 
 
 # ---------------------------------------------------------------- Bitwarden-style slug colours
@@ -863,21 +880,21 @@ def test_warning_texts_are_brief(client):
 
 def test_update_messages_name_the_short_link_and_what_changed(client, app):
     post(client, "/admin/links", USER, target="https://example.com/old", slug="abc")
-    def note():
-        return notice_box(client.get("/admin/", headers=USER).get_data(as_text=True), "links")
+    lid = link_row(app, "abc")["id"]
+    note = lambda: link_note(client, lid)
     edit(client, app, "abc", target="https://example.com/new")
-    assert "http://localhost/abc updated · target" in note() and "was" not in note()
+    assert note() == "abc updated · new target https://example.com/new"
     edit(client, app, "abc", expires_at="2099-01-01")
-    assert "http://localhost/abc updated · expiry 2099-01-01" in note()
+    assert note() == "abc updated · expires 2099-01-01"
     edit(client, app, "abc", expires_at="")
-    assert "http://localhost/abc updated · expiry removed" in note()
+    assert note() == "abc updated · no expiry"
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
-    assert "http://localhost/xyz updated · short link, target, expiry 2098-02-02" in note()
+    assert note() == "xyz updated · new short link · new target https://example.com/x · expires 2098-02-02"
     edit(client, app, "xyz")
-    assert "http://localhost/xyz · nothing to update" in note()
+    assert note() == "xyz is up to date"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
     edit(client, app, "xyz", slug="other")
-    assert "http://localhost/xyz: Slug &#39;other&#39; is already taken." in note()                      # errors say which link, too
+    assert note() == "Slug 'other' is already taken."                                                    # inline, so no link name needed
 
 
 # ---------------------------------------------------------------- "target already shortened" lookup
@@ -1005,17 +1022,20 @@ def test_toggle_and_delete_return_to_the_query_view(client, app):
 
 
 # ---------------------------------------------------------------- slugs may start with - or _
-def test_slugs_may_be_made_of_dashes_and_underscores(client, app):
-    for slug in ("---", "_", "-a", "__init__", "a-b_c", "-" * 64):
+def test_slugs_may_use_any_character_a_url_does_not_need_to_escape(client, app):
+    for slug in ("---", "_", "-a", "__init__", "a-b_c", "-" * 64, "a.b", "v1.2.3", ".hidden", "a~b", "~", "..a", "a.."):
         assert post(client, "/admin/links", USER, target="https://example.com/t", slug=slug).status_code == 302, slug
         assert client.get(f"/{slug}").status_code == 302, slug
-    row = link_row(app, "---")
-    assert edit(client, app, "---", slug="-_-").status_code == 302 and client.get("/-_-").status_code == 302   # renaming to one works too
-    for bad in ("", "a b", "a.b", "a/b", "ä", "x" * 65):
-        assert post(client, "/admin/links", USER, target="https://example.com/t", slug_mode="custom", slug=bad).status_code == 400, bad
+    assert edit(client, app, "---", slug="-_.~-").status_code == 302 and client.get("/-_.~-").status_code == 302   # renaming to one works too
+    for bad in ("", "a b", "a/b", "a?b", "a#b", "a%41", "a&b", "a+b", "a:b", "a@b", "ä", "x" * 65):
+        r = post(client, "/admin/links", USER, target="https://example.com/t", slug_source="slug", slug=bad)
+        assert r.status_code == 400, bad
+    for dots in (".", "..", "....."):
+        r = post(client, "/admin/links", USER, target="https://example.com/t", slug_source="slug", slug=dots)
+        assert r.status_code == 400 and "can&#39;t be just dots" in r.get_data(as_text=True), dots              # browsers fold "/." and "/.." away
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert html.count('pattern="[A-Za-z0-9_\\-]{1,64}"') == html.count('name="slug"')                          # the browser pattern agrees
-    assert "[A-Za-z0-9][" not in html and "[A-Za-z0-9][" not in client.get("/static/app.js").get_data(as_text=True)
+    assert html.count('pattern="[A-Za-z0-9._~\\-]{1,64}"') == html.count('name="slug"') >= 2                    # the browser pattern agrees
+    assert "Slug: letters, digits and - _ . ~ only, up to 64." in client.get("/static/app.js").get_data(as_text=True)
 
 
 # ---------------------------------------------------------------- columns the user can switch on and off
@@ -1040,7 +1060,7 @@ def test_the_cookie_chooses_the_columns(client, app):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert table_columns(html) == ["col-slug", "col-target", "col-creator", "col-created", "col-expires", "col-visits"]
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    assert '<td class="col-creator nowrap">alice</td>' in row and '<td class="col-expires nowrap mono">2099-05-06</td>' in row
+    assert '<td class="col-creator nowrap">alice</td>' in row and 'datetime="2099-05-06T23:59:59Z" title="2099-05-06 23:59:59 UTC"' in row
     assert re.search(r'<td class="col-created nowrap mono"><time class="localtime short" datetime="[^"]+" title="[^"]+ UTC">\d{4}-\d\d-\d\d</time></td>', row)
     assert '<span class="multi-label">6 of 6</span>' in html
     # what is a column is not repeated in the details; the editable expiry always stays there
@@ -1073,7 +1093,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     assert "sortby%3Dexpires" in html and "sortby%3Dcreator" in html                              # new sort links for the new columns
     assert "sortby%3D-created" in html                                                           # (created is the current sort, so its link reverses it)
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    assert row.index("link-actions") < row.index('class="badge">expired</span>')                  # badge after the open/copy icons
+    assert row.index("link-actions") < row.index('class="expired-mark"')                           # the clock comes after the open/copy icons
     css = client.get("/static/style.css").get_data(as_text=True)
     assert "--control-h: 30px" in css and re.search(r"td\.col-target \{ width: 100%; max-width: 0; \}", css)
 
@@ -1082,7 +1102,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
 def test_selects_are_plain_in_the_html_and_upgraded_by_the_script(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     rules = client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)
-    assert '<select id="filter-sort">' in html and '<select name="alphabet"' in html and '<select name="match_type">' in rules   # work without JavaScript
+    assert '<select id="filter-sort">' in html and '<select name="slug_source" id="slug-source"' in html and '<select name="match_type">' in rules   # work without JavaScript
     js = client.get("/static/app.js").get_data(as_text=True)
     assert 'document.querySelectorAll("select").forEach(upgradeSelect)' in js and "function refreshSelect" in js
     assert 'className = "multi single"' in js and 'role", "listbox"' in js                      # same details/summary component as the checkbox lists
@@ -1099,5 +1119,92 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
         assert re.search(rf"\.q-k-{kind} \{{ --c: var\(--q-{kind}\); \}}", css), kind
     colours = re.search(r":root \{ --q-text: var\(--muted\); --q-status: (#\w+); --q-creator: (#\w+); --q-slug: (#\w+); --q-target: (#\w+);", css).groups()
     assert len(set(colours)) == 4                                                                # four different hues (plus muted and the secondary colour)
-    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 6px; \}", css)   # same spacing in both layers
+    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css)   # same spacing in both layers
     assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)                    # the search bar has its own row
+
+
+# ---------------------------------------------------------------- generator: repeats are weights, URL-safe characters only
+def test_a_repeated_character_is_more_likely():
+    from dero import _random_slug
+    sample = "".join(_random_slug("aaab", 20) for _ in range(300))                    # 6000 characters, "a" three times as likely as "b"
+    share = sample.count("a") / len(sample)
+    assert 0.70 < share < 0.80, share
+
+
+def test_generating_from_own_characters_keeps_duplicates_and_allows_dots_and_tildes(client):
+    made = set()
+    for _ in range(12):
+        made.add(created_slug(client, slug_source="chars", alphabet_custom="aaa..~~b", length="12"))
+    assert all(len(s) == 12 and set(s) <= set("a.~b") for s in made) and len(made) == 12
+    assert not any(set(s) == {"."} for s in made)
+    # a slug that would be folded away by browsers is never generated: only "..." and ".." style slugs are possible here
+    for _ in range(3):                                                                   # (7 combinations are valid, so a free one is always found)
+        slug = created_slug(client, slug_source="chars", alphabet_custom="..~", length="3")
+        assert set(slug) != {"."} and set(slug) <= set(".~")
+
+
+def test_new_source_field_decides_what_is_used(client):
+    assert created_slug(client, slug_source="slug", slug="mine") == "mine"
+    assert created_slug(client, slug_source="slug", slug="a.b~c") == "a.b~c"
+    other = created_slug(client, slug_source="default", slug="ignored", length="6")      # a typed slug is ignored when generating
+    assert other != "ignored" and len(other) == 6
+    assert set(created_slug(client, slug_source="letters", length="9")) <= set("abcdefghijklmnopqrstuvwxyz")
+
+
+# ---------------------------------------------------------------- remove-x in the search bar, expired mark
+def test_search_bar_has_a_layer_for_the_remove_buttons(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert '<div class="qx-layer"></div>' in html
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function removePart" in js and "function drawRemovers" in js and 'className = "qx"' in js
+    assert 'tabIndex = -1' in js and "Remove ${label}" in js                              # mouse helper; the keyboard edits the text
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert ".qx-layer" in css and re.search(r"\.qx:hover \{[^}]*var\(--err\)", css)
+
+
+def test_expired_mark_is_a_clock_with_the_date_not_a_text_badge(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    expire(app, "abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    mark = re.search(r'<span class="expired-mark" data-expired="[^"]+" role="img" aria-label="([^"]+)" title="([^"]+)">(<svg.*?</svg>)</span>', html)
+    assert mark and mark.group(1) == mark.group(2) == "Expired on 2000-01-01" and "#clock" in mark.group(3)
+    assert "badge" not in html.split("<tbody>")[1].split("</tbody>")[0]
+    post(client, "/admin/links", USER, target="https://example.com/u", slug="fine")
+    two = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert two.count('class="expired-mark"') == 1 and two.count('<tr class="item') == 2           # only the expired link carries it
+
+
+def test_slug_colour_option_and_small_expiry_switch(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert '<html lang="en" data-hl="on">' in html and 'id="hl-switch"' in html and " checked" in html[html.index('id="hl-switch"'):][:120]
+    client.set_cookie("dero_hl", "0")
+    off = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'data-hl="off"' in off and " checked" not in off[off.index('id="hl-switch"'):][:120]
+    assert re.search(r'<label class="switch small"[^>]*>\s*<input type="checkbox" role="switch" id="new-expiry-switch"', html)
+    assert re.search(r'<input name="expires_at" type="date"[^>]*disabled', html)             # off until the switch is on
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert 'html[data-hl="off"] .hl-digit' in css and "table.no-target td.col-slug" in css
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "dero_hl=" in js and "function coloredSlug" in js and "new-expiry-switch" in js
+def test_detail_inputs_use_card_background(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"tr\.detail input\[type=\"text\"\][^{]*tr\.detail \.slug-group \{ background: var\(--card\)", css)
+
+
+
+def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"code, \.url, \.mono, \.slug-prefix, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
+    assert "padding: 1px 10px 1px 5px; margin: 0 -10px 0 -5px;" in css                                          # chips: the x sits in the padding
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert re.search(r'<label><input type="checkbox" value="active" checked><span>[^<]*</span><svg', html)       # checkbox dropdowns tick like the single ones
+
+
+def test_generate_button_and_settings_dialog(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'id="new-link-generate"' in html and "Generate</button>" in html
+    assert re.search(r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S)       # the user name opens the settings
+    dialog = html[html.index('<dialog id="settings"'):html.index("</dialog>", html.index('<dialog id="settings"'))]
+    assert 'id="hl-switch"' in dialog and "Colour short links" in dialog and 'class="header-tools"' not in html
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function randomSlug" in js and "settings-open" in js

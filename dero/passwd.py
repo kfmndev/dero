@@ -11,7 +11,7 @@ USERNAME_RE = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 
 def make_line(username: str, role: str, password: str) -> str:
     if not USERNAME_RE.fullmatch(username):
-        raise ValueError("Username may contain letters, digits and . _ @ - (max 64).")
+        raise ValueError("Username: letters, digits and . _ @ - only, up to 64.")
     if role not in ("admin", "user"):
         raise ValueError("Role must be 'admin' or 'user'.")
     if len(password) < 8:

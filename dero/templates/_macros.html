@@ -6,6 +6,19 @@
 <span class="link-actions"><a class="mini" href="{{ url }}" target="_blank" rel="noopener noreferrer" title="Open {{ what }}" aria-label="Open {{ what }}">{{ icon('external') }}</a><button type="button" class="mini copy" data-copy="{{ url }}" title="Copy {{ what }}" aria-label="Copy {{ what }}">{{ icon('copy') }}</button></span>
 {%- endmacro -%}
 
+{%- macro link_notices(id) -%}
+<div class="notices" id="link-{{ id }}-notices">
+{%- for category, message in get_flashed_messages(with_categories=true) if category == 'link:' ~ id or category == 'link:' ~ id ~ ':error' %}
+  {%- if category.endswith(':error') %}
+  <p class="form-error" role="alert">{{ icon('alert') }}<span>{{ message }}</span></p>
+  {%- else %}{% set m = message|fromjson %}
+  <p class="form-ok" role="status">{{ icon('check') }}<span class="note-line"><span class="url">{{ m.slug|hl_slug }}</span><span>{{ 'updated' if m.changes else 'is up to date' }}</span>
+    {%- for label, value in m.changes %}<span>· {{ label }}</span>{% if value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}{% endfor %}</span></p>
+  {%- endif %}
+{%- endfor %}
+</div>
+{%- endmacro -%}
+
 {%- macro notices(scope) -%}
 <div class="notices" id="{{ scope }}-notices">
 {%- for category, message in get_flashed_messages(with_categories=true) if category == scope or category == scope ~ ':error' %}
