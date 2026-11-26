@@ -2052,3 +2052,12 @@ def test_base_addresses_are_displayed_without_their_protocol(client):
     post(client, "/admin/links", USER, target="https://example.com", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'data-copy="http://localhost/abc"' in html and 'href="http://localhost/abc"' in html  # copy and open keep it
+
+
+def test_slug_boxes_centre_their_text_with_the_box_not_a_line_height(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    rule = css_rule(css, "code.slug")
+    # measured: with a numeric line height the text sat up to 1px high in some boxes; a flex box with the font's
+    # own (normal) line height centres it in every one of them
+    assert rule["display"] == "inline-flex" and rule["align-items"] == "center" and rule["line-height"] == "normal"
+    assert css_rule(css, "code.urlbox > code.slug")["display"] == "inline-flex"

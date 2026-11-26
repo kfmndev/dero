@@ -1143,6 +1143,9 @@ option {
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
 code.slug {
+  display: inline-flex; /* the text is centred in its box by the box, not by a line height */
+  align-items: center;
+  line-height: normal;
   font-size: var(--slug-size);
   color: var(--text);
 } /* the compact short link keeps the highlight */
@@ -1170,7 +1173,7 @@ code.urlbox .base {
   color: var(--muted);
 }
 code.urlbox > code.slug {
-  display: inline-block;
+  display: inline-flex;
   margin: -1px -1px -1px 0.1rem; /* over the border of the outer box: a block that ends at its edge */
   padding: 1px 0.3rem 1px 0.2rem;
   border: 0;
@@ -2107,11 +2110,8 @@ dialog p.setting-note {
 }
 #new-link-slug .slug-hl code.slug,
 #new-link-slug .slug-hl code.slug:empty {
-  display: inline-block;
+  display: inline-flex;
   min-width: 7ch; /* wide enough for the placeholder 'my-link' */
-  height: 1.5em; /* an empty box is as tall as one with text, and the text sits in the middle of it */
-  line-height: 1.5;
-  box-sizing: content-box;
 }
 .nl-type > .field,
 .nl-slug > .field {
