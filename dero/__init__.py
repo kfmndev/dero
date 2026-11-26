@@ -274,18 +274,40 @@ def toggle_link(link_id):
     return _back()
 
 
-@admin.post("/links/<int:link_id>/expires")
-def set_expiry(link_id):
+@admin.post("/links/<int:link_id>/update")
+def update_link(link_id):
+    """Change the target, the slug and the expiry of a link in one go."""
     row = _own_or_admin(link_id)
+    f = request.form
+    old_url = f"{_base_url()}{row['slug']}"
     try:
-        expires = _parse_expiry(request.form.get("expires_at", ""))
+        target = _validated("target", resolve.validate_url, f.get("target", ""))
+        slug = f.get("slug", "").strip()
+        _validated("slug", resolve.validate_slug, slug)
+        if slug != row["slug"] and slug in _reserved_slugs():
+            raise resolve.ValidationError(f"'{slug}' is reserved.", "slug")
+        text = f.get("expires_at", "").strip()
+        # keeping an expiry date that is already in the past is allowed (e.g. only the target changes)
+        expires = row["expires_at"] if text and text == (row["expires_at"] or "")[:10] else _parse_expiry(text)
+        conn = db.get_db()
+        try:
+            conn.execute("UPDATE links SET target = ?, slug = ?, expires_at = ? WHERE id = ?",
+                         (target, slug, expires, link_id))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            raise resolve.ValidationError(f"Slug '{slug}' is already taken.", "slug")
     except resolve.ValidationError as exc:
-        flash(f"{_base_url()}{row['slug']}: {exc}", "links:error")
+        flash(f"{old_url}: {exc}", "links:error")
         return _back()
-    conn = db.get_db()
-    conn.execute("UPDATE links SET expires_at = ? WHERE id = ?", (expires, link_id))
-    conn.commit()
-    flash(f"{_base_url()}{row['slug']} " + (f"now expires on {expires[:10]}." if expires else "no longer expires."), "links")
+
+    changes = []
+    if slug != row["slug"]:
+        changes.append(f"short link changed (was {old_url})")
+    if target != row["target"]:
+        changes.append("target changed")
+    if expires != row["expires_at"]:
+        changes.append(f"now expires on {expires[:10]}" if expires else "no longer expires")
+    flash(f"{_base_url()}{slug} " + ("updated: " + ", ".join(changes) + "." if changes else "is already up to date."), "links")
     return _back()
 
 

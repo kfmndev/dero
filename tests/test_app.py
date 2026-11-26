@@ -381,7 +381,7 @@ def test_row_layout_copy_beside_link_delete_in_details(client):
     for what in ("short link", "target"):
         assert row.count(f'aria-label="Open {what}"') == 1 and row.count(f'aria-label="Copy {what}"') == 1
         assert row.index(f'aria-label="Open {what}"') < row.index(f'aria-label="Copy {what}"')
-    assert "/delete" in detail and "Delete link" in detail
+    assert "/delete" in detail and "</svg>Delete</button>" in detail
     assert 'id="links-results"' in html and 'id="filter-live"' in html
 
 
@@ -453,6 +453,14 @@ def test_every_link_has_open_then_copy(tmp_path):
     assert len(re.findall(r'data-copy="', sections["row"])) == 2 and len(re.findall(r'data-copy="', sections["details"])) == 2
 
 
+def edit(client, app, which, headers=USER, **over):
+    """POST the edit form of the link `which` (by slug) the way the browser does: target, slug and expiry are always sent."""
+    row = link_row(app, which)
+    data = {"target": row["target"], "slug": row["slug"], "expires_at": (row["expires_at"] or "")[:10]}
+    data.update(over)
+    return post(client, f"/admin/links/{row['id']}/update", headers, **data)
+
+
 def link_row(app, slug):
     from dero.db import get_db
     with app.app_context():
@@ -465,12 +473,12 @@ def test_change_expiry_of_an_existing_link(client, app):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     link_id = link_row(app, "abc")["id"]
     day = (today + timedelta(days=10)).isoformat()
-    r = post(client, f"/admin/links/{link_id}/expires", USER, expires_at=day, back="/admin/?status=active")
+    r = edit(client, app, "abc", expires_at=day, back="/admin/?status=active")
     assert r.status_code == 302 and r.headers["Location"] == "/admin/?status=active"
     assert link_row(app, "abc")["expires_at"] == f"{day}T23:59:59Z"
     assert day in client.get("/admin/", headers=USER).get_data(as_text=True)
     # empty value removes the expiry again
-    post(client, f"/admin/links/{link_id}/expires", USER, expires_at="")
+    edit(client, app, "abc", expires_at="")
     assert link_row(app, "abc")["expires_at"] is None
 
 
@@ -480,7 +488,7 @@ def test_expiry_edit_reactivates_an_expired_link(client, app):
     expire(app, "abc")
     assert client.get("/abc").status_code == 404
     day = (datetime.now(timezone.utc).date() + timedelta(days=3)).isoformat()
-    post(client, f"/admin/links/{link_row(app, 'abc')['id']}/expires", USER, expires_at=day)
+    edit(client, app, "abc", expires_at=day)
     assert client.get("/abc").status_code == 302
 
 
@@ -489,12 +497,12 @@ def test_expiry_edit_rejects_bad_dates_and_other_users(client, app):
     link_id = link_row(app, "abc")["id"]
     before = link_row(app, "abc")["expires_at"]
     for bad, message in (("2000-01-01", "already passed"), ("31/12/2030", "must be a date"), ("tomorrow", "must be a date")):
-        r = post(client, f"/admin/links/{link_id}/expires", USER, expires_at=bad)
+        r = edit(client, app, "abc", expires_at=bad)
         assert r.status_code == 302
         assert link_row(app, "abc")["expires_at"] == before
         assert message in client.get("/admin/", headers=USER).get_data(as_text=True)   # shown once, then gone
-    assert post(client, f"/admin/links/{link_id}/expires", USER2, expires_at="2099-01-01").status_code == 404
-    assert post(client, f"/admin/links/{link_id}/expires", ADMIN, expires_at="2099-01-01").status_code == 302
+    assert edit(client, app, "abc", headers=USER2, expires_at="2099-01-01").status_code == 404
+    assert edit(client, app, "abc", headers=ADMIN, expires_at="2099-01-01").status_code == 302
     assert link_row(app, "abc")["expires_at"] == "2099-01-01T23:59:59Z"
 
 
@@ -505,9 +513,10 @@ def test_details_order_full_url_and_expiry_switch(client, app):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     details = {m.group(1): m.group(0) for m in re.finditer(r'<tr class="detail" id="d(\d+)".*?</tr>', html, re.S)}
     plain, dated = details["1"], details["2"]
-    order = [plain.index(f"<dt>{t}</dt>") for t in ("Created by", "Created", "Expires", "Short link", "Target")]
+    order = [plain.index(f"<dt>{t}</dt>") for t in ("Created by", "Created", "Expires", "Target", "Short link")]
     assert order == sorted(order)                                          # what the collapsed row doesn't show comes first
-    assert '<span class="url">http://localhost/plain</span>' in plain                  # fully qualified, no leading slash
+    assert '<span class="slug-prefix">http://localhost/</span>' in plain                # fully qualified, then the editable slug
+    assert re.search(r'name="slug" form="x1"[^>]*value="plain"', plain) and re.search(r'name="target" form="x1"[^>]*value="https://example.com/t"', plain)
     assert "hint-inline" not in plain and "Never expires" not in plain     # no explanation text any more
     # the switch controls the date field: off = disabled (and therefore not sent), on = required
     assert 'class="expiry-switch"' in plain and re.search(r'name="expires_at"[^>]*\bdisabled\b', plain)
@@ -526,7 +535,7 @@ def test_disabled_date_clears_the_expiry(client, app):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc", expires_at="2099-01-01")
     link_id = link_row(app, "abc")["id"]
     assert link_row(app, "abc")["expires_at"]
-    post(client, f"/admin/links/{link_id}/expires", USER)                  # a disabled field is not submitted at all
+    post(client, f"/admin/links/{link_id}/update", USER, target="https://example.com/t", slug="abc")   # a disabled date is not submitted at all
     assert link_row(app, "abc")["expires_at"] is None
 
 
@@ -535,21 +544,23 @@ def test_icons_share_one_wrapper_and_header_has_tagline(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert html.count('class="link-actions"') == html.count('data-copy="') >= 4
     assert '<span class="tagline">URL Shortener</span>' in html
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.tagline \{ font: 600 10px/1 var\(--font-text\);", css)      # 10px Geist
 
 
 # ---------------------------------------------------------------- column order, no-reload hooks
-def test_row_columns_chevron_first_switch_last(client):
+def test_row_columns_chevron_switch_slug(client):
     post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     head = html[html.index("<thead>"):html.index("</thead>")]
-    assert re.match(r"<thead><tr>\s*<th></th>.*<th></th>\s*</tr>", head, re.S)           # empty first and last header
+    assert re.match(r"<thead><tr>\s*<th></th><th></th>\s*<th", head)                      # two empty headers, then "Short link"
+    assert len(re.findall(r"<th[ >]", head)) == 5
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    cells = re.findall(r"<td class=\"([^\"]*)\">", row)
-    assert cells == ["narrow lead", "nowrap", "target", "num", "narrow end"]
-    first, last = row.split("</td>")[0], row.split("</td>")[-2]
-    assert 'class="mini expand"' in first and 'class="slug"' not in first                   # chevron alone in the first column
-    assert 'class="row-switch"' in last and "toggle" in last                                # enable switch in the last one
-    assert 'class="slug"' in row.split("</td>")[1]
+    assert re.findall(r"<td class=\"([^\"]*)\">", row) == ["narrow lead", "narrow", "nowrap", "target", "num"]
+    cells = row.split("</td>")
+    assert 'class="mini expand"' in cells[0] and 'class="slug"' not in cells[0]              # chevron alone, first
+    assert 'class="row-switch"' in cells[1] and "toggle" in cells[1]                         # enable switch second
+    assert 'class="slug"' in cells[2]                                                        # then the short link
 
 
 def test_forms_are_wired_for_updates_without_reloads(client):
@@ -577,13 +588,13 @@ def test_messages_appear_in_the_card_they_belong_to(client, app):
     link_id = link_row(app, "abc")["id"]
     day = (datetime.now(timezone.utc).date() + timedelta(days=5)).isoformat()
 
-    post(client, f"/admin/links/{link_id}/expires", USER, expires_at=day)
+    edit(client, app, "abc", expires_at=day)
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert "now expires on" in notice_box(html, "links") and 'class="form-ok"' in notice_box(html, "links")
     assert 'id="flashes"' not in html and 'class="flash' not in html
     assert "now expires on" not in notice_box(html, "new-link")
 
-    post(client, f"/admin/links/{link_id}/expires", USER, expires_at="2000-01-01")
+    edit(client, app, "abc", expires_at="2000-01-01")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert "already passed" in notice_box(html, "links") and 'class="form-error"' in notice_box(html, "links")
 
@@ -610,8 +621,143 @@ def test_only_the_compact_short_link_is_highlighted(client):
 
 def test_unusual_url_warning_is_wired(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    assert '<span class="label">Create</span>' in html and "novalidate" in html
+    assert 'id="new-link-submit"' in html and "</svg>Create</button>" in html and "novalidate" in html
     js = client.get("/static/app.js").get_data(as_text=True)
-    assert "function unusualUrl" in js and "anyway" in js and "data-warn" in js
+    assert "function unusualUrl" in js and "data-warn" in js and "anyway" not in js    # the button keeps its verb
+    assert "markSubmit" not in js and "new-link-submit use" not in js              # ... and its icon
     css = client.get("/static/style.css").get_data(as_text=True)
     assert ".form-warn" in css and "--warn" in css and "input[data-warn]:focus" in css
+
+
+# ---------------------------------------------------------------- details grid and buttons
+def test_details_layout_buttons_and_edit_form(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    d = html[html.index('<tr class="detail"'):html.index("</tbody>")]
+    # two flexible rows: the facts first, then the two editable fields
+    rows = re.findall(r'<dl class="details-row">(.*?)</dl>', d, re.S)
+    assert [re.findall(r"<dt>([^<]+)</dt>", r) for r in rows] == [["Created by", "Created", "Expires"], ["Target", "Short link"]]
+    assert "Save" not in d
+    # one form for everything editable; Update belongs to it through the form attribute
+    assert re.search(r'<form id="x1"[^>]*class="inline-form edit-form" novalidate', d)        # messages appear in the card, not as tooltips
+    assert d.count('form="x1"') == 3 and re.search(r'name="target" form="x1"', d) and re.search(r'name="slug" form="x1"', d)
+    assert re.search(r'<button type="submit" form="x1" class="btn small" disabled><svg[^>]*>.*?</svg>Update</button>', d)
+    assert re.search(r'<button type="button" class="btn small" data-discard="x1" hidden disabled><svg[^>]*>.*?</svg>Discard</button>', d)
+    # order: Discard, Update, Delete
+    assert d.index("data-discard") < d.index('form="x1" class="btn small"') < d.index("Delete</button>")
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.link-actions \{[^}]*gap: 1px", css)
+    assert re.search(r"\.details-row \{ display: flex; flex-wrap: wrap;", css) and "repeat(6, minmax(0, 1fr))" not in css   # no fixed grid
+    assert re.search(r"tr\.detail td \{[^}]*padding: 18px 24px 20px", css)                                                   # margins around the details
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function syncEdit" in js and "data-discard" in js and "function linkProblem" in js
+
+
+# ---------------------------------------------------------------- one button language
+def all_buttons(html):
+    return re.findall(r'<(button|a) ([^>]*class="btn[ "][^>]*)>(.*?)</\1>', html, re.S)
+
+
+def test_every_button_has_an_icon_and_a_single_verb(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    post(client, "/admin/rules", ADMIN, pattern="gh/*", target="https://github.com/{1}")
+    pages = [client.get("/admin/", headers=USER).get_data(as_text=True),
+             client.get("/admin/rules", headers=ADMIN).get_data(as_text=True)]
+    seen = set()
+    for html in pages:
+        buttons = all_buttons(html)
+        assert len(buttons) >= 6
+        for _tag, _attrs, inner in buttons:
+            assert "<svg" in inner, inner                                  # every button has an icon
+            words = re.sub(r"<[^>]+>", " ", inner).split()
+            assert len(words) <= 1, words                                  # ... and a single word (icon-only buttons have none)
+            seen.update(words)
+    assert {"Create", "Clear", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
+    assert "Discard changes" not in "".join(pages) and "Delete link</button>" not in "".join(pages) and "Add rule</button>" not in "".join(pages)
+
+
+def test_details_buttons_neutral_except_the_red_delete(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.btn\.danger \{ color: var\(--err\); \}", css)                 # delete buttons are red again
+    assert re.search(r"\.btn\.solid-danger \{[^}]*background: var\(--err\)", css)        # ... also the dialog's confirm button
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    actions = html[html.index('class="detail-actions"'):html.index("</tr>", html.index('class="detail-actions"'))]
+    classes = re.findall(r'<button [^>]*class="(btn[^"]*)"', actions)
+    assert classes == ["btn small", "btn small", "btn small danger"]                       # Discard, Update: neutral; Delete: red
+    assert 'class="btn solid-danger" id="confirm-yes"' in html
+
+
+def test_details_row_uses_the_full_width_and_has_no_empty_cells(client):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    detail = html[html.index('<tr class="detail"'):html.index("</tr>", html.index('<tr class="detail"'))]
+    assert re.findall(r"<td[^>]*>", detail) == ['<td colspan="5">']                       # no leading empty columns
+
+
+# ---------------------------------------------------------------- editing target and short link
+def test_edit_target_and_slug(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/old", slug="abc")
+    for _ in range(3):
+        client.get("/abc")
+    r = edit(client, app, "abc", target="https://example.com/new?x=1", slug="renamed", back="/admin/?sort=slug")
+    assert r.status_code == 302 and r.headers["Location"] == "/admin/?sort=slug"
+    row = link_row(app, "renamed")
+    assert row["target"] == "https://example.com/new?x=1" and row["visits"] == 3 and row["created_by"] == "alice"   # same link, just renamed
+    assert client.get("/abc").status_code == 404                                                                   # the old short link is gone
+    assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
+    page = client.get("/admin/", headers=USER).get_data(as_text=True)
+    note = notice_box(page, "links")
+    assert "http://localhost/renamed updated" in note and "short link changed (was http://localhost/abc)" in note and "target changed" in note
+
+
+def test_edit_rejections_keep_the_link_unchanged(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="aaa")
+    post(client, "/admin/links", USER, target="https://example.com/b", slug="bbb")
+    cases = [({"slug": "bbb"}, "already taken"), ({"slug": "static"}, "reserved"), ({"slug": "admin"}, "reserved"),
+             ({"slug": "bad slug!"}, "Slug may only"), ({"slug": ""}, "Slug may only"),
+             ({"target": "javascript:alert(1)"}, "http:// or https://"), ({"target": ""}, "http:// or https://")]
+    for over, message in cases:
+        assert edit(client, app, "aaa", **over).status_code == 302
+        assert message in notice_box(client.get("/admin/", headers=USER).get_data(as_text=True), "links"), over
+        row = link_row(app, "aaa")
+        assert (row["slug"], row["target"]) == ("aaa", "https://example.com/a")
+
+
+def test_edit_permissions(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="aaa")
+    assert edit(client, app, "aaa", headers=USER2, slug="stolen").status_code == 404
+    assert link_row(app, "aaa") is not None
+    assert edit(client, app, "aaa", headers=ADMIN, slug="by-admin").status_code == 302
+    assert link_row(app, "by-admin")["created_by"] == "alice"
+
+
+def test_keeping_a_past_expiry_does_not_block_other_edits(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/a", slug="aaa")
+    expire(app, "aaa")
+    assert edit(client, app, "aaa", target="https://example.com/fixed").status_code == 302     # expires_at 2000-01-01 sent unchanged
+    row = link_row(app, "aaa")
+    assert row["target"] == "https://example.com/fixed" and row["expires_at"] == "2000-01-01T23:59:59Z"
+    edit(client, app, "aaa", expires_at="2000-02-02")                                          # picking another past date is still refused
+    assert link_row(app, "aaa")["expires_at"] == "2000-01-01T23:59:59Z"
+
+
+# ---------------------------------------------------------------- delete dialog
+def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    p = html[html.index('id="confirm-text"'):html.index("</p>", html.index('id="confirm-text"'))]
+    assert re.search(r'<code id="confirm-name"></code><svg class="icon"[^>]*><use href="[^"]*#arrow"/></svg><code id="confirm-detail"></code>', p)
+    css = client.get("/static/style.css").get_data(as_text=True)
+    assert re.search(r"\.confirm-urls code \{[^}]*font-size: 13px", css) and "rotate(90deg)" in css
+    assert re.search(r"input\.url-input \{ font-family: var\(--font-mono\)", css)                    # URL inputs are mono
+    assert "→" not in client.get("/static/app.js").get_data(as_text=True)                    # the arrow is an icon now
+
+
+def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(client, app):
+    post(client, "/admin/links", USER, target="https://example.com/t", slug="abc")
+    created = link_row(app, "abc")["created_at"]                                   # e.g. 2026-11-25T09:07:53Z
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    original = created.replace("T", " ").replace("Z", " UTC")
+    assert f'<time class="localtime" datetime="{created}" title="{original}">{original}</time>' in html   # UTC text without JavaScript
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "function localizeTimes" in js and js.count("localizeTimes()") >= 2                           # on load and after table swaps

@@ -31,6 +31,20 @@ function toggleRow(row) {
   button.setAttribute("aria-label", label);
 }
 
+// ---- Times are stored and sent as UTC; show them in the viewer's own time zone and locale ----
+// The server renders the UTC text (that is what stays if JavaScript is off, and what the tooltip shows).
+const LOCAL_TIME = new Intl.DateTimeFormat(undefined, {
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short",
+});
+
+function localizeTimes(root = document) {
+  root.querySelectorAll("time.localtime[datetime]").forEach((el) => {
+    const date = new Date(el.getAttribute("datetime"));
+    if (!Number.isNaN(date.getTime())) el.textContent = LOCAL_TIME.format(date);
+  });
+}
+
 // Replace one region of the page with the same region from a freshly fetched page.
 // Rows that were open stay open. Returns false if the region is missing.
 function swapRegion(id, doc) {
@@ -44,6 +58,8 @@ function swapRegion(id, doc) {
     const detail = document.getElementById(rowId);
     if (detail && detail.previousElementSibling) toggleRow(detail.previousElementSibling);
   }
+  if (typeof syncAllEdit === "function") syncAllEdit();
+  localizeTimes();
   return true;
 }
 
@@ -54,6 +70,44 @@ document.addEventListener("click", (event) => {
   if (event.target.closest("a, button, input, label, form, select")) return;
   toggleRow(row);
 });
+
+// ---- Checks shared by the "New link" form and the edit form in a link's details ----
+const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const BAD_URL = "Target must be a valid http:// or https:// URL.";
+
+// Returns [field, message] for the first problem, or null. The server repeats every check.
+function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = false, dateWhenOn = false } = {}) {
+  const target = form.elements.target, slug = form.elements.slug, expires = form.elements.expires_at;
+  const url = target.value.trim();
+  if (!url) return [target, "Enter the URL to shorten."];
+  let parsed;
+  try { parsed = new URL(url); } catch { return [target, BAD_URL]; }
+  if (!/^https?:$/.test(parsed.protocol) || !parsed.host || url.length > 2048) return [target, BAD_URL];
+  const s = slug.value.trim();
+  if (!s && slugRequired) return [slug, "A short link needs a slug."];
+  if (s && !SLUG_RE.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
+  if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
+  if (dateWhenOn && !expires.disabled && !expires.value) return [expires, "Pick the last day the link should work, or switch the expiry off."];
+  // min = today (UTC), set by the server; an unchanged date may stay even if it has passed
+  if (!expires.disabled && expires.value && expires.min && expires.value < expires.min && expires.value !== expires.defaultValue)
+    return [expires, "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC)."];
+  return null;
+}
+
+// Put a message into a card's .notices container (same markup the server renders).
+function showNotice(id, message, kind = "error") {
+  const box = document.getElementById(id);
+  if (!box) return;
+  const sprite = (document.querySelector("svg.icon use") || { getAttribute: () => "" }).getAttribute("href").split("#")[0];
+  const p = document.createElement("p");
+  p.className = kind === "error" ? "form-error" : "form-ok";
+  p.setAttribute("role", kind === "error" ? "alert" : "status");
+  p.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${sprite}#${kind === "error" ? "alert" : "check"}"/></svg>`;
+  const span = document.createElement("span");
+  span.textContent = message;
+  p.append(span);
+  box.replaceChildren(p);
+}
 
 // ---- Is this the usual https://domain.tld/path shape? ----
 // Returns a list of short reasons why a (valid http/https) URL looks unusual; empty = nothing to warn about.
@@ -85,26 +139,10 @@ function unusualUrl(value) {
   const form = document.getElementById("new-link");
   if (!form) return;
   const box = document.getElementById("new-link-error");
-  const SLUG = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
   const reserved = (form.dataset.reserved || "").split(",").filter(Boolean);
-  const label = form.querySelector("button .label");
-  const LABEL = label ? label.textContent : "Create";
 
   function problem() {
-    const target = form.elements.target, slug = form.elements.slug;
-    const url = target.value.trim();
-    if (!url) return [target, "Enter the URL to shorten."];
-    let parsed;
-    try { parsed = new URL(url); } catch { return [target, "Target must be a valid http:// or https:// URL."]; }
-    if (!/^https?:$/.test(parsed.protocol) || !parsed.host || url.length > 2048)
-      return [target, "Target must be a valid http:// or https:// URL."];
-    const s = slug.value.trim();
-    if (s && !SLUG.test(s)) return [slug, "Slug may only contain letters, digits, '-' and '_' (max 64)."];
-    if (s && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
-    const expires = form.elements.expires_at;   // min = today (UTC), set by the server
-    if (expires.value && expires.min && expires.value < expires.min)
-      return [expires, "That expiry date has already passed, so the link would be dead on arrival (dates are in UTC)."];
-    return null;
+    return linkProblem(form, { reserved });
   }
 
   function show(message, kind = "error") {
@@ -131,8 +169,7 @@ function unusualUrl(value) {
         form.dataset.warned = value;
         form.elements.target.setAttribute("data-warn", "");
         show(`This doesn't look like a usual https://domain.tld/path address: ${reasons.join(", ")}. ` +
-             `Check it, or press "${LABEL} anyway" to add it as it is.`, "warn");
-        if (label) label.textContent = `${LABEL} anyway`;
+             `Check it, or press Create again to add it as it is.`, "warn");
         form.elements.target.focus();
         return;
       }
@@ -148,7 +185,6 @@ function unusualUrl(value) {
   function forgetWarning() {
     delete form.dataset.warned;
     form.elements.target.removeAttribute("data-warn");
-    if (label) label.textContent = LABEL;
   }
 
   form.addEventListener("input", (event) => {
@@ -253,7 +289,8 @@ function unusualUrl(value) {
   function ask(data) {
     dialog.querySelector("#confirm-title").textContent = data.confirmTitle || "Are you sure?";
     dialog.querySelector("#confirm-name").textContent = data.confirmName || "";
-    dialog.querySelector("#confirm-detail").textContent = data.confirmDetail ? "→ " + data.confirmDetail : "";
+    dialog.querySelector("#confirm-detail").textContent = data.confirmDetail || "";
+    dialog.querySelector("#confirm-text .icon").hidden = !data.confirmDetail;       // the arrow only makes sense with a second URL
     dialog.querySelector("#confirm-yes span").textContent = data.confirmYes || "Confirm";
     return new Promise((resolve) => {
       dialog.addEventListener("close", () => resolve(dialog.returnValue === "yes"), { once: true });
@@ -277,15 +314,78 @@ function unusualUrl(value) {
   });
 })();
 
-// ---- Expiry switch in the details: off = never expires (the date field is disabled and not sent) ----
-document.addEventListener("change", (event) => {
-  const toggle = event.target.closest(".expiry-switch");
-  if (!toggle) return;
-  const date = toggle.closest("form").elements.expires_at;
+// ---- Editing a link in its details (target, short link, expiry) ----
+// The switch enables the date field (off = never expires). "Update" and
+// "Discard" stay disabled until something differs from what is saved. The
+// target and slug inputs sit in other places of the row and belong to the
+// form through their form="" attribute.
+function syncEdit(form) {
+  const toggle = form.querySelector(".expiry-switch"), date = form.elements.expires_at;
+  const target = form.elements.target, slug = form.elements.slug;
   date.disabled = !toggle.checked;
   date.required = toggle.checked;
-  if (toggle.checked) date.focus();
+  const dirty = toggle.checked !== toggle.defaultChecked || (toggle.checked && date.value !== date.defaultValue)
+    || target.value !== target.defaultValue || slug.value !== slug.defaultValue;
+  for (const button of document.querySelectorAll(`[form="${form.id}"], [data-discard="${form.id}"]`)) {
+    if (button.dataset.discard) button.hidden = false;     // without JavaScript there is nothing to discard
+    if (button.tagName === "BUTTON") button.disabled = !dirty;
+  }
+}
+
+function syncAllEdit() {
+  document.querySelectorAll(".edit-form").forEach(syncEdit);
+}
+
+function editFormOf(element) {
+  const form = element.form;
+  return form && form.classList.contains("edit-form") ? form : null;
+}
+
+document.addEventListener("change", (event) => {
+  const form = editFormOf(event.target);
+  if (!form) return;
+  syncEdit(form);
+  if (event.target.classList.contains("expiry-switch") && event.target.checked) form.elements.expires_at.focus();
 });
+
+document.addEventListener("input", (event) => {
+  const form = editFormOf(event.target);
+  if (!form) return;
+  event.target.removeAttribute("aria-invalid");
+  syncEdit(form);
+});
+
+document.addEventListener("click", (event) => {
+  const discard = event.target.closest("[data-discard]");
+  if (!discard) return;
+  const form = document.getElementById(discard.dataset.discard);
+  form.reset();                                            // back to what is saved (reaches the inputs with form="")
+  document.querySelectorAll(`[form="${form.id}"][aria-invalid]`).forEach((el) => el.removeAttribute("aria-invalid"));
+  syncEdit(form);
+});
+
+// Check the edit form before it is sent; errors go to the "All links" card.
+document.addEventListener("submit", (event) => {
+  const form = event.target;
+  if (!form.classList || !form.classList.contains("edit-form")) return;
+  document.querySelectorAll(`[form="${form.id}"][aria-invalid]`).forEach((el) => el.removeAttribute("aria-invalid"));
+  const found = linkProblem(form, {
+    reserved: (form.dataset.reserved || "").split(",").filter(Boolean),
+    savedSlug: form.elements.slug.defaultValue,
+    slugRequired: true,
+    dateWhenOn: true,
+  });
+  if (!found) return;
+  event.preventDefault();
+  const [field, message] = found;
+  field.setAttribute("aria-invalid", "true");
+  showNotice("links-notices", message);
+  field.focus();
+});
+
+syncAllEdit();
+localizeTimes();
+
 
 // ---- Row switches submit when flipped ----
 document.addEventListener("change", (event) => {
@@ -325,7 +425,7 @@ document.addEventListener("change", (event) => {
   }
 
   async function submit(form) {
-    const buttons = [...form.querySelectorAll("button")];
+    const buttons = [...form.elements].filter((el) => el.tagName === "BUTTON");
     buttons.forEach((b) => (b.disabled = true));
     form.setAttribute("aria-busy", "true");
     try {
@@ -353,6 +453,8 @@ document.addEventListener("change", (event) => {
         }
       }
 
+      if (doc.querySelector(".notices .form-error")) return;     // rejected: keep the form exactly as the user left it
+
       // refresh the list the user is looking at
       let view = doc;
       const same = new URL(res.url).pathname + new URL(res.url).search === location.pathname + location.search;
@@ -366,6 +468,7 @@ document.addEventListener("change", (event) => {
       delete form.dataset.confirmed;
       form.removeAttribute("aria-busy");
       buttons.forEach((b) => { if (b.isConnected) b.disabled = false; });
+      if (form.isConnected && form.classList.contains("edit-form")) syncEdit(form);
     }
   }
 

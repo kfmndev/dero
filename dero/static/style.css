@@ -64,6 +64,7 @@
   --on-accent-2: #ffffff;
   --err: #c0362c;
   --warn: #b45309;
+  --on-err: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -83,6 +84,7 @@
     --on-accent-2: #0b0c0f;
     --err: #ff7b72;
     --warn: #fbbf24;
+    --on-err: #0b0c0f;
   }
 }
 
@@ -102,6 +104,7 @@
   --on-accent-2: #0b0c0f;
   --err: #ff7b72;
   --warn: #fbbf24;
+  --on-err: #0b0c0f;
 }
 
 /* ---- Base ---- */
@@ -268,7 +271,7 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .btn:hover { border-color: var(--accent-2-ink); color: var(--accent-2-ink); }
 
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn.primary:hover { background: transparent; color: var(--accent-ink); }
+.btn.primary:hover { background: transparent; color: var(--accent-ink); border-color: var(--accent-ink); }
 
 .btn[aria-disabled="true"], .btn:disabled { opacity: 0.45; pointer-events: none; }
 
@@ -418,17 +421,19 @@ tr.item:hover td { background: color-mix(in srgb, var(--field) 70%, transparent)
 .narrow { width: 1%; }
 .expand { margin: 0; }
 td.lead { padding-right: 0; }
-td.end { text-align: right; padding-left: 4px; }
-td.end form { margin: 0; }
+td.narrow form { margin: 0; }
 .expand .icon { transform: rotate(-90deg); transition: transform .15s; }
 tr.open .expand .icon { transform: none; }
 tr.open td { border-bottom-color: transparent; }
-tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: 12px 10px 14px; }
+tr.detail td { background: var(--field); border-bottom: 1px solid var(--border); padding: 18px 24px 20px; }
 tr.detail[hidden] { display: none; }
-.details { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 12px 20px; margin: 0; }
+.details { display: flex; flex-direction: column; gap: 16px; }
+.details-row { display: flex; flex-wrap: wrap; gap: 14px 36px; margin: 0; }
+.details-row > div { min-width: 0; }
+.details-row .grow-2 { flex: 2 1 22rem; }
+.details-row .grow-1 { flex: 1 1 17rem; }
 .details dt { color: var(--muted); font: 600 11px/1.4 var(--font-head); text-transform: uppercase; letter-spacing: .05em; }
 .details dd { margin: 2px 0 0; word-break: break-word; }
-.details .wide { grid-column: 1 / -1; }
 .details .wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: form feedback ---- */
@@ -441,9 +446,9 @@ input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var
 
 .target .cell { display: flex; align-items: center; }
 .target .truncate { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.detail-actions { display: flex; justify-content: flex-end; }
+.detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .detail-actions form { margin: 0; }
-tr.detail .btn { background: var(--card); }
+tr.detail .btn:not(.primary) { background: var(--card); }
 
 /* ---- dero: inputs are regular weight and 13px (labels around them are bold, and inputs inherit that) ---- */
 input[type], input:not([type]), select, textarea { font-weight: 400; font-size: 13px; }
@@ -464,7 +469,7 @@ dialog form { margin: 0; padding: 20px; }
 dialog h2 { margin: 0 0 8px; }
 dialog p { margin: 0 0 18px; color: var(--muted); overflow-wrap: anywhere; }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-start; }
-.btn.solid-danger { background: var(--err); border-color: var(--err); color: #fff; }
+.btn.solid-danger { background: var(--err); border-color: var(--err); color: var(--on-err); }
 .btn.solid-danger:hover { background: transparent; color: var(--err); border-color: var(--err); }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { dialog[open] { animation: none; } }
@@ -536,7 +541,7 @@ code.slug { font-size: 13px; color: var(--text); }   /* the compact short link k
 .url.wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: the open + copy icons: same grouping and spacing everywhere ---- */
-.link-actions { display: inline-flex; align-items: center; gap: 0; margin-left: 4px; vertical-align: middle; flex: none; }
+.link-actions { display: inline-flex; align-items: center; gap: 1px; margin-left: 4px; vertical-align: middle; flex: none; }
 .link-actions .mini { width: 18px; height: 18px; color: var(--muted); }
 .link-actions .mini:hover, .link-actions .mini.done { color: var(--accent-2-ink); }
 
@@ -548,8 +553,28 @@ input:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---- dero: brand ---- */
 .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.tagline { font: 600 12px/1 var(--font-head); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
+.tagline { font: 600 10px/1 var(--font-text); text-transform: uppercase; letter-spacing: .16em; color: var(--muted); white-space: nowrap; }
 
 /* rules table: switch and delete button side by side */
 .actions .switch { margin-right: 6px; }
 input[data-warn], input[data-warn]:focus { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
+
+/* ---- dero: editable target and short link in the details ---- */
+.field-row { display: flex; align-items: center; min-width: 0; }
+.url-input { min-width: 0; }
+input.url-input { font-family: var(--font-mono); font-size: 13px; }   /* beats the generic `font: inherit` for inputs */
+.field-row > input.url-input { flex: 1 1 auto; width: 100%; }
+.slug-group { display: flex; flex: 1 1 auto; min-width: 0; align-items: stretch; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
+.slug-group:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
+.slug-prefix { display: flex; align-items: center; padding: 0 2px 0 10px; font: 13px var(--font-mono); color: var(--muted); white-space: nowrap; }
+.slug-group input.url-input { flex: 1 1 6rem; width: 100%; height: auto; border: 0; border-radius: 0; background: transparent; padding-left: 2px; box-shadow: none; }
+.slug-group input.url-input:focus { outline: none; box-shadow: none; }
+.details input[aria-invalid="true"], .slug-group:has(input[aria-invalid="true"]) { border-color: var(--err); }
+
+/* ---- dero: URLs in the delete dialog ---- */
+.confirm-urls { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.confirm-urls code { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.confirm-urls .icon { flex: none; margin-left: 12px; color: var(--muted); transform: rotate(90deg); }   /* points down, from the short link to its target */
+
+/* ---- dero: localized times (the original UTC text is the tooltip) ---- */
+time.localtime { cursor: help; text-decoration: underline dotted var(--border); text-underline-offset: 4px; }
