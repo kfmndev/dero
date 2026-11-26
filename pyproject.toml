@@ -24,6 +24,8 @@ dev = [
 ]
 
 [tool.uv]
+# uv refuses to run when older; setup-uv in CI reads this too and installs the newest uv that fits
+required-version = ">=0.13.10"
 # an application, not a library: nothing gets built or installed, only its dependencies
 package = false
 
