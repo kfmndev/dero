@@ -16,6 +16,7 @@
   const lists = {
     statuses: JSON.parse(form.dataset.statuses || "[]"),
     sortKeys: JSON.parse(form.dataset.sortKeys || "[]"),
+    defaultDesc: JSON.parse(form.dataset.sortDefaultDesc || "{}"), // which sorts go newest or most first by default
   };
   const SPRITE = live.querySelector("use").getAttribute("href").split("#")[0];
   const IDLE = live.querySelector("span").textContent;
@@ -33,7 +34,8 @@
     if (state === "done") resetTimer = setTimeout(() => indicator("idle", IDLE), 1400);
   }
 
-  const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby");
+  // a term with a key and an operator but no value yet (status=) filters nothing
+  const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby" && !t.empty);
 
   const defaultColumns = () => (columnsMenu?.dataset.default ? columnsMenu.dataset.default.split(",") : []);
   const chosenColumns = () =>
@@ -118,7 +120,7 @@
     queryMultis.forEach((details) =>
       showMulti(details, deriveSet(parsed, details.dataset.key, JSON.parse(details.dataset.all || "[]"))),
     );
-    const wanted = deriveSort(parsed, lists.sortKeys);
+    const wanted = deriveSort(parsed, lists.sortKeys, lists.defaultDesc);
     sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : "";
     refreshSelect(sortSelect);
     setClear(input.value.trim() !== "" || columnsDiffer());

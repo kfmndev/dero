@@ -13,7 +13,8 @@
     expires                   links that expire at all (short for expires!=never)
                               expires=never         links that never expire (also: expires=none, !expires)
     visits>100  visits=0      the visit counter: a number, with < <= > >= and = !=
-    sort_by=visits            sort; a leading minus reverses the key's usual order (sort_by=-visits)
+    sort_by=visits            sort: the key's usual order (newest and most first for created and visits, A-Z for the
+                              rest); -visits is descending and +visits ascending (write %2B for a + in an address)
     !term   key!=value        negate
     and  &&   or  ||   ( )    combine and group
     created_by="Anna Maria"   quotes for values with spaces
@@ -276,18 +277,20 @@ class _Parser:
         return self.primary()
 
     def _read_sort(self, tok: Tok) -> None:
-        """sortby=visits / sortby=-visits: remember the sort, or report one that does not exist."""
+        """sort_by=visits / -visits / +visits: remember the sort, or report one that does not exist."""
 
         if not tok.values:
             return
         raw = tok.values[0]
-        name = raw.lstrip("+-").lower()
+        sign = raw[0] if raw[0] in "+-" else ""
+        name = raw[len(sign) :].lower()
         name = SORT_ALIASES.get(name, name)
 
         if tok.op not in ALLOWED_OPS["sortby"]:
             self.problems.append(f"sort_by does not support {tok.op}")
         elif name in SORT_KEYS:
-            self.sort = (name, raw.startswith("-"))
+            # stored as "the key's usual order, reversed or not": a sign only reverses it if it asks for the other way
+            self.sort = (name, bool(sign) and (sign == "-") != DESC_BY_DEFAULT[name])
         else:
             self.problems.append(f"Unknown sort: {raw}")
 
@@ -518,12 +521,16 @@ def parse(text: str, now: str) -> Parsed:
 
 # ------------------------------------------------------------------ editing queries as text (sort links, legacy URLs)
 def sort_value(key: str, reverse: bool) -> str:
-    """What follows `sort_by=` for a sort, or "" for the default (newest first)."""
+    """What follows `sort_by=` for a sort, or "" for the default (newest first): the key alone is its usual order,
+    and a sign only where it is the other direction (`+visits` is fewest first, `-slug` is Z to A)."""
 
     if key == "created" and not reverse:
         return ""
 
-    return f"{'-' if reverse else ''}{key}"
+    if not reverse:
+        return key
+
+    return ("+" if DESC_BY_DEFAULT[key] else "-") + key
 
 
 def sort_term(key: str, reverse: bool) -> str:

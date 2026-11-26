@@ -18,7 +18,8 @@
       return false;
     }
   };
-  const sortsByVisits = () => /visits$/.test(deriveSort(parseQuery(input.value), lists.sortKeys) || "");
+  const sortsByVisits = () =>
+    /visits$/.test(deriveSort(parseQuery(input.value), lists.sortKeys, lists.defaultDesc) || "");
 
   function flash(row) {
     row.classList.remove("visited");

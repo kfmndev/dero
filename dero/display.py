@@ -47,16 +47,18 @@ TARGET_TAIL = 12  # characters at the end of a target that stay visible when the
 TARGET_LAST_PART = 24  # ... or the last part of the path, if it is not longer than this
 
 
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+
+
 def target_box(url: str) -> Markup:
-    """A target as the table shows it: without the https:// (http:// stays, it is worth noticing), in two parts so
-    that the stylesheet can cut the middle (the start gets the ellipsis, the end stays).
-    The whole address is on hover."""
-    shown = url.removeprefix("https://")
+    """A target as the table shows it: from the domain on (no http:// or https://), in two parts so that the
+    stylesheet can cut the middle (the start gets the ellipsis, the end stays). The whole address is on hover."""
+    shown = _SCHEME.sub("", url)
     slash = shown.rfind("/")
     cut = slash if 0 < slash and 4 <= len(shown) - slash <= TARGET_LAST_PART else max(0, len(shown) - TARGET_TAIL)
     box = (
         '<span class="url truncate" title="{}">'
-        '<span class="target-head">{}</span><span class="target-tail">{}</span></span>'
+        '<span class="target-head"><span>{}</span></span><span class="target-tail">{}</span></span>'
     )
 
     return Markup(box).format(url, shown[:cut], shown[cut:])

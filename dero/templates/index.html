@@ -163,8 +163,10 @@
       <p>{{ syntax('visits>100') }} · {{ syntax('visits=0') }} the visit counter, with {{ syntax('< <= > >= = !=') }}</p>
       <p>{{ syntax('expires') }} links that expire · {{ syntax('!expires') }} or {{ syntax('expires=never') }}
          links that never do</p>
-      <p>{{ syntax('sort_by=visits') }} · {{ syntax('sort_by=-visits') }} reverses the usual order
-         (also created, slug, target, creator, expires)</p>
+      <p>{{ syntax('sort_by=visits') }} the usual order of a key (created and visits: newest and most first, the others
+         A to Z) · {{ syntax('sort_by=-slug') }} descending · {{ syntax('sort_by=+visits') }} ascending
+         (keys: created, visits, slug, target, created_by, expires; in an address write %2B for the +)</p>
+      <p>A term with nothing after the operator yet, such as {{ syntax('status=') }}, filters nothing and is drawn dashed.</p>
       <p>{{ syntax('!status=expired') }} or {{ syntax('status!=expired') }} negates
          · {{ syntax('created_by="Anna Maria"') }} for spaces</p>
       <p>{{ syntax('and') }} {{ syntax('&&') }} · {{ syntax('or') }} {{ syntax('||') }} · {{ syntax('( )') }} to group,

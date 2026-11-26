@@ -932,7 +932,11 @@ input[aria-invalid="true"]:focus {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
+  color: var(--muted);
+} /* the ellipsis takes the colour of this box, so it is grey ... */
+.target-head > span {
+  color: var(--text);
+} /* ... and the text inside it keeps the normal one */
 .target-tail {
   flex: none;
 }
@@ -1714,6 +1718,13 @@ th.col-target {
 }
 .q-k-visits {
   --c: var(--q-visits);
+}
+/* a term with no value yet (status=) does not filter anything: drawn as an outline only */
+.q-term.q-empty {
+  --c: var(--muted);
+  background: none;
+  box-shadow: none;
+  outline: 1px dashed color-mix(in srgb, var(--muted) 55%, transparent);
 }
 .q-neg .q-eq {
   color: var(--q-not);

@@ -76,10 +76,11 @@ The search box is a small query language; the dropdowns (status, created by, sor
 | `visits>100` · `visits=0` · `visits!=5` | the visit counter: a whole number, with `<` `<=` `>` `>=` `=` `!=` |
 | `created=2026-11` · `expires<2027-01-01` · `created>=2026` | creation or expiry date: a year, month or day (UTC); compare with `<` `<=` `>` `>=` written directly after the key (not after the `=`). A link without an expiry matches no date |
 | `expires` · `!expires` · `expires=never` | `expires` alone is short for `expires!=never`: links that expire. `!expires` or `expires=never` (also `none`): links that never do |
-| `sort_by=visits` · `sort_by=-visits` | sort by `created`, `visits`, `slug`, `target`, `created_by` (or `creator`) or `expires`; a minus reverses the usual order |
+| `sort_by=visits` · `sort_by=-slug` · `sort_by=+visits` | sort by `created`, `visits`, `slug`, `target`, `created_by` (or `creator`) or `expires`. No sign is the key's usual order (newest and most first for `created` and `visits`, A to Z for the rest), `-` is descending and `+` ascending. In an address a `+` is a space: write `%2B` (the page warns about it) |
 | `!status=expired` · `status!=expired` | negation |
 | `a and b` · `a && b` · `a or b` · `a \|\| b` · `( )` | explicit operators and grouping (*and* binds tighter than *or*) |
 | `created_by="Anna Maria"` | quotes for values with spaces |
+| `status=` · `slug>` | a key and operator with no value yet filter nothing (the list updates while you type); the term is drawn dashed |
 
 The key names are the dropdowns' names in snake case: `status`, `created_by`, `sort_by`. The older spellings `creator`, `owner`, `by`, `sortby`, `sort` and `order` still work.
 

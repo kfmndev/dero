@@ -1177,11 +1177,13 @@ def test_query_param_filters_and_sorts(client, app):
     assert sorted(shown(client, ADMIN, "github !creator=bob")) == ["aaa"]
     assert sorted(shown(client, ADMIN, "(creator=bob or status=expired) github")) == ["ddd"]
     assert shown(client, ADMIN, "creator=alice sortby=visits")[:2] == ["aaa", "bbb"]  # most visits first
-    assert shown(client, ADMIN, "creator=alice sortby=-visits")[-1] == "aaa"  # a minus reverses it
+    assert shown(client, ADMIN, "creator=alice sortby=+visits")[-1] == "aaa"  # + is ascending: fewest first
+    assert shown(client, ADMIN, "creator=alice sortby=-visits") == shown(client, ADMIN, "creator=alice sortby=visits")
     assert shown(client, ADMIN, "sortby=slug")[:2] == ["aaa", "bbb"] and shown(client, ADMIN, "sortby=-slug")[:2] == [
         "eee",
         "ddd",
     ]
+    assert shown(client, ADMIN, "sortby=+slug") == shown(client, ADMIN, "sortby=slug")  # A to Z is its usual order
     assert sorted(shown(client, ADMIN, "status=nonsense")) == []
 
 
@@ -1204,7 +1206,7 @@ def test_a_query_can_never_widen_what_a_user_sees(client, app):
 def test_old_style_parameters_still_work_and_show_up_as_a_query(client, app):
     seed_query_links(client, app)
     html = client.get("/admin/?status=expired&owner=alice&order=visits:asc", headers=ADMIN).get_data(as_text=True)
-    assert 'value="status=expired created_by=alice sort_by=-visits"' in html
+    assert 'value="status=expired created_by=alice sort_by=+visits"' in html
     assert re.findall(r'class="slug">([a-z]+)</code>', html) == ["bbb"]
 
 
@@ -1227,9 +1229,9 @@ def test_problems_are_shown_briefly_above_the_table(client, app):
 def test_filter_bar_markup(client, app):
     seed_query_links(client, app)
     html = flat(
-        client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired sortby=-visits"}).get_data(as_text=True)
+        client.get("/admin/", headers=ADMIN, query_string={"q": "status=expired sortby=+visits"}).get_data(as_text=True)
     )
-    assert 'value="status=expired sortby=-visits"' in html and 'class="qhighlight"' in html and 'id="q-help"' in html
+    assert 'value="status=expired sortby=+visits"' in html and 'class="qhighlight"' in html and 'id="q-help"' in html
     assert re.search(r'<details class="multi" id="filter-status" data-key="status"', html)
     assert re.findall(
         r'<input type="checkbox" value="(\w+)" checked><span>(\w+)</span>',
@@ -1239,7 +1241,7 @@ def test_filter_bar_markup(client, app):
     assert re.findall(r'<input type="checkbox" value="([^"]+)"', creators) == ["alice", "bob"]
     # the sort dropdown holds sortby values; the current one is selected
     assert (
-        '<option value="-visits" selected>Fewest visits</option>' in html
+        '<option value="+visits" selected>Fewest visits</option>' in html
         and '<option value="">Newest first</option>' in html
     )
     # sortable headers carry the new query; Reset goes back to the plain page
@@ -1359,7 +1361,7 @@ def test_new_columns_are_sortable_and_the_expired_badge_follows_the_icons(client
     client.set_cookie("dero_cols", "slug,expires,created,creator")
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert "sort_by%3Dexpires" in html and "sort_by%3Dcreator" in html  # new sort links for the new columns
-    assert "sort_by%3D-created" in html  # (created is the current sort, so its link reverses it)
+    assert "sort_by%3D%2Bcreated" in html  # (created is the current sort, so its link reverses it: oldest first)
     row = html[html.index('<tr class="item') : html.index('<tr class="detail"')]
     assert row.index("link-actions") < row.index('class="expired-mark"')  # the clock comes after the open/copy icons
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
@@ -1548,13 +1550,25 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert (
         css_rule(css, ".q-star")["color"] == "var(--accent-ink)" and css_rule(css, ".q-not")["color"] == "var(--q-not)"
     )
+    assert "function deriveSort(parsed, sortKeys, defaultDesc)" in js and "sortDefaultDesc" in js  # the +/- rules
+    assert "q-empty" in js and "empty: values.length === 0" in js and not re.search(r"t\.key !== \"sortby\"\)", js)
+    assert css_rule(css, ".q-term.q-empty")["background"] == "none"  # no value yet: drawn as an outline
+    assert css_rule(css, ".target-head")["color"] == "var(--muted)"  # the ellipsis of a cut target is grey ...
+    assert css_rule(css, ".target-head > span")["color"] == "var(--text)"  # ... and the address itself is not
     assert "--c: var(--q-visits)" in css and "--q-not: #e00000" in css and css.count("--q-not:") == 3
 
 
 def test_targets_lose_https_and_keep_their_end_when_the_middle_is_cut():
-    parts = lambda url: re.findall(r">([^<]*)</span>", str(target_box(url)))  # noqa: E731
+    def parts(url):
+        box = str(target_box(url))
+        return list(
+            re.search(r'target-head"><span>(.*?)</span></span><span class="target-tail">(.*?)</span>', box).groups()
+        )
+
     assert parts("https://github.com/kfmndev/podutils") == ["github.com/kfmndev", "/podutils"]  # the last path part
-    assert parts("http://example.com/page") == ["http://example.com", "/page"]  # http:// is worth seeing
+    assert parts("http://example.com/page") == ["example.com", "/page"]  # from the domain on, whatever the scheme
+    assert parts("ftp://files.example.com/a.zip") == ["files.example.com", "/a.zip"]
+    assert "".join(parts("https://user@evil.example/x")) == "user@evil.example/x"  # a login in front stays visible
     assert parts("https://example.com/") == ["", "example.com/"]  # nothing to cut off
     assert parts("https://example.com/" + "x" * 40) == ["example.com/" + "x" * 28, "x" * 12]  # no usable last part
     assert parts("https://a.com/<b>&") == ["a.com", "/&lt;b&gt;&amp;"]  # escaped

@@ -115,8 +115,12 @@ function parseQuery(text) {
             rest: "",
             negated: false,
             values: [],
+            empty: false, // the bare key says something: the link has an expiry
           });
         } else if (key) {
+          const values = splitRaw(m[3])
+            .map(unquote)
+            .filter((v) => v !== "");
           toks.push({
             kind: "term",
             start: i,
@@ -127,9 +131,8 @@ function parseQuery(text) {
             rest: m[3],
             supported: ALLOWED_OPS[key].includes(m[2] === "!=" ? "=" : m[2]), // false: the server reports it and matches nothing
             negated: m[2] === "!=",
-            values: splitRaw(m[3])
-              .map(unquote)
-              .filter((v) => v !== ""),
+            values,
+            empty: values.length === 0, // an operator but no value yet (status=): it filters nothing
           });
         } else {
           toks.push({ kind: "term", start: i, end: j, key: null, negated: false, values: [unquote(word)] });
@@ -204,10 +207,11 @@ function editQuery(text, key, values, negated = false) {
 
 // What a dropdown should show for one key: { set: [...] } = those boxes are checked, { custom: true } = too complex for a dropdown
 function deriveSet(parsed, key, all) {
-  if (!parsed.terms.some((t) => t.key === key)) return { set: all }; // this key isn't used at all
+  const used = parsed.terms.filter((t) => t.key === key && !t.empty); // an empty term (status=) filters nothing
+  if (!used.length) return { set: all }; // this key isn't used at all
   if (parsed.topLevelOr) return { custom: true }; // used, but inside an "or"
-  if (parsed.terms.some((t) => t.key === key && t.depth > 0)) return { custom: true }; // inside a group: too complex
-  const mine = parsed.terms.filter((t) => t.key === key && t.depth === 0);
+  if (used.some((t) => t.depth > 0)) return { custom: true }; // inside a group: too complex
+  const mine = used.filter((t) => t.depth === 0);
   if (mine.length === 0) return { set: all };
   if (mine.length > 1) return { custom: true };
   if (!mine[0].supported) return { custom: true };
@@ -218,13 +222,18 @@ function deriveSet(parsed, key, all) {
 }
 
 // The sort the query asks for, as the value of the "Sort by" dropdown ("" = the default, newest first)
-function deriveSort(parsed, sortKeys) {
+// The sort as the value of the "Sort by" dropdown, written like dero/query.py sort_value: the key alone is its usual
+// order (defaultDesc says which keys go newest or most first), a sign only where it is the other way round
+function deriveSort(parsed, sortKeys, defaultDesc) {
   const mine = parsed.toks.filter((t) => t.kind === "term" && t.key === "sortby" && t.values.length);
   if (!mine.length) return "";
   const raw = mine[mine.length - 1].values[0],
     name = sortName(raw);
   if (!sortKeys.includes(name)) return "";
-  const value = `${raw.startsWith("-") ? "-" : ""}${name}`;
+  const usuallyDesc = Boolean(defaultDesc[name]),
+    sign = raw[0] === "+" || raw[0] === "-" ? raw[0] : "";
+  const reversed = sign !== "" && (sign === "-") !== usuallyDesc;
+  const value = reversed ? `${usuallyDesc ? "+" : "-"}${name}` : name;
   return value === "created" ? "" : value;
 }
 
@@ -298,14 +307,15 @@ function renderQuery(parsed, text, container, { statuses, sortKeys }) {
       word.append(raw);
       top().append(word);
     } else {
-      const pill = span(`q-term q-k-${t.key}${t.negated ? " q-neg" : ""}`, "");
+      const pill = span(`q-term q-k-${t.key}${t.negated ? " q-neg" : ""}${t.empty ? " q-empty" : ""}`, "");
       pill.dataset.from = t.removeStart;
       pill.dataset.to = t.end;
       const before = parsed.toks[idx - 1],
         last = top().lastChild;
       if (before && before.kind === "not" && last?.classList?.contains("q-not")) pill.append(last);
       pill.append(span("q-key", t.rawKey));
-      if (t.op) pill.append(span(t.supported ? "q-eq" : "q-eq q-invalid", t.op)); // an operator the key does not have
+      // an operator the key does not have (not while the value is still missing: the server says nothing then either)
+      if (t.op) pill.append(span(t.supported || t.empty ? "q-eq" : "q-eq q-invalid", t.op));
       const wildcard = TEXT_KEYS.includes(t.key) && t.op !== "=="; // with "==" a * is just a *
       (t.op ? splitRaw(t.rest) : []).forEach((piece, i) => {
         if (i) pill.append(span("q-eq", ","));

@@ -120,13 +120,12 @@ def test_words_and_or_can_be_searched_when_quoted_and_unknown_keys_are_text():
 def test_sortby_is_a_directive_not_a_filter():
     rows, parsed = find("sortby=visits")
     assert rows == ["aaa", "bbb", "ccc", "ddd", "eee"] and parsed.sort == ("visits", False) and parsed.where is None
-    assert find("sortby=-visits")[1].sort == ("visits", True)  # a minus reverses the usual order
+    assert find("sortby=+visits")[1].sort == ("visits", True)  # + is ascending: the other way for visits
     assert find("sort=slug")[1].sort == ("slug", False) and find("order=creator")[1].sort == ("creator", False)
     assert find("sortby=visits sortby=-slug")[1].sort == ("slug", True)  # the last one wins
     assert find("!sortby=visits")[1].sort == ("visits", False)  # negating a directive does nothing
     rows, parsed = find("creator=julian or sortby=visits")
     assert rows == ["aaa", "bbb"] and parsed.sort == ("visits", False)  # not an "or" branch that matches everything
-    assert find("sortby=+visits")[1].sort == ("visits", False)
 
 
 # ------------------------------------------------------------------ mistakes are handled, not raised
@@ -165,15 +164,16 @@ def test_values_are_bound_never_interpolated():
 
 # ------------------------------------------------------------------ editing queries as text
 def test_sort_term_and_with_sort():
-    assert query.sort_term("created", False) == "" and query.sort_term("created", True) == "sort_by=-created"
+    assert query.sort_term("created", False) == "" and query.sort_term("created", True) == "sort_by=+created"
     assert query.sort_term("visits", False) == "sort_by=visits" and query.sort_term("slug", True) == "sort_by=-slug"
+    assert query.sort_term("visits", True) == "sort_by=+visits" and query.sort_term("slug", False) == "sort_by=slug"
     assert query.with_sort("status=expired", "visits", False) == "status=expired sort_by=visits"
     assert query.with_sort("status=expired sortby=visits", "slug", True) == "status=expired sort_by=-slug"
     assert (
         query.with_sort("sortby=visits status=expired creator=julian", "created", False)
         == "status=expired creator=julian"
     )
-    assert query.with_sort("", "visits", True) == "sort_by=-visits"
+    assert query.with_sort("", "visits", True) == "sort_by=+visits"
 
 
 def test_add_term_wraps_when_there_is_a_top_level_or():
@@ -204,7 +204,7 @@ def test_tokenizer_positions_cover_the_text():
 
 def test_snake_case_names_match_the_dropdowns():
     assert slugs("created_by=julian") == slugs("creator=julian") == slugs("owner=julian") == slugs("by=julian")
-    assert find("sort_by=-visits")[1].sort == ("visits", True) and find("sort_by=visits")[1].where is None
+    assert find("sort_by=+visits")[1].sort == ("visits", True) and find("sort_by=visits")[1].where is None
 
 
 def test_date_filters():
@@ -379,3 +379,24 @@ def test_the_creator_sort_has_both_names():
     assert find("sort_by=created_by")[1].sort == ("creator", False) == find("sort_by=creator")[1].sort
     assert find("sort_by=-created_by")[1].sort == ("creator", True)
     assert find("sort_by=CREATED_BY")[1].problems == []
+
+
+def test_sort_signs_name_the_direction_and_no_sign_is_the_usual_order():
+    # (key, text) -> reversed relative to the key's usual order? created and visits usually go newest and most first
+    for key, usually_desc in (
+        ("created", True),
+        ("visits", True),
+        ("slug", False),
+        ("target", False),
+        ("expires", False),
+    ):
+        bare, plus, minus = (find(f"sort_by={sign}{key}")[1].sort for sign in ("", "+", "-"))
+        assert bare == (key, False)  # no sign: the usual order
+        assert plus == (key, usually_desc) and minus == (key, not usually_desc)  # + ascending, - descending
+        # the text of every sort round-trips to the same sort
+        for reverse in (False, True):
+            assert find(query.sort_term(key, reverse) or "sort_by=created")[1].sort in ((key, reverse), None)
+    assert query.sort_value("visits", True) == "+visits" and query.sort_value("slug", True) == "-slug"
+    assert query.sort_value("created", True) == "+created" and query.sort_value("created", False) == ""
+    for text in ("sort_by=++visits", "sort_by=-", "sort_by=+", "sort_by=+nonsense"):
+        assert find(text)[1].problems, text
