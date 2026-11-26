@@ -2200,3 +2200,59 @@ td > .cell:has(> .badge) {
 .col-slug .cell .expired-mark {
   margin-left: 5px;
 }
+
+/* ---- dero: toasts: a success is shown at the bottom of the window and fades away (errors stay by their field) ---- */
+.toasts {
+  position: fixed;
+  z-index: 50;
+  right: 0;
+  bottom: 20px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  pointer-events: none; /* only the toasts themselves take clicks */
+}
+.toasts .toast {
+  pointer-events: auto;
+  max-width: min(100%, 38rem);
+  margin: 0;
+  padding: 9px 8px 9px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28);
+  animation: toast-in 0.18s ease-out;
+}
+.toasts .toast.leaving {
+  animation: toast-out 0.25s ease-in forwards;
+}
+.toasts .toast > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast-close {
+  flex: 0 0 auto;
+  margin-left: 4px;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toasts .toast,
+  .toasts .toast.leaving {
+    animation-duration: 0.01s;
+  }
+}

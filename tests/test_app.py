@@ -1950,3 +1950,13 @@ def test_search_help_sits_below_the_search_bar_and_draws_its_examples_like_the_b
     assert 'help.querySelectorAll("[data-q]")' in js and "renderQuery(parseQuery(text), text, el, lists)" in js
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     assert css_rule(css, ".qhelp h4")["font-family"] == "var(--font-head)"
+
+
+def test_success_notices_become_toasts_and_errors_stay_by_their_field(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'src="/static/js/toasts.js"' in html and html.index("toasts.js") < html.index("actions.js")
+    js = flat_js(js_source(client))
+    assert 'main.querySelectorAll(".notices .form-ok").forEach(show)' in js  # only successes move; errors stay
+    assert "new MutationObserver(collect).observe(main" in js  # also those that arrive later (fetch, edit)
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert css_rule(css, ".toasts")["position"] == "fixed" and css_rule(css, ".toasts")["bottom"] == "20px"
