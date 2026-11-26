@@ -2,6 +2,7 @@
 
 import secrets
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -97,8 +98,17 @@ def _slug_length(f: Mapping[str, str]) -> int:
     return length
 
 
-def slug_plan(f: Mapping[str, str]) -> tuple[str, str | tuple[str, int]]:
-    """Read the slug part of the form. Returns ("custom", slug) or ("generate", (alphabet, length)).
+@dataclass(frozen=True)
+class SlugPlan:
+    """How a new link gets its slug: the one the user typed, or one drawn at random from an alphabet."""
+
+    typed: str | None = None  # the typed slug; None means one is drawn
+    alphabet: str = ""
+    length: int = 0
+
+
+def slug_plan(f: Mapping[str, str]) -> SlugPlan:
+    """Read the slug part of the form: a typed slug, or the alphabet and length to draw one with.
 
     slug_source is one of: default, letters (random from that alphabet), chars (random from the characters in
     alphabet_custom, where a repeated character is more likely), slug (use the typed slug).
@@ -108,7 +118,7 @@ def slug_plan(f: Mapping[str, str]) -> tuple[str, str | tuple[str, int]]:
     source = _slug_source(f, slug)
 
     if source == "slug":
-        return "custom", _typed_slug(slug)
+        return SlugPlan(typed=_typed_slug(slug))
 
     if source == "chars":
         alphabet = _own_characters(f)
@@ -117,7 +127,7 @@ def slug_plan(f: Mapping[str, str]) -> tuple[str, str | tuple[str, int]]:
     else:
         raise resolve.ValidationError("Unknown option.", "slug_source")
 
-    return "generate", (alphabet, _slug_length(f))
+    return SlugPlan(alphabet=alphabet, length=_slug_length(f))
 
 
 def reserved_slugs() -> set[str]:

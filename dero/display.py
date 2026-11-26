@@ -24,7 +24,7 @@ def highlight_slug(slug: str, limit: int = 0) -> Markup:
         """Whether a character is a digit, a letter or a symbol."""
         return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
 
-    out = []
+    out: list[str] = []
 
     for k, chars in groupby(slug, kind):
         text = escape("".join(chars))
@@ -59,10 +59,9 @@ def rich(text: str) -> Markup:
 
 
 def register(app: Flask) -> None:
-    """Make the filters and the constant available to every template."""
+    """Make the filters available to every template."""
     app.add_template_filter(highlight_slug, "hl_slug")
     app.add_template_filter(highlight_url, "hl_url")
     app.add_template_filter(slug_box, "slug_box")
     app.add_template_filter(rich, "rich")
     app.add_template_filter(json.loads, "fromjson")
-    app.jinja_env.globals["SLUG_SHOWN"] = SLUG_SHOWN

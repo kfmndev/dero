@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 from flask import flash, g, jsonify, redirect, request, url_for
 
 from .. import db, resolve
-from ..forms import parse_expiry, random_slug, reserved_slugs, slug_plan, validated
+from ..forms import SlugPlan, parse_expiry, random_slug, reserved_slugs, slug_plan, validated
 from ..types import ViewResult
 from ..urls import base_url
 from . import bp
@@ -21,15 +21,15 @@ def index() -> ViewResult:
     return render_index()
 
 
-def _save_new_link(
-    conn: sqlite3.Connection, kind: str, plan: str | tuple[str, int], target: str, expires: str | None
-) -> str:
+def _save_new_link(conn: sqlite3.Connection, plan: SlugPlan, target: str, expires: str | None) -> str:
     """Insert the link and return its slug. A typed slug that is taken is an error, a generated one is drawn again."""
 
-    for _ in range(20 if kind == "generate" else 1):
-        slug = plan if kind == "custom" else random_slug(*plan)
+    drawn = plan.typed is None
 
-        if kind == "generate" and (slug in reserved_slugs() or not slug.strip(".")):
+    for _ in range(20 if drawn else 1):
+        slug = random_slug(plan.alphabet, plan.length) if plan.typed is None else plan.typed
+
+        if drawn and (slug in reserved_slugs() or not slug.strip(".")):
             continue
 
         try:
@@ -39,7 +39,7 @@ def _save_new_link(
             )
             conn.commit()
         except sqlite3.IntegrityError:
-            if kind == "custom":
+            if not drawn:
                 raise resolve.ValidationError(f"Slug ‹{slug}› is already taken.", "slug")
             continue
 
@@ -55,8 +55,7 @@ def create_link() -> ViewResult:
     try:
         target = validated("target", resolve.validate_url, f.get("target", ""))
         expires = parse_expiry(f.get("expires_at", ""))
-        kind, plan = slug_plan(f)
-        slug = _save_new_link(db.get_db(), kind, plan, target, expires)
+        slug = _save_new_link(db.get_db(), slug_plan(f), target, expires)
         flash(f"{base_url()}{slug}", "link")  # the template adds the wording and the open/copy icons
 
         return redirect(url_for("admin.index"))

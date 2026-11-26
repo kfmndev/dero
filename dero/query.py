@@ -126,9 +126,8 @@ def _word_token(text: str, i: int, j: int) -> Tok:
     if lower in ("and", "or"):
         return Tok(lower, i, j)
     m = _KEYED.match(word)
-    key = KEYS.get(m.group(1).lower()) if m else None
 
-    if key:
+    if m and (key := KEYS.get(m.group(1).lower())):
         return Tok("term", i, j, key, m.group(2) == "!=", _split_values(m.group(3)))
 
     return Tok("term", i, j, None, False, (_unquote(word),))
@@ -302,23 +301,25 @@ def _date_condition(key: str, value: str, params: list[Any], problems: list[str]
     if key == "expires" and value.lower() in ("none", "never"):
         return f"{column} IS NULL"
     m = _DATE.match(value)
-    ok = bool(m)
 
-    if m:
-        year, month, day = m.group(2), m.group(3), m.group(4)
-
-        try:
-            datetime(int(year), int(month or 1), int(day or 1))
-        except ValueError:
-            ok = False
-
-    if not ok:
+    if not m or not _real_date(m):
         problems.append(f"Unknown date: {value}")
         return "0"
-    text = m.group(2) + (f"-{month}" if month else "") + (f"-{day}" if day else "")
+    operator, year, month, day = m.groups()
+    text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
     params.append(text)
 
-    return f"substr({column}, 1, {len(text)}) {m.group(1) or '='} ?"
+    return f"substr({column}, 1, {len(text)}) {operator or '='} ?"
+
+
+def _real_date(m: re.Match[str]) -> bool:
+    """Whether a matched year[-month[-day]] is a date that exists (no month 13, no 30 February)."""
+    try:
+        datetime(int(m.group(2)), int(m.group(3) or 1), int(m.group(4) or 1))
+    except ValueError:
+        return False
+
+    return True
 
 
 def like(term: str) -> str:

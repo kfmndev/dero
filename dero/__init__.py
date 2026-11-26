@@ -118,7 +118,7 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     admin_path = "/" + app.config["ADMIN_PATH"].strip("/")
     app.config["ADMIN_PATH"] = admin_path
     app.register_blueprint(admin_blueprint, url_prefix=admin_path)
-    app.jinja_env.globals["csrf_token"] = auth.csrf_token
+    app.add_template_global(auth.csrf_token, "csrf_token")
     app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
     display.register(app)
     _add_short_link_routes(app)
