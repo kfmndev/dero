@@ -1576,6 +1576,9 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert 'const QUOTED_SPACE = "\\u2005";' in js and "function spaceQuotes(text)" in js
     assert "const queryText = () => plainQuery(input.value)" in js and "input.value = spaceQuotes(text)" in js
     assert 'event.clipboardData.setData("text/plain", plainQuery(' in js and "showQuotedSpaces();" in js
+    # ... also when dragging text out, and not while an input method is composing (that would cancel the composition)
+    assert 'input.addEventListener("dragstart"' in js and 'input.addEventListener("compositionend"' in js
+    assert "if (!event.isComposing) tidy(event);" in js
     # a ! in front of sort_by (or in !=) does nothing: it is marked, with the same text the server reports
     assert 'NO_NEGATED_SORT = "A ! has no effect on sort_by: it only says how to sort"' in js
     assert 't.key === "sortby" && (t.nots > 0 || t.op === "!=")' in js and "marks.forEach(flagIdle)" in js

@@ -347,6 +347,12 @@
     input.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
   }
 
+  // Dragging selected text out of the box hands over plain spaces too
+  input.addEventListener("dragstart", (event) => {
+    const { selectionStart: from, selectionEnd: to } = input;
+    if (from !== to) event.dataTransfer.setData("text/plain", plainQuery(input.value.slice(from, to)));
+  });
+
   // Copying or cutting hands over plain spaces, never the look-alikes
   for (const name of ["copy", "cut"]) {
     input.addEventListener(name, (event) => {
@@ -361,9 +367,20 @@
     });
   }
 
-  input.addEventListener("input", (event) => {
+  // Setting the value while an input method is composing (Japanese, Chinese ...) would cancel the composition: the
+  // spaces are tidied when it ends instead
+  const tidy = (event) => {
     if (event.inputType?.startsWith("insert")) spaceOut();
     showQuotedSpaces();
+  };
+  input.addEventListener("compositionend", () => {
+    tidy({ inputType: "insertCompositionText" });
+    draw();
+    syncControls();
+  });
+
+  input.addEventListener("input", (event) => {
+    if (!event.isComposing) tidy(event);
     draw();
     syncControls();
     remember(queryText());
