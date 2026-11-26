@@ -9,7 +9,7 @@
 
 ## 🎯 TL;DR
 
-- Short links `/<slug>` redirect to a target URL; every redirect increments a **visit counter**
+- A slug (`/<slug>`) redirects to a target URL; every redirect increments a **visit counter**
 - Stored per link: slug, target, **creator**, creation date, optional expiry, visit count. **No IPs, referrers or user agents**
 - Lookup order: **exact link** → **pattern rule** (lowest priority number first) → **fallback URL** → `404`
 - Example pattern rule: `gh/*` → `https://github.com/{1}`
@@ -42,7 +42,7 @@ s.example.com {
 }
 ```
 
-Then open `https://s.example.com/admin/`. Short links (`/<slug>`) stay public.
+Then open `https://s.example.com/admin/`. Slugs (`/<slug>`) stay public.
 
 ### No authentication (`AUTH_MODE=none`)
 
@@ -69,18 +69,18 @@ The search box is a small query language; the dropdowns (status, created by, sor
 
 Unknown keys are plain text, so a pasted URL just searches for that text. Terms, groups and negations are shown as chips in the search bar, and invalid values are underlined. People only ever see their own links, whatever the query says.
 
-**Columns:** the *Columns* dropdown shows or hides any of Short link, Target, Created by, Created, Expires and Visits (the default is Short link, Target and Visits). The choice is remembered in a cookie, so the server draws exactly those columns.
+**Columns:** the *Columns* dropdown shows or hides any of Slug, Target, Created by, Created, Expires and Visits (the default is Slug, Target and Visits). The choice is remembered in a cookie, so the server draws exactly those columns.
 
 ## 🔤 Slugs and warnings
 
-- **Short link source:** one dropdown in the New link form: *Random · default* (letters and digits without look-alikes: `abcdefghjkmnpqrstuvwxyz23456789`), *Random · letters only*, *Random · own characters* or *Custom slug*. Random slugs have a length of 3 to 32 (default 5). In your own characters a repeated character is more likely (`aaab` is 75 % `a`). The choice is remembered in the browser.
+- **Slug source:** one dropdown in the New link form: *Random · default* (letters and digits without look-alikes: `abcdefghjkmnpqrstuvwxyz23456789`), *Random · letters only*, *Random · own characters* or *Custom slug*. Random slugs have a length of 3 to 32 (default 5). In your own characters a repeated character is more likely (`aaab` is 75 % `a`). The choice is remembered in the browser.
 - **Slugs** may use anything that is safe in a URL: letters, digits and `- _ . ~`, up to 64 characters (so `v1.2` and `---` are fine, `...` is not).
 - **Generate first:** the *Generate* button draws a slug of the selected type into the Custom slug field, so you can look at it, edit it and then create the link (from Custom it uses the random type chosen last).
-- **Settings:** click your user name (top right) to open the settings dialog. *Colour short links* turns the digit/symbol colouring of short links on or off (table, created message, delete dialog). It is stored in the `dero_hl` cookie.
+- **Settings:** click your user name (top right) to open the settings dialog. *Colour slugs* turns the digit/symbol colouring of slugs on or off (table, created message, delete dialog). It is stored in the `dero_hl` cookie.
 - **Messages sit where they belong:** errors and warnings under the row of the field in the New link form, update results in the details of the link. An update reads like `abc updated · new target https://…` (the target is cut when long).
 - **Expired links** are marked with a small clock after the link icons.
 - **Readable slugs:** in the table, digits are blue and symbols red (like Bitwarden shows passwords), letters stay plain.
-- **Warnings, not walls:** an unusual address (http, no domain ending, IP address, port, login, spaces), an address that already has a short link, or an expiry date in the past gets a short warning; press Create (or Update) again to go ahead. Clearly invalid input is still refused.
+- **Warnings, not walls:** an unusual address (http, no domain ending, IP address, port, login, spaces), an address that already has a slug, or an expiry date in the past gets a short warning; press Create (or Update) again to go ahead. Clearly invalid input is still refused.
 
 ## 🧩 Pattern rules
 
@@ -102,7 +102,7 @@ Captured text is URL-encoded before it is placed into the target.
 | `USERS_FILE` | `users.txt` (`/data/users.txt` in Docker) | Basic-auth users, one `username:role:hash` per line; create with `python -m dero.passwd` |
 | `SECRET_KEY` | random per start | Signs form tokens (CSRF). Set it, or forms break after restarts |
 | `PROXY_SECRET` | *(empty)* | `proxy` mode only: if set, requests must carry a matching `X-Proxy-Secret` header |
-| `BASE_URL` | request host | Public address of the short links, e.g. `https://s.example.com`. Used to display and copy links; set it when dero runs behind a proxy under a different name |
+| `BASE_URL` | request host | Public address of the slugs, e.g. `https://s.example.com`. Used to display and copy links; set it when dero runs behind a proxy under a different name |
 | `FALLBACK_URL` | *(empty)* | Initial fallback target; later editable in the UI. Empty means `404` |
 | `USER_GROUP` / `ADMIN_GROUP` | `dero-users` / `dero-admins` | `proxy` mode: groups allowed to use / administer dero |
 | `USER_HEADER` / `GROUPS_HEADER` | `Remote-User` / `Remote-Groups` | `proxy` mode: identity headers set by the proxy |

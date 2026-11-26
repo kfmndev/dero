@@ -28,7 +28,7 @@
 <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
   <form method="dialog">
     <h2 id="confirm-title"></h2>
-    <p id="confirm-text" class="confirm-urls"><code id="confirm-name"></code>{{ icon('arrow') }}<code id="confirm-detail"></code></p>
+    <p id="confirm-text" class="confirm-urls"><span id="confirm-name"></span>{{ icon('arrow') }}<span id="confirm-detail"></span></p>
     <div class="dialog-actions">
       <button type="submit" value="yes" class="btn solid-danger" id="confirm-yes">{{ icon('trash') }}<span>Delete</span></button>
       <button type="submit" value="no" class="btn" autofocus>{{ icon('x') }}Cancel</button>
@@ -37,16 +37,16 @@
 </dialog>
 <dialog id="settings" aria-labelledby="settings-title">
   <form method="dialog">
+    <button type="submit" class="mini dialog-close" aria-label="Close" title="Close">{{ icon('x') }}</button>
     <h2 id="settings-title">Settings</h2>
     <div class="setting">
       <label class="switch small">
         <input type="checkbox" role="switch" id="hl-switch" aria-labelledby="hl-name"{% if highlight_on %} checked{% endif %}>
         <span class="track"></span>
       </label>
-      <div><strong id="hl-name">Colour short links</strong><span>Digits blue and symbols red, like Bitwarden shows passwords.</span></div>
+      <div><strong id="hl-name">Colour slugs</strong><span>Digits blue and symbols red, like Bitwarden shows passwords.</span></div>
     </div>
     <p class="setting-note">Saved in this browser.</p>
-    <div class="dialog-actions"><button type="submit" class="btn" autofocus>{{ icon('x') }}Close</button></div>
   </form>
 </dialog>
 <footer>

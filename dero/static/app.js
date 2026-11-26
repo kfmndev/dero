@@ -33,22 +33,22 @@ function toggleRow(row) {
 
 // ---- Times are stored and sent as UTC; show them in the viewer's own time zone and locale ----
 // The server renders the UTC text (that is what stays if JavaScript is off, and what the tooltip shows).
-const LOCAL_TIME = new Intl.DateTimeFormat(undefined, {
-  year: "numeric", month: "2-digit", day: "2-digit",
-  hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short",
-});
-
-const LOCAL_DATE = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" });
+// The viewer's own numeric format. A moment (created) is shown with its time in the viewer's zone;
+// an expiry is a day that was picked, so it keeps that day (formatted as UTC, which is how it is stored).
+const DATE_FORMAT = { year: "numeric", month: "2-digit", day: "2-digit" };
+const LOCAL_DATE = new Intl.DateTimeFormat(undefined, DATE_FORMAT);
+const LOCAL_DATETIME = new Intl.DateTimeFormat(undefined, { ...DATE_FORMAT, hour: "2-digit", minute: "2-digit" });
+const PICKED_DAY = new Intl.DateTimeFormat(undefined, { ...DATE_FORMAT, timeZone: "UTC" });
 
 function localizeTimes(root = document) {
   root.querySelectorAll("time.localtime[datetime]").forEach((el) => {
     const date = new Date(el.getAttribute("datetime"));
-    if (!Number.isNaN(date.getTime())) el.textContent = (el.classList.contains("short") ? LOCAL_DATE : LOCAL_TIME).format(date);
+    if (!Number.isNaN(date.getTime())) el.textContent = (el.dataset.day !== undefined ? PICKED_DAY : LOCAL_DATETIME).format(date);
   });
   root.querySelectorAll(".expired-mark[data-expired]").forEach((el) => {     // "Expired on <local date>", the UTC time stays in the column's tooltip
     const date = new Date(el.dataset.expired);
     if (Number.isNaN(date.getTime())) return;
-    el.title = `Expired on ${LOCAL_DATE.format(date)}`;
+    el.title = `Expired on ${PICKED_DAY.format(date)}`;
     el.setAttribute("aria-label", el.title);
   });
 }
@@ -101,7 +101,7 @@ function linkProblem(form, { reserved = [], savedSlug = null, slugRequired = fal
     if (found) return found;
   } else {
     const slug = form.elements.slug, s = slug.value.trim();
-    if (!s && slugRequired) return [slug, "A short link needs a slug."];
+    if (!s && slugRequired) return [slug, "Enter a slug."];
     if (s && slugProblem(s)) return [slug, slugProblem(s)];
     if (s && s !== savedSlug && reserved.includes(s)) return [slug, `'${s}' is reserved.`];
   }
@@ -120,8 +120,14 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
   }
   if (source === "chars") {
     const field = form.elements.alphabet_custom, chars = [...field.value];
-    if (new Set(chars).size < 2 || !chars.every((c) => /[A-Za-z0-9._~-]/.test(c)))
-      return [field, "Characters: at least 2 different letters, digits or - _ . ~"];
+    const bad = [...new Set(chars.filter((c) => !/[A-Za-z0-9._~-]/.test(c)))];
+    if (bad.length) {
+      const names = bad.slice(0, 6).map((c) => (c === " " ? "space" : `'${c}'`));
+      const shown = bad.length > 6 ? `${names.join(", ")}, …`                                              // too many: cut
+        : names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;   // "and" before the last
+      return [field, `Characters: ${shown} can't be used. Allowed are letters, digits and - _ . ~`];
+    }
+    if (new Set(chars).size < 2) return [field, "Characters: use at least 2 different ones."];
   }
   const length = form.elements.namedItem("length"), n = Number(length.value);       // (elements.length is the collection's size)
   const min = Number(form.dataset.minLength), max = Number(form.dataset.maxLength);
@@ -589,7 +595,7 @@ function removePart(text, from, to) {
   const highlight = form.querySelector(".qhl");
   const sortSelect = document.getElementById("filter-sort");
   const live = document.getElementById("filter-live");
-  const clear = document.getElementById("clear-filters");
+  const clear = document.getElementById("reset-filters");
   const multis = [...form.querySelectorAll("details.multi")];
   const queryMultis = multis.filter((details) => details.dataset.key);          // status, created by
   const columnsMenu = document.getElementById("filter-columns");
@@ -612,6 +618,10 @@ function removePart(text, from, to) {
   }
 
   const hasFilter = (parsed) => parsed.toks.some((t) => t.kind === "term" && t.key !== "sortby");
+
+  const defaultColumns = () => (columnsMenu && columnsMenu.dataset.default ? columnsMenu.dataset.default.split(",") : []);
+  const chosenColumns = () => (columnsMenu ? [...columnsMenu.querySelectorAll("input[type=checkbox]:checked")].map((box) => box.value) : []);
+  const columnsDiffer = () => chosenColumns().join() !== defaultColumns().join();
 
   function setClear(active) {            // disabled, never hidden: nothing may move
     clear.setAttribute("aria-disabled", String(!active));
@@ -686,7 +696,7 @@ function removePart(text, from, to) {
     const wanted = deriveSort(parsed, lists.sortKeys);
     sortSelect.value = [...sortSelect.options].some((o) => o.value === wanted) ? wanted : "";
     refreshSelect(sortSelect);
-    setClear(hasFilter(parsed));
+    setClear(input.value.trim() !== "" || columnsDiffer());
   }
 
   // ---- dropdowns -> query
@@ -714,6 +724,7 @@ function removePart(text, from, to) {
       const ordered = all.filter((key) => chosen.includes(key));
       document.cookie = `${columnsMenu.dataset.cookie}=${ordered.join(",")}; path=${columnsMenu.dataset.cookiePath || "/"}; max-age=31536000; SameSite=Lax`;
       columnsMenu.querySelector(".multi-label").textContent = `${ordered.length} of ${all.length}`;
+      setClear(input.value.trim() !== "" || columnsDiffer());
       update();
     });
   }
@@ -760,11 +771,16 @@ function removePart(text, from, to) {
   document.addEventListener("selectionchange", () => { if (document.activeElement === input) syncScroll(); });
   form.addEventListener("submit", (event) => { event.preventDefault(); clearTimeout(typing); update(); });
 
-  clear.addEventListener("click", (event) => {              // clears every filter; the sort stays
+  clear.addEventListener("click", (event) => {              // back to the start: no query, no sort, the default columns
     event.preventDefault();
     if (clear.getAttribute("aria-disabled") === "true") return;
-    const edits = parseQuery(input.value).toks.filter((t) => t.kind === "term" && t.key === "sortby").map((t) => t.text || input.value.slice(t.start, t.end));
-    setQuery(edits.join(" "));
+    if (columnsMenu) {
+      const all = JSON.parse(columnsMenu.dataset.all || "[]"), wanted = defaultColumns();
+      columnsMenu.querySelectorAll("input[type=checkbox]").forEach((box) => (box.checked = wanted.includes(box.value)));
+      columnsMenu.querySelector(".multi-label").textContent = `${wanted.length} of ${all.length}`;
+      document.cookie = `${columnsMenu.dataset.cookie}=${wanted.join(",")}; path=${columnsMenu.dataset.cookiePath || "/"}; max-age=31536000; SameSite=Lax`;
+    }
+    setQuery("");
   });
 
   const helpToggle = document.getElementById("q-help-toggle"), help = document.getElementById("q-help");
@@ -807,8 +823,8 @@ function coloredSlug(slug) {
 // ---- The slug input of a link's details: coloured text behind the transparent input ----
 function paintSlugEdit(box) {
   const input = box.querySelector("input"), layer = box.querySelector(".slug-hl");
-  layer.replaceChildren(coloredSlug(input.value));
-  layer.style.transform = `translateX(${-input.scrollLeft}px)`;
+  const code = document.createElement("code"); code.className = "slug"; code.append(coloredSlug(input.value)); layer.replaceChildren(code);
+  code.style.transform = `translateX(${-input.scrollLeft}px)`;   // the layer itself stays put and clips, so nothing can slide under the base address
 }
 function initSlugEdits(root = document) {
   root.querySelectorAll(".slug-edit:not(.hl-ready)").forEach(initSlugEdit);
@@ -847,9 +863,25 @@ initSlugEdits();
 
   function ask(data) {
     dialog.querySelector("#confirm-title").textContent = data.confirmTitle || "Are you sure?";
-    const name = dialog.querySelector("#confirm-name"), full = data.confirmName || "", cut = full.lastIndexOf("/") + 1;
-    name.textContent = full.slice(0, cut);
-    name.append(coloredSlug(full.slice(cut)));
+    // A short link: base address in the normal font, the slug in its coloured box (cut like everywhere else).
+    // Anything else (a rule's pattern) is shown as code.
+    const name = dialog.querySelector("#confirm-name"), full = data.confirmName || "";
+    name.replaceChildren();
+    if (/^https?:\/\//.test(full)) {
+      const cut = full.lastIndexOf("/") + 1, slugPart = full.slice(cut);
+      const base = document.createElement("span"), code = document.createElement("code");
+      base.className = "confirm-base";
+      base.textContent = full.slice(0, cut);
+      code.className = "slug";
+      code.append(coloredSlug(slugPart.length > 20 ? slugPart.slice(0, 20) : slugPart));
+      if (slugPart.length > 20) { code.append("…"); code.title = slugPart; }
+      name.append(base, code);
+    } else {
+      const code = document.createElement("code");
+      code.className = "slug";
+      code.textContent = full;
+      name.append(code);
+    }
     dialog.querySelector("#confirm-detail").textContent = data.confirmDetail || "";
     dialog.querySelector("#confirm-text .icon").hidden = !data.confirmDetail;       // the arrow only makes sense with a second URL
     dialog.querySelector("#confirm-yes span").textContent = data.confirmYes || "Confirm";

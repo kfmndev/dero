@@ -311,7 +311,7 @@ def test_failed_create_keeps_input_and_shows_error_in_the_card(client):
     assert 'name="slug" type="text" placeholder="my-link" value="taken"' in html and '<option value="slug" selected>' in html   # "Custom slug" restored
     assert 'value="2031-05-06"' in html
     # the message is inside the "New link" card (before the "links" card), next to the offending field
-    card = html[html.index("New link"):html.index("Short links are served from")]
+    card = html[html.index("New link"):html.index("Slugs are served from")]
     assert "Slug &#39;taken&#39; is already taken." in card and 'role="alert"' in card
     assert re.search(r'name="slug"[^>]*aria-invalid="true"', html) and 'name="target"' in html
     assert not re.search(r'name="target"[^>]*aria-invalid', html)
@@ -337,7 +337,7 @@ def test_success_message_is_shown_in_the_card_and_cleared_form(client):
     r = post(client, "/admin/links", USER, target="https://example.com", slug="fine")
     assert r.status_code == 302
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
-    card = html[html.index("New link"):html.index("Short links are served from")]
+    card = html[html.index("New link"):html.index("Slugs are served from")]
     assert "Created" in card and 'class="form-ok"' in card and 'class="flash' not in html
     assert "form-ok" not in client.get("/admin/", headers=USER).get_data(as_text=True)  # shown once
 
@@ -356,7 +356,7 @@ def test_base_url_is_used_for_display_and_copy(tmp_path):
     r = post(c, "/admin/links", USER, target="https://example.com", slug="abc")
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     assert 'data-copy="https://s.example.com/abc"' in html and 'href="https://s.example.com/abc"' in html
-    assert "<code>s.example.com</code>" in html and "Created <span class=\"url\">https://s.example.com/abc</span>" in html
+    assert "<code>s.example.com</code>" in html and "Created <span class=\"url mono\">https://s.example.com/abc</span>" in html
     assert "localhost" not in html
 
 
@@ -378,7 +378,7 @@ def test_row_layout_copy_beside_link_delete_in_details(client):
     detail = html[html.index('<tr class="detail"'):html.index("</tbody>")]
     assert row.count("data-copy") == 2 and 'class="actions"' not in row and "/delete" not in row
     # every link gets "open" first, then "copy"
-    for what in ("short link", "target"):
+    for what in ("slug", "target"):
         assert row.count(f'aria-label="Open {what}"') == 1 and row.count(f'aria-label="Copy {what}"') == 1
         assert row.index(f'aria-label="Open {what}"') < row.index(f'aria-label="Copy {what}"')
     assert "/delete" in detail and "</svg>Delete</button>" in detail
@@ -407,12 +407,12 @@ def test_swapped_fragment_contains_no_style(client):
     assert "tr.detail[hidden]" in html and html.index("<noscript><style>") < html.index('id="links-results"')
 
 
-def test_clear_button_is_disabled_not_hidden(client):
+def test_reset_button_is_disabled_not_hidden(client):
     post(client, "/admin/links", USER, target="https://example.com", slug="abc")
     plain = client.get("/admin/", headers=USER).get_data(as_text=True)
     filtered = client.get("/admin/?q=abc", headers=USER).get_data(as_text=True)
     for html, state in ((plain, "true"), (filtered, "false")):
-        tag = re.search(r'<a class="btn" id="clear-filters"[^>]*>', html).group(0)
+        tag = re.search(r'<a class="btn" id="reset-filters"[^>]*>', html).group(0)
         assert f'aria-disabled="{state}"' in tag and " hidden" not in tag
 
 
@@ -435,7 +435,7 @@ def test_every_link_has_open_then_copy(tmp_path):
     html = c.get("/admin/", headers=USER).get_data(as_text=True)
     # the "created" notification, the row, and the details panel
     notice = html[html.index('class="form-ok"'):html.index("</p>", html.index('class="form-ok"'))]
-    assert '<span class="url">https://s.example.com/abc</span>' in notice
+    assert '<span class="url mono">https://s.example.com/abc</span>' in notice
     sections = {"notice": notice, "row": html[html.index('<tr class="item'):html.index('<tr class="detail"')],
                 "details": html[html.index('<tr class="detail"'):html.index("</tbody>")]}
     for name, part in sections.items():
@@ -674,7 +674,7 @@ def test_every_button_has_an_icon_and_a_single_verb(client):
             words = re.sub(r"<[^>]+>", " ", inner).split()
             assert len(words) <= 1, words                                  # ... and a single word (icon-only buttons have none)
             seen.update(words)
-    assert {"Create", "Clear", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
+    assert {"Create", "Reset", "Update", "Discard", "Delete", "Add", "Save", "Set", "Cancel"} <= seen | {"Cancel"}
     assert "Discard changes" not in "".join(pages) and "Delete link</button>" not in "".join(pages) and "Add rule</button>" not in "".join(pages)
 
 
@@ -709,7 +709,7 @@ def test_edit_target_and_slug(client, app):
     assert client.get("/abc").status_code == 404                                                                   # the old short link is gone
     assert client.get("/renamed").headers["Location"] == "https://example.com/new?x=1"
     note = link_note(client, row["id"])
-    assert "renamed updated · new short link · new target https://example.com/new?x=1" in note and "was" not in note   # the new short link, then what changed
+    assert "renamed updated · new slug · new target https://example.com/new?x=1" in note and "was" not in note   # the new short link, then what changed
 
 
 def test_edit_rejections_keep_the_link_unchanged(client, app):
@@ -747,9 +747,9 @@ def test_past_expiry_dates_are_accepted_when_editing(client, app):
 def test_delete_dialog_shows_both_urls_alike_with_an_arrow(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     p = html[html.index('id="confirm-text"'):html.index("</p>", html.index('id="confirm-text"'))]
-    assert re.search(r'<code id="confirm-name"></code><svg class="icon"[^>]*><use href="[^"]*#arrow"/></svg><code id="confirm-detail"></code>', p)
+    assert re.search(r'<span id="confirm-name"></span><svg class="icon"[^>]*><use href="[^"]*#arrow"/></svg><span id="confirm-detail"></span>', p)
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"\.confirm-urls code \{[^}]*font-size: 13px", css) and "rotate(90deg)" in css
+    assert re.search(r"\.confirm-urls code\.slug \{ font-size: 13px; \}", css) and "rotate(90deg)" in css
     assert re.search(r"input\.url-input \{ font-family: var\(--font-mono\)", css)                    # URL inputs are mono
     assert "→" not in client.get("/static/app.js").get_data(as_text=True)                    # the arrow is an icon now
 
@@ -759,7 +759,7 @@ def test_created_time_is_a_localizable_element_with_the_utc_original_as_tooltip(
     created = link_row(app, "abc")["created_at"]                                   # e.g. 2026-11-25T09:07:53Z
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     original = created.replace("T", " ").replace("Z", " UTC")
-    assert f'<time class="localtime" datetime="{created}" title="{original}">{original}</time>' in html   # UTC text without JavaScript
+    assert f'<time class="localtime" datetime="{created}" title="{original}">{created[:16].replace("T", " ")}</time>' in html   # date and time without JavaScript, the UTC moment on hover
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function localizeTimes" in js and js.count("localizeTimes()") >= 2                           # on load and after table swaps
 
@@ -889,7 +889,7 @@ def test_update_messages_name_the_short_link_and_what_changed(client, app):
     edit(client, app, "abc", expires_at="")
     assert note() == "abc updated · no expiry"
     edit(client, app, "abc", target="https://example.com/x", slug="xyz", expires_at="2098-02-02")
-    assert note() == "xyz updated · new short link · new target https://example.com/x · expires 2098-02-02"
+    assert note() == "xyz updated · new slug · new target https://example.com/x · expires 2098-02-02"
     edit(client, app, "xyz")
     assert note() == "xyz is up to date"
     post(client, "/admin/links", USER, target="https://example.com/o", slug="other")
@@ -1004,9 +1004,9 @@ def test_filter_bar_markup(client, app):
     assert re.findall(r'<input type="checkbox" value="([^"]+)"', creators) == ["alice", "bob"]
     # the sort dropdown holds sortby values; the current one is selected
     assert '<option value="-visits" selected>Fewest visits</option>' in html and '<option value="">Newest first</option>' in html
-    # sortable headers carry the new query; Clear keeps only the sort
+    # sortable headers carry the new query; Reset goes back to the plain page
     assert 'href="/admin/?q=status%3Dexpired+sortby%3Dvisits"' in html or 'href="/admin/?q=status%3Dexpired%20sortby%3Dvisits"' in html
-    assert re.search(r'id="clear-filters" href="/admin/\?q=sortby%3D-visits"', html) and 'aria-disabled="false"' in html
+    assert re.search(r'id="reset-filters" href="/admin/"', html) and 'aria-disabled="false"' in html
     # people who can't see others have no "created by" dropdown
     assert 'id="filter-creator"' not in client.get("/admin/", headers=USER).get_data(as_text=True)
     assert "sortby" not in html.split('<tbody>')[0].split('data-sort-keys')[0]                    # (the attribute names, not values, carry the keys)
@@ -1049,8 +1049,8 @@ def test_default_columns_are_the_current_ones(client):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert table_columns(html) == ["col-slug", "col-target", "col-visits"]
     assert 'id="filter-columns"' in html and '<span class="multi-label">3 of 6</span>' in html
-    assert re.findall(r'<input type="checkbox" value="(\w+)"( checked)?><span>([^<]+)</span>', html[html.index('id="filter-columns"'):html.index('id="clear-filters"')]) == [
-        ("slug", " checked", "Short link"), ("target", " checked", "Target"), ("creator", "", "Created by"),
+    assert re.findall(r'<input type="checkbox" value="(\w+)"( checked)?><span>([^<]+)</span>', html[html.index('id="filter-columns"'):html.index('id="reset-filters"')]) == [
+        ("slug", " checked", "Slug"), ("target", " checked", "Target"), ("creator", "", "Created by"),
         ("created", "", "Created"), ("expires", "", "Expires"), ("visits", " checked", "Visits")]
 
 
@@ -1060,8 +1060,8 @@ def test_the_cookie_chooses_the_columns(client, app):
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert table_columns(html) == ["col-slug", "col-target", "col-creator", "col-created", "col-expires", "col-visits"]
     row = html[html.index('<tr class="item'):html.index('<tr class="detail"')]
-    assert '<td class="col-creator nowrap">alice</td>' in row and 'datetime="2099-05-06T23:59:59Z" title="2099-05-06 23:59:59 UTC"' in row
-    assert re.search(r'<td class="col-created nowrap mono"><time class="localtime short" datetime="[^"]+" title="[^"]+ UTC">\d{4}-\d\d-\d\d</time></td>', row)
+    assert '<td class="col-creator nowrap">alice</td>' in row and 'data-day datetime="2099-05-06T23:59:59Z" title="2099-05-06 UTC">2099-05-06</time>' in row
+    assert re.search(r'<td class="col-created nowrap mono"><time class="localtime" datetime="[^"]+" title="[^"]+ UTC">\d{4}-\d\d-\d\d \d\d:\d\d</time></td>', row)
     assert '<span class="multi-label">6 of 6</span>' in html
     # what is a column is not repeated in the details; the editable expiry always stays there
     detail = html[html.index('<tr class="detail"'):html.index("</tbody>")]
@@ -1194,7 +1194,7 @@ def test_detail_inputs_use_card_background(client):
 
 def test_code_rule_keeps_its_body_and_chips_have_the_padding(client):
     css = client.get("/static/style.css").get_data(as_text=True)
-    assert re.search(r"code, \.url, \.mono, \.slug-prefix, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
+    assert re.search(r"code, \.url, \.mono, \.url-input \{ font-variant-ligatures: none;", css)   # (a lost body once gave every code box padding)
     assert "padding: 1px 10px 1px 5px; margin: 0 -10px 0 -5px;" in css                                          # chips: the x sits in the padding
     html = client.get("/admin/", headers=USER).get_data(as_text=True)
     assert re.search(r'<label><input type="checkbox" value="active" checked><span>[^<]*</span><svg', html)       # checkbox dropdowns tick like the single ones
@@ -1205,6 +1205,43 @@ def test_generate_button_and_settings_dialog(client):
     assert 'id="new-link-generate"' in html and "Generate</button>" in html
     assert re.search(r'<button type="button" class="who" id="settings-open"[^>]*>.*?alice.*?</button>', html, re.S)       # the user name opens the settings
     dialog = html[html.index('<dialog id="settings"'):html.index("</dialog>", html.index('<dialog id="settings"'))]
-    assert 'id="hl-switch"' in dialog and "Colour short links" in dialog and 'class="header-tools"' not in html
+    assert 'id="hl-switch"' in dialog and "Colour slugs" in dialog and 'class="header-tools"' not in html
     js = client.get("/static/app.js").get_data(as_text=True)
     assert "function randomSlug" in js and "settings-open" in js
+
+
+def test_long_slugs_are_cut_in_displays_but_whole_in_the_editor(client):
+    slug = "abcdefghij-klmnopqrst-uvwxyz"                                   # 28 characters
+    post(client, "/admin/links", USER, target="https://example.com/long", slug=slug)
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert f'<code class="slug" title="{slug}">abcdefghij<span class="hl-symbol">-</span>klmnopqrs…</code>' in html   # 20 characters, then an ellipsis
+    assert f'value="{slug}"' in html                                          # the edit field holds all of it
+    post(client, "/admin/links", USER, target="https://example.com/long2", slug="z" * 40)
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    start = html.index('<span class="url mono">', html.index('id="new-link-notices"'))
+    created = html[start:html.index("</span>", start)]
+    assert "z" * 20 + "…" in created and "z" * 21 not in created             # the message after creating cuts it as well
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "code.style.transform" in js                                       # only the coloured box scrolls, the clip stays put
+
+
+def test_settings_dialog_closes_with_a_cross(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    dialog = html[html.index('<dialog id="settings"'):html.index("</dialog>", html.index('<dialog id="settings"'))]
+    assert 'class="mini dialog-close" aria-label="Close"' in dialog and "dialog-actions" not in dialog
+
+
+def test_custom_characters_errors_name_the_problem(client):
+    def error(chars):
+        r = post(client, "/admin/links", USER, target="https://example.com/g", slug_source="chars", alphabet_custom=chars, length="5")
+        assert r.status_code == 400
+        return html_lib.unescape(r.get_data(as_text=True))
+    page = error("1Il|")
+    assert "Characters: '|' can&#39;t" not in page and "Characters: '|' can't be used. Allowed are letters, digits and - _ . ~" in page
+    assert "Characters: 'space' " not in error("ab c") and "Characters: space can't be used" in error("ab c")
+    assert "Characters: '|' and '?' can't be used" in error("ab|?")     # two: and
+    assert "Characters: '|', '?' and '#' can't be used" in error("ab|?#")                                           # more: commas, and before the last
+    assert "Characters: '|', '?', '#', '%', '\"', '<', … can't be used" in error("ab|?#%\"<>")                         # more than six are cut
+    assert "Characters: use at least 2 different ones." in error("aaaa")
+    js = client.get("/static/app.js").get_data(as_text=True)
+    assert "can't be used. Allowed are letters, digits and - _ . ~" in js and "use at least 2 different ones." in js

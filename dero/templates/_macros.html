@@ -12,8 +12,8 @@
   {%- if category.endswith(':error') %}
   <p class="form-error" role="alert">{{ icon('alert') }}<span>{{ message }}</span></p>
   {%- else %}{% set m = message|fromjson %}
-  <p class="form-ok" role="status">{{ icon('check') }}<span class="note-line"><span class="url">{{ m.slug|hl_slug }}</span><span>{{ 'updated' if m.changes else 'is up to date' }}</span>
-    {%- for label, value in m.changes %}<span>· {{ label }}</span>{% if value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}{% endfor %}</span></p>
+  <p class="form-ok" role="status">{{ icon('check') }}<span class="note-line"><span class="url mono" title="{{ m.slug }}">{{ m.slug|hl_slug(SLUG_SHOWN) }}</span><span>{{ 'updated' if m.changes else 'is up to date' }}</span>
+    {%- for label, value in m.changes %}<span>· {{ label }}</span>{% if value and label == 'expires' %}<time class="localtime" data-day datetime="{{ value }}T23:59:59Z" title="{{ value }} UTC">{{ value }}</time>{% elif value %}<span class="url cut" title="{{ value }}">{{ value }}</span>{% endif %}{% endfor %}</span></p>
   {%- endif %}
 {%- endfor %}
 </div>

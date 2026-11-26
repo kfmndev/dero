@@ -14,14 +14,32 @@ from . import auth, db, query, resolve
 from .version import build_info
 
 
-def highlight_slug(slug: str) -> Markup:
-    """Colour a slug like Bitwarden colours passwords: digits and symbols stand out, letters stay plain."""
+SLUG_SHOWN = 20     # longer slugs are cut after this many characters wherever they are only displayed
+
+
+def _quoted(chars: str) -> str:
+    """The offending characters for a message: '|'  or  '|' and '?'  or  '|', '?' and '#' (a space is named: it is invisible).
+    More than six are cut: '|', '?', '#', '%', '"', '<', …"""
+    shown = ["space" if c == " " else f"'{c}'" for c in chars[:6]]
+    if len(chars) > 6:
+        return ", ".join(shown) + ", …"
+    return shown[0] if len(shown) == 1 else ", ".join(shown[:-1]) + " and " + shown[-1]
+
+
+def highlight_slug(slug: str, limit: int = 0) -> Markup:
+    """Colour a slug like Bitwarden colours passwords: digits and symbols stand out, letters stay plain.
+    With a limit, a longer slug is cut there and gets an ellipsis (the full slug belongs in a tooltip)."""
+    cut = bool(limit) and len(slug) > limit
+    if cut:
+        slug = slug[:limit]
     def kind(ch):
         return "digit" if ch.isdigit() else "letter" if ch.isalpha() else "symbol"
     out = []
     for k, chars in groupby(slug, kind):
         text = escape("".join(chars))
         out.append(text if k == "letter" else Markup(f'<span class="hl-{k}">{text}</span>'))
+    if cut:
+        out.append("…")
     return Markup("").join(out)
 
 
@@ -29,7 +47,7 @@ def highlight_url(url: str) -> Markup:
     """A short link with only its slug coloured (the base address stays plain)."""
     base = _base_url()
     if url.startswith(base) and len(url) > len(base):
-        return escape(base) + highlight_slug(url[len(base):])
+        return escape(base) + highlight_slug(url[len(base):], SLUG_SHOWN)
     return escape(url)
 
 
@@ -93,6 +111,7 @@ def create_app(test_config=None):
     app.jinja_env.globals["csrf_token"] = auth.csrf_token
     app.context_processor(lambda: {"build": build_info(), "highlight_on": request.cookies.get("dero_hl") != "0"})
     app.add_template_filter(highlight_slug, "hl_slug")
+    app.jinja_env.globals["SLUG_SHOWN"] = SLUG_SHOWN
     app.add_template_filter(highlight_url, "hl_url")
     app.add_template_filter(json.loads, "fromjson")
 
@@ -162,8 +181,11 @@ def _slug_plan(f):
 
     if source == "chars":
         chars = f.get("alphabet_custom", "")                                  # duplicates stay: they make a character more likely
-        if len(set(chars)) < 2 or not set(chars) <= SLUG_CHARS:
-            raise resolve.ValidationError("Characters: at least 2 different letters, digits or - _ . ~", "alphabet_custom")
+        bad = "".join(dict.fromkeys(c for c in chars if c not in SLUG_CHARS))
+        if bad:
+            raise resolve.ValidationError(f"Characters: {_quoted(bad)} can't be used. Allowed are letters, digits and - _ . ~", "alphabet_custom")
+        if len(set(chars)) < 2:
+            raise resolve.ValidationError("Characters: use at least 2 different ones.", "alphabet_custom")
         alphabet = chars
     elif source in ALPHABETS:
         alphabet = ALPHABETS[source]
@@ -199,14 +221,14 @@ STATUS_LABELS = {"active": "Active", "disabled": "Disabled", "expired": "Expired
 ORDER_LABELS = {
     ("created", "desc"): "Newest first", ("created", "asc"): "Oldest first",
     ("visits", "desc"): "Most visits", ("visits", "asc"): "Fewest visits",
-    ("slug", "asc"): "Short link A–Z", ("slug", "desc"): "Short link Z–A",
+    ("slug", "asc"): "Slug A–Z", ("slug", "desc"): "Slug Z–A",
     ("target", "asc"): "Target A–Z", ("target", "desc"): "Target Z–A",
     ("expires", "asc"): "Expiring soonest", ("expires", "desc"): "Expiring latest",
     ("creator", "asc"): "Creator A–Z", ("creator", "desc"): "Creator Z–A",
 }
 
 
-COLUMNS = [("slug", "Short link"), ("target", "Target"), ("creator", "Created by"),
+COLUMNS = [("slug", "Slug"), ("target", "Target"), ("creator", "Created by"),
            ("created", "Created"), ("expires", "Expires"), ("visits", "Visits")]
 DEFAULT_COLUMNS = ["slug", "target", "visits"]
 
@@ -290,7 +312,7 @@ def _render_index(form=None, error=None, error_field=None):
         statuses=[(v, STATUS_LABELS[v]) for v in query.STATUSES], sort_options=sort_options,
         sort_value=query.sort_value(sort_key, reverse), sort_keys=list(query.SORT_KEYS),
         sort=sort_key, direction=direction, sort_url=sort_url, now=now,
-        cols=_visible_columns(), column_choices=COLUMNS, column_labels=dict(COLUMNS),
+        cols=_visible_columns(), default_cols=DEFAULT_COLUMNS, column_choices=COLUMNS, column_labels=dict(COLUMNS),
         admin_path=current_app.config["ADMIN_PATH"],
         filtered=bool(parsed.where), query_sort_only=query.sort_term(sort_key, reverse) if parsed.sort else "",
         back=request.full_path.rstrip("?") if request.method == "GET" else url_for("admin.index"),
@@ -422,7 +444,7 @@ def update_link(link_id):
 
     changes = []                                         # [label, value]: the template shows the value after the label
     if slug != row["slug"]:
-        changes.append(["new short link", ""])
+        changes.append(["new slug", ""])
     if target != row["target"]:
         changes.append(["new target", target])
     if expires != row["expires_at"]:

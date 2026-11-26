@@ -399,6 +399,8 @@ th a { color: inherit; text-decoration: none; }
 th a:hover { color: var(--text); }
 th[aria-sort] a { color: var(--text); }
 th .arrow { color: var(--accent-ink); margin-left: 4px; }
+th .arrow .icon { width: 12px; height: 12px; vertical-align: -1px; }
+th[aria-sort="ascending"] .arrow .icon { transform: rotate(180deg); }   /* chevron points down for descending, up for ascending */
 
 /* ---- dero: small icon buttons next to links ---- */
 .mini {
@@ -539,7 +541,7 @@ option { background: var(--card); color: var(--text); }
 
 /* ---- dero: URLs are highlighted like inline code, everywhere the same size ---- */
 code.slug { font-size: 13px; color: var(--text); }   /* the compact short link keeps the highlight */
-.url { font-family: var(--font-mono); font-size: 13px; }   /* every other URL: mono, no box */
+.url { font-size: 13px; }   /* URLs use the normal font; short links (and query syntax) add .mono */
 .url.wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* ---- dero: the open + copy icons: same grouping and spacing everywhere ---- */
@@ -564,18 +566,23 @@ input[data-warn], input[data-warn]:focus { border-color: var(--warn); box-shadow
 /* ---- dero: editable target and short link in the details ---- */
 .field-row { display: flex; align-items: center; min-width: 0; }
 .url-input { min-width: 0; }
-input.url-input { font-family: var(--font-mono); font-size: 13px; }   /* beats the generic `font: inherit` for inputs */
+input.url-input { font-size: 13px; }
+.slug-group input.url-input { font-family: var(--font-mono); }   /* only the short link is mono */
 .field-row > input.url-input { flex: 1 1 auto; width: 100%; }
 .slug-group { display: flex; flex: 1 1 auto; min-width: 0; align-items: stretch; height: var(--control-h); border: 1px solid var(--border); border-radius: 6px; background: var(--field); overflow: hidden; }
 .slug-group:focus-within { border-color: var(--accent-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 15%, transparent); }
-.slug-prefix { display: flex; align-items: center; padding: 0 0 0 10px; font: 13px var(--font-mono); color: var(--muted); white-space: nowrap; }
+.slug-prefix { display: flex; align-items: center; padding: 0 4px 0 10px; font: 13px var(--font-text); color: var(--muted); white-space: nowrap; }
 .slug-group input.url-input { flex: 1 1 6rem; width: 100%; height: auto; border: 0; border-radius: 0; background: transparent; padding-left: 0; box-shadow: none; }
 .slug-group input.url-input:focus { outline: none; box-shadow: none; }
 .details input[aria-invalid="true"], .slug-group:has(input[aria-invalid="true"]) { border-color: var(--err); }
 
 /* ---- dero: URLs in the delete dialog ---- */
 .confirm-urls { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-.confirm-urls code { font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.confirm-urls { font-size: 13px; }
+.confirm-urls #confirm-name { display: flex; align-items: center; flex-wrap: wrap; max-width: 100%; }
+.confirm-base { color: var(--muted); margin-right: 3px; overflow-wrap: anywhere; }     /* the base address: normal font, like in the details */
+.confirm-urls code.slug { font-size: 13px; }
+.confirm-urls #confirm-detail { color: var(--text); overflow-wrap: anywhere; }          /* the target: a plain URL */
 .confirm-urls .icon { flex: none; margin-left: 12px; color: var(--muted); transform: rotate(90deg); }   /* points down, from the short link to its target */
 
 /* ---- dero: localized times (the original UTC text is the tooltip) ---- */
@@ -655,7 +662,7 @@ details.multi.custom .multi-label { color: var(--muted); font-style: italic; }
 .query-problems { margin: 0 0 10px; }
 
 /* code-like text must show exactly what to type: no ligatures (JetBrains Mono turns != into a single "≠") */
-code, .url, .mono, .slug-prefix, .url-input { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+code, .url, .mono, .url-input { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
 /* ---- dero: compact rows and shrink-to-fit columns ---- */
 td { padding: 6px 8px; }
 th { padding: 7px 8px; }
@@ -721,7 +728,7 @@ select.native-hidden { position: absolute !important; width: 1px !important; min
 
 /* ---- dero: slug colouring is a stored user option (cookie dero_hl, html[data-hl]) ---- */
 html[data-hl="off"] .hl-digit, html[data-hl="off"] .hl-symbol { color: inherit; }
-.nl-expires .field-label { display: flex; align-items: center; gap: 8px; }
+.nl-expires-row { display: flex; align-items: center; gap: 8px; }
 .nl-expires input[type=date]:disabled { opacity: .5; }
 /* with no target column the short link takes the slack, so chevron, switch and link stay together */
 table.no-target td.col-slug, table.no-target th.col-slug { width: 100%; }
@@ -751,7 +758,10 @@ tr.detail .notices .form-error, tr.detail .notices .form-warn, tr.detail .notice
 .setting .switch { margin-top: 2px; flex: none; }
 .setting > div { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .setting > div span { color: var(--muted); }
-dialog p.setting-note { margin: 0 0 18px; font-size: 12px; }
+dialog p.setting-note { margin: 0; font-size: 12px; }
+#settings form { position: relative; }
+.dialog-close { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; }
+#settings h2 { padding-right: 28px; }
 #settings { min-width: min(24rem, 92vw); }
 .alphabet-hint { min-height: 1.4em; }   /* keeps its line, so changing the short link type does not move the form */
 .nl-slug > label { display: flex; flex-direction: column; gap: 4px; }   /* Length sat beside its input, Slug above it: now all stack, so the row keeps its height */
@@ -759,3 +769,12 @@ dialog p.setting-note { margin: 0 0 18px; font-size: 12px; }
 .nl-slug > label, .nl-slug .field-label { line-height: 1.3; }
 .nl-slug > .field { display: flex; flex-direction: column; gap: 4px; }
 .nl-slug .field-label { margin: 0; }
+
+/* the slug being edited sits in the usual code box; the (transparent) input text lines up with the text inside it */
+.slug-hl { padding: 0; }
+.slug-hl code.slug { display: inline-flex; align-items: center; height: 22px; margin: 0; padding: 0 5px; font-size: 13px; }
+.slug-edit input.url-input { padding-left: 6px; }                 /* 5px box padding + 1px border */
+.slug-group { overflow: visible; }
+.slug-hl { right: 0; }
+.slug-hl code.slug { flex: none; }
+.slug-edit { overflow: hidden; }
