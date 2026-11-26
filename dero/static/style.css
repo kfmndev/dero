@@ -2143,21 +2143,21 @@ tr.item.visited td.col-visits {
 /* the date keys: created and expires have their own colours */
 :root {
   --q-created: #be185d;
-  --q-expires: #4d7c0f;
+  --q-expires: #947200;
   --q-visits: #0369a1;
   --q-not: #e00000; /* a plain red: the ! and != of a negation, next to the blue * */
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --q-created: #f472b6;
-    --q-expires: #a3e635;
+    --q-expires: #facc15;
     --q-visits: #38bdf8;
     --q-not: #ff4d4d;
   }
 }
 :root[data-theme="dark"] {
   --q-created: #f472b6;
-  --q-expires: #a3e635;
+  --q-expires: #facc15;
   --q-visits: #38bdf8;
   --q-not: #ff4d4d;
 }
