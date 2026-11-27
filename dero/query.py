@@ -8,8 +8,10 @@
                               and *.pdf is "ends with" (also created_by=ann*)
     slug==abc                 exactly this (no parts, no wildcards)
     created=2026-11           expires<2027-01-01    dates: a year, month or day; < <= > >= compare; dates are UTC
+    created>=2026-11-05T14:30                       with a time: T hour[:minute[:second]] ("2026-11-05 14:30" in quotes)
                               created>-7d  expires<30d   relative to today: today, yesterday, tomorrow, or a number of
-                              days, weeks, months or years (d w m y), - for the past: -7d, 2w, -1y
+                              days, weeks, months or years (d w m y), - for the past: -7d, 2w, -1y; hours and minutes
+                              with h and min: -3h, 90min
     expires                   links that expire at all (short for expires!=never)
                               expires=never         links that never expire (also: expires=none, !expires)
     visits>100  visits=0      the visit counter: a number, with < <= > >= and = !=
@@ -61,8 +63,10 @@ DATE_COLUMNS = {"created": "created_at", "expires": "expires_at"}
 # keys that can be unset (a NULL column): the bare key means "is set", and a date comparison never matches an unset one
 OPTIONAL_KEYS = {"expires"}
 COMPARISONS = ("<=", ">=", "<", ">")  # for dates and visits, written without "=": expires<2027, visits>=100
-_DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
+# year[-month[-day[Thour[:minute[:second]]]]]; the T may be a space (in quotes, as the search bar writes it)
+_DATE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[Tt ](\d{2})(?::(\d{2})(?::(\d{2}))?)?)?)?)?$")
 _RELATIVE = re.compile(r"^([+-]?)(\d{1,4})([dwmy])$")  # -7d, 2w, +1y (no sign = ahead)
+_RELATIVE_TIME = re.compile(r"^([+-]?)(\d{1,5})(h|min)$", re.I)  # -3h, +90min (no sign = ahead)
 _RELATIVE_WORDS = {"yesterday": -1, "today": 0, "tomorrow": 1}
 _NUMBER = re.compile(r"^\d{1,12}$", re.ASCII)
 _KEYED = re.compile(r"^([A-Za-z_]+)(!=|==|<=|>=|=|<|>)(.*)$", re.S)
@@ -383,10 +387,29 @@ def _relative_day(value: str, today: date) -> str | None:
     return day.isoformat()
 
 
-def _date_condition(key: str, op: str, value: str, today: date, params: list[Any], problems: list[str]) -> str:
-    """created=2026 / created>=2026-11 / expires<2027-01-01 / created>-7d / expires=never. Dates are UTC.
-    The stored times are ISO strings, so comparing their first 4, 7 or 10 characters compares years, months or days.
+def _relative_time(value: str, now: str) -> str | None:
+    """-3h / +90min as an ISO time to the minute, or None if the value is not of that form."""
+    m = _RELATIVE_TIME.match(value)
+
+    if not m:
+        return None
+    amount = int(m.group(2)) * (-1 if m.group(1) == "-" else 1)
+    delta = timedelta(hours=amount) if m.group(3).lower() == "h" else timedelta(minutes=amount)
+
+    try:
+        moment = datetime.strptime(now[:19], "%Y-%m-%dT%H:%M:%S") + delta
+    except (OverflowError, ValueError):
+        return None
+
+    return moment.strftime("%Y-%m-%dT%H:%M")
+
+
+def _date_condition(key: str, op: str, value: str, now: str, params: list[Any], problems: list[str]) -> str:
+    """created=2026 / created>=2026-11 / expires<2027-01-01 / created>=2026-11-05T14:30 / created>-7d / created>-3h /
+    expires=never. Dates and times are UTC. The stored times are ISO strings, so comparing their first 4, 7, 10, 13, 16
+    or 19 characters compares years, months, days, hours, minutes or seconds.
     A link without an expiry matches no date, so `!expires<2027` (not expiring before 2027) still includes it."""
+    today = date.fromisoformat(now[:10])
     column = DATE_COLUMNS[key]
     value = value.strip()
     op = "=" if op == "==" else op
@@ -394,13 +417,17 @@ def _date_condition(key: str, op: str, value: str, today: date, params: list[Any
     if key in OPTIONAL_KEYS and op == "=" and value.lower() in ("none", "never"):
         return f"{column} IS NULL"
 
-    if text := _relative_day(value, today):
+    if text := _relative_day(value, today) or _relative_time(value, now):
         pass
     elif (m := _DATE.match(value)) and _real_date(m):
-        year, month, day = m.groups()
+        year, month, day, hour, minute, second = m.groups()
         text = year + (f"-{month}" if month else "") + (f"-{day}" if day else "")
+        text += (f"T{hour}" if hour else "") + (f":{minute}" if minute else "") + (f":{second}" if second else "")
     else:
-        problems.append(f"⟨{value}⟩ isn't a date. Use a year, month or day like ⟨2026-11-05⟩, or ⟨today⟩, ⟨7d⟩, ⟨-2w⟩.")
+        problems.append(
+            f"⟨{value}⟩ isn't a date. Use a year, month or day like ⟨2026-11-05⟩, with a time like "
+            "⟨2026-11-05T14:30⟩, or ⟨today⟩, ⟨7d⟩, ⟨-2w⟩, ⟨-3h⟩."
+        )
         return "0"
     params.append(text)
     compare = f"substr({column}, 1, {len(text)}) {op} ?"
@@ -409,9 +436,16 @@ def _date_condition(key: str, op: str, value: str, today: date, params: list[Any
 
 
 def _real_date(m: re.Match[str]) -> bool:
-    """Whether a matched year[-month[-day]] is a date that exists (no month 13, no 30 February)."""
+    """Whether a matched year[-month[-day[Thour[:minute[:second]]]]] exists (no month 13, no 30 February, no 25:00)."""
     try:
-        datetime(int(m.group(1)), int(m.group(2) or 1), int(m.group(3) or 1))
+        datetime(
+            int(m.group(1)),
+            int(m.group(2) or 1),
+            int(m.group(3) or 1),
+            int(m.group(4) or 0),
+            int(m.group(5) or 0),
+            int(m.group(6) or 0),
+        )
     except ValueError:
         return False
 
@@ -491,9 +525,7 @@ def _compile_term(key: str, values: tuple[str, ...], op: str, now: str, params: 
         return _compile_status(values, now, params, problems)
 
     if key in DATE_COLUMNS:
-        today = date.fromisoformat(now[:10])
-
-        return "(" + " OR ".join(_date_condition(key, op, v, today, params, problems) for v in values) + ")"
+        return "(" + " OR ".join(_date_condition(key, op, v, now, params, problems) for v in values) + ")"
 
     if key == "visits":
         return "(" + " OR ".join(_number_condition("visits", op, v, params, problems) for v in values) + ")"

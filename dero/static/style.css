@@ -59,6 +59,7 @@
   /* a whole number of pixels: with a fraction, boxes of the same height came out 1px different */
   --control-h: round(1.875rem, 1px);
   --icon-line: 1.4px; /* the line width of every icon, whatever its size (the sprite does not scale it) */
+  --slug-gap: 0.14rem; /* between the base address and the box of a slug, wherever they are shown together */
   --slug-size: 0.72rem; /* a slug (mono) at the same visual size as the text around it: mono looks bigger at the same size */
   --label-gap: 0.25rem; /* between a label and its field, in every form */
   --label-lh: 1.4; /* one line height for every label */
@@ -1193,7 +1194,7 @@ code.urlbox > code.slug {
   display: inline-flex;
   box-sizing: border-box;
   height: 1.5em;
-  margin: -1px -1px -1px 0.1rem; /* over the border of the outer box: a block that ends at its edge */
+  margin: -1px -1px -1px var(--slug-gap); /* over the border of the outer box: a block that ends at its edge */
   padding: 0 0.3rem 0 0.2rem;
   border: 0;
   border-radius: 0.1875rem 0.25rem 0.25rem 0.1875rem;
@@ -1287,7 +1288,7 @@ input.url-input {
 .slug-prefix {
   display: flex;
   align-items: center;
-  padding: 0 0.25rem 0 0.625rem;
+  padding: 0 var(--slug-gap) 0 0.625rem;
   font: 0.8125rem var(--font-text);
   color: var(--muted);
   white-space: nowrap;
@@ -1329,7 +1330,7 @@ input.url-input {
 }
 .confirm-base {
   color: var(--muted);
-  margin-right: 3px;
+  margin-right: var(--slug-gap);
   overflow-wrap: anywhere;
 } /* the base address: normal font, like in the details */
 .confirm-urls code.slug {
@@ -1510,12 +1511,12 @@ html[data-hl~="toast"] .toasts .hl-symbol {
 } /* same size as a chip, outline only: a real border (a box-shadow ring is smeared differently at each fractional position
      of the pill, and some outlines came out heavier than others), --hair wide (set by the script: one pixel, or whole
      device pixels at a fractional pixel ratio); the margins cancel its width and the padding */
-/* An opening parenthesis never has an x. The space after it is a fixed em (a plain space is a little over a quarter of
-   an em plus the word spacing), so the pill is wider on the right by what the em is more: the gap to the next token is
-   the same as between any two tokens. The margin cancels the padding, so the text stays where the input has it. */
+/* An opening parenthesis never has an x, so its pill is only as wide as the parenthesis needs (a little less on the
+   right: the space after it is a figure space, a digit wide, and this leaves the same gap to the next token as between
+   any two tokens). The margin cancels the padding, so the text stays where the input has it. */
 .q-paren.q-open.q-pill {
-  padding-right: calc(0.74em - 4.6px);
-  margin-right: calc(4.6px - 0.74em - var(--hair, 1px));
+  padding-right: 1.5px;
+  margin-right: calc(-1.5px - var(--hair, 1px));
 }
 .q-not {
   color: var(--q-not);
@@ -1690,8 +1691,9 @@ details.multi.custom .multi-label {
   word-spacing: 7px;
 }
 .qex .q-paren.q-open.q-pill {
-  margin-right: calc(-6px - var(--hair, 1px));
-} /* the space after an opening parenthesis is a fixed em, which would be wider than the rest */
+  padding-right: 1.5px;
+  margin-right: calc(-1.5px - var(--hair, 1px));
+} /* as in the search bar: the space after an opening parenthesis is a fixed width */
 .qex:has(.q-empty) {
   margin: 0 7px 0 4px;
 } /* its dashed outline lies outside the box */
@@ -1803,10 +1805,15 @@ th.col-target {
 }
 
 /* ---- dero: search bar -- every kind of term has its own colour, and the terms get some air ---- */
+/* the query is shown as typed: Geist would draw <- as an arrow */
 .qhighlight,
 .qfield input.qinput,
 .qfield input.qinput:focus {
   word-spacing: 15px;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
 } /* in both layers, so the text stays aligned */
 :root {
   --q-text: var(--muted);

@@ -1419,7 +1419,7 @@ def test_search_terms_have_a_colour_per_kind_and_room_between_them(client):
     ).groups()
     assert len(set(colours)) == 4  # four different hues (plus muted and the secondary colour)
     assert re.search(
-        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css
+        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px;", css
     )  # same spacing in both layers
     assert re.search(r"\.filters > \.field\.grow \{ flex: 1 1 100%; \}", css)  # the search bar has its own row
 
@@ -1603,8 +1603,8 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
     assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
     assert css_rule(css, ".q-paren.q-open.q-pill") == {
-        "padding-right": "calc(0.74em - 4.6px)",
-        "margin-right": "calc(4.6px - 0.74em - var(--hair, 1px))",
+        "padding-right": "1.5px",
+        "margin-right": "calc(-1.5px - var(--hair, 1px))",
     }
     # parentheses next to each other are spaced out too, so each one is a pill; a query that comes from the address or a
     # dropdown is spaced the same way as one that is typed
@@ -1618,7 +1618,7 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     # sit on the x of the last term); the space after a closed one is narrower (an em), so the gap to the chip is small
     assert 'open.classList.replace("q-open", "q-stray")' in js and 'group.classList.add("q-unclosed")' in js
     assert 'if (el.classList.contains("q-unclosed")) return;' in js
-    assert 'const OPEN_SPACE = "\\u2003";' in js and "closed.has(i - 1) ? OPEN_SPACE" in js
+    assert 'const OPEN_SPACE = "\\u2007";' in js and "closed.has(i - 1) ? OPEN_SPACE" in js
     # hovering an x marks what a click would remove (dimmed, a group outlined too), the joining and / or included
     assert "function markRemoval(button)" in js and "function partRange(text, from, to)" in js
     assert css_rule(css, ".q-doomed")["opacity"] == "0.35" and css_rule(css, ".q-group.q-doomed")["outline"].startswith(
@@ -2031,9 +2031,7 @@ def test_the_page_scales_with_one_root_size_and_the_search_bar_keeps_its_pixel_g
         css_rule(css, ".q-term")["padding"] == "1px 10px 1px 3px"
         and css_rule(css, ".q-term")["margin"] == "0 -10px 0 -3px"
     )
-    assert re.search(
-        r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px; \}", css
-    )
+    assert re.search(r"\.qhighlight, \.qfield input\.qinput, \.qfield input\.qinput:focus \{ word-spacing: 15px;", css)
     assert "media (max-width: 760px)" in css  # breakpoints stay in pixels
 
 
@@ -2097,3 +2095,24 @@ def test_the_knobs_of_the_sliders_are_centred_with_one_gap_on_every_side(client)
     assert "--toggle-gap: calc((2rem - 2px - 1.5rem) / 2)" in css  # the sun and moon toggle: the same idea
     assert css_rule(css, ".theme-toggle::before")["top"] == "var(--toggle-gap)"
     assert "--toggle-knob: calc(100% - var(--toggle-gap) - 1.5rem)" in css
+
+
+def test_the_base_address_and_the_slug_box_have_one_gap_everywhere(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert "--slug-gap: 0.14rem" in css
+    assert css_rule(css, ".slug-prefix")["padding"] == "0 var(--slug-gap) 0 0.625rem"  # the new link and the edit field
+    assert css_rule(css, ".confirm-base")["margin-right"] == "var(--slug-gap)"  # the delete dialog
+    assert css_rule(css, "code.urlbox > code.slug")["margin"] == "-1px -1px -1px var(--slug-gap)"  # a toast's address
+
+
+def test_the_help_mentions_times_in_dates(client):
+    html = client.get("/admin/", headers=USER).get_data(as_text=True)
+    assert 'data-q="created&gt;=2026-11-05T14:30"' in html and 'data-q="created&gt;-3h"' in html
+    js = flat_js(js_source(client))
+    assert "[+-]?\\d{1,5}(h|min)" in js and "(\\d{2})(?::(\\d{2})(?::(\\d{2}))?)?" in js  # the browser accepts them too
+
+
+def test_the_search_bar_shows_the_query_without_font_ligatures(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    rule = css_rule(css, ".qhighlight, .qfield input.qinput, .qfield input.qinput:focus")
+    assert rule["font-variant-ligatures"] == "none" and "calt" in rule["font-feature-settings"]  # <- stays <-

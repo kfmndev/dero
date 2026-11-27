@@ -142,8 +142,12 @@
         <p>{{ ex('created=2026-11') }} {{ ex('expires<2027-01-01') }} {{ ex('created>=2026') }}</p>
         <p>A year, month or day (UTC), compared with {{ syntax('< <= > >=') }}. No {{ syntax('=') }} in front of
            the operator.</p>
-        <p>{{ ex('created>-7d') }} {{ ex('expires<30d') }} {{ ex('created=today') }}</p>
-        <p>Relative to today: today, yesterday, tomorrow, or a number of d, w, m or y. A minus is the past.</p>
+        <p>{{ ex('created>=2026-11-05T14:30') }} {{ ex('created=2026-11-05T14') }}</p>
+        <p>With a time: hour, minute or second, after a {{ syntax('T') }} (or in quotes with a space,
+           like {{ ex('created>"2026-11-05 14:30"') }}).</p>
+        <p>{{ ex('created>-7d') }} {{ ex('expires<30d') }} {{ ex('created=today') }} {{ ex('created>-3h') }}</p>
+        <p>Relative to now: today, yesterday, tomorrow, or a number of d, w, m or y; hours and minutes with h and
+           min. A minus is the past.</p>
       </div>
       <div>
         <h4>Expiry</h4>

@@ -8,6 +8,9 @@ import pytest
 from dero import query
 
 NOW = "2026-06-15T12:00:00Z"
+HINT = (
+    "Use a year, month or day like ⟨2026-11-05⟩, with a time like ⟨2026-11-05T14:30⟩, or ⟨today⟩, ⟨7d⟩, ⟨-2w⟩, ⟨-3h⟩."
+)
 
 
 def make_db():
@@ -275,7 +278,7 @@ def test_comparisons_are_written_without_the_equals_sign():
     # an operator after the equals sign is not a date
     for text in ("expires=<2027", "expires=>=2027", "created=>2026", "expires=<=2027-01-01"):
         rows, parsed = find(text)
-        assert rows == [] and parsed.problems and parsed.problems[0].endswith("⟨-2w⟩."), text
+        assert rows == [] and parsed.problems and parsed.problems[0].endswith("⟨-3h⟩."), text
 
 
 def test_bad_dates_match_nothing_and_are_reported():
@@ -288,7 +291,7 @@ def test_bad_dates_match_nothing_and_are_reported():
         "expires<none",
     ):
         rows, parsed = find(text)
-        assert rows == [] and parsed.problems and parsed.problems[0].endswith("⟨-2w⟩."), text
+        assert rows == [] and parsed.problems and parsed.problems[0].endswith("⟨-3h⟩."), text
     assert find("created=2026-02-28")[1].problems == [] and find("created=2024-02-29")[1].problems == []
     assert find("created=none")[1].problems  # none is only for expires
 
@@ -385,12 +388,8 @@ def test_relative_dates_in_filters():
     assert slugs("expires<1000y") == ["bbb", "ddd", "eee"]  # a link that never expires is not "before" anything
     assert slugs("!expires<today") == ["aaa", "ccc", "ddd"]
     rows, parsed = find("created>=-5x")
-    assert rows == [] and parsed.problems == [
-        "⟨-5x⟩ isn't a date. Use a year, month or day like ⟨2026-11-05⟩, or ⟨today⟩, ⟨7d⟩, ⟨-2w⟩."
-    ]
-    assert find("expires<9999y")[1].problems == [
-        "⟨9999y⟩ isn't a date. Use a year, month or day like ⟨2026-11-05⟩, or ⟨today⟩, ⟨7d⟩, ⟨-2w⟩."
-    ]  # too far for a date
+    assert rows == [] and parsed.problems == [f"⟨-5x⟩ isn't a date. {HINT}"]
+    assert find("expires<9999y")[1].problems == [f"⟨9999y⟩ isn't a date. {HINT}"]  # too far for a date
 
 
 # ------------------------------------------------------------------ sort_by=created_by
@@ -444,3 +443,37 @@ def test_the_search_bars_space_after_an_opening_parenthesis_is_just_whitespace()
     # the browser draws that space as an em space (U+2003) where the parenthesis is closed again; it is whitespace
     assert slugs("(\u2003slug=aaa\u2003)") == slugs("( slug=aaa )") == ["aaa"]
     assert slugs("(\u2003(\u2003slug=aaa or slug=bbb )\u2003) ccc") == slugs("( ( slug=aaa or slug=bbb ) ) ccc")
+
+
+# ------------------------------------------------------------------ dates with a time
+def test_dates_can_have_a_time():
+    everyone = slugs("")
+    # every link was created at 2026-01-01T00:00:00Z: hours, minutes and seconds are compared like days are
+    assert slugs("created=2026-01-01T00") == everyone and slugs("created=2026-01-01T01") == []
+    assert slugs("created=2026-01-01T00:00") == everyone and slugs("created=2026-01-01T00:01") == []
+    assert slugs("created=2026-01-01T00:00:00") == everyone and slugs("created=2026-01-01T00:00:01") == []
+    assert slugs("created>=2026-01-01T00:00") == everyone and slugs("created>2026-01-01T00:00") == []
+    assert slugs("created<2026-01-01T00:01") == everyone and slugs("created<=2025-12-31T23:59") == []
+    assert slugs("created<2026-06-15T11:59") == everyone  # earlier than a minute before NOW
+    assert slugs('created="2026-01-01 00:00"') == everyone  # a space needs quotes (the search bar writes them)
+    assert slugs("created=2026-01-01t00:00") == everyone  # a lowercase t is fine
+    assert find("created>=2026-01-01T00:00")[1].problems == []
+
+
+def test_a_time_must_exist():
+    for bad in ("2026-01-01T24:00", "2026-01-01T12:60", "2026-01-01T12:30:61", "2026-02-30T10:00", "2026-01-01T1"):
+        rows, parsed = find(f"created>={bad}")
+        assert rows == [] and parsed.problems and "isn't a date" in parsed.problems[0], bad
+
+
+def test_relative_hours_and_minutes():
+    everyone = slugs("")
+    assert slugs("created<-3h") == everyone and slugs("created>-3h") == []  # created months ago
+    assert slugs("created<-30min") == everyone and slugs("created>=-30min") == []
+    assert slugs("expires>+1h") == ["ddd"] and slugs("expires<+90min") == [
+        "bbb",
+        "eee",
+    ]  # (a link without expiry never)
+    assert query.parse("created>-3h", NOW).params == ["2026-06-15T09:00"]  # 12:00 - 3h, to the minute
+    assert query.parse("created<+90min", NOW).params == ["2026-06-15T13:30"]
+    assert find("created>-3x")[1].problems  # not a unit

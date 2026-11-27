@@ -49,7 +49,7 @@ const sortName = (raw) => {
 //    not closed has an x and room for it, and keeps the wide space).
 // Everything outside the box sees plain spaces: plainQuery() turns them back, and the server reads them as spaces too.
 const QUOTED_SPACE = "\u2005";
-const OPEN_SPACE = "\u2003";
+const OPEN_SPACE = "\u2007"; // a figure space: a digit wide (about two thirds of an em)
 const plainQuery = (text) => text.replaceAll(QUOTED_SPACE, " ").replaceAll(OPEN_SPACE, " ");
 // The text with those spaces as the look-alikes and every other one plain (one character for one: the positions stay).
 // A quote opens at one " and closes at the next; an unclosed one runs to the end, as in the tokenizer.
@@ -311,19 +311,28 @@ function deriveSort(parsed, sortKeys, defaultDesc) {
   return `${descending ? "-" : "+"}${name}`;
 }
 
-// A date: 2026 / 2026-11 / 2026-11-25 (the operator < <= > >= belongs to the key, not the value), or relative to today:
+// A date: 2026 / 2026-11 / 2026-11-25 / 2026-11-25T14:30 (the operator < <= > >= belongs to the key, not the value), or relative to today:
 // today, yesterday, tomorrow, -7d, 2w, 3m, -1y. expires=none and expires=never only with = or ==. Same rules as
 // dero/query.py (the server is the authority: it also knows when a relative date leaves the calendar).
 function validDate(value, key, op) {
   if (OPTIONAL_KEYS.includes(key) && (op === "=" || op === "==" || op === "!=") && /^(none|never)$/i.test(value))
     return true;
-  if (/^(today|yesterday|tomorrow|[+-]?\d{1,4}[dwmy])$/i.test(value.trim())) return true;
-  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(value.trim());
+  if (/^(today|yesterday|tomorrow|[+-]?\d{1,4}[dwmy]|[+-]?\d{1,5}(h|min))$/i.test(value.trim())) return true;
+  // 2026 / 2026-11 / 2026-11-25 / 2026-11-25T14 / 2026-11-25T14:30 / 2026-11-25T14:30:15 (the T may be a space, in quotes)
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[Tt \u2005](\d{2})(?::(\d{2})(?::(\d{2}))?)?)?)?)?$/.exec(value.trim());
   if (!m) return false;
   const month = Number(m[2] || 1),
     day = Number(m[3] || 1),
     date = new Date(Date.UTC(Number(m[1]), month - 1, day));
-  return month >= 1 && month <= 12 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return (
+    month >= 1 &&
+    month <= 12 &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    Number(m[4] || 0) < 24 &&
+    Number(m[5] || 0) < 60 &&
+    Number(m[6] || 0) < 60
+  );
 }
 
 const validNumber = (value) => /^\d{1,12}$/.test(value.trim());
