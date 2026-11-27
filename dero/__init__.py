@@ -78,6 +78,14 @@ def _prepare_database(app: Flask) -> None:
             db.set_setting("fallback_url", resolve.validate_url(env_fallback))
 
 
+# Own scripts, styles, fonts and icons only (the pages use style attributes, hence 'unsafe-inline' for styles),
+# no embedding in other pages, forms and the base address stay on this site.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+)
+
+
 def _add_short_link_routes(app: Flask) -> None:
     """Security headers on every answer, and the public route that follows a short link."""
 
@@ -86,6 +94,8 @@ def _add_short_link_routes(app: Flask) -> None:
         """Add the security headers to an answer."""
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "DENY"
+        resp.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
 
         return resp
 
