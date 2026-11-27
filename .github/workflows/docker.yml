@@ -1,5 +1,6 @@
 # Builds the Docker image. Pull requests only build it (to catch a broken Dockerfile); main and release tags
 # are also pushed to the GitHub Container Registry: main as :edge, v1.2.3 as :1.2.3, :1.2 and :latest.
+# A release tag must match the version in pyproject.toml, or nothing is built.
 # Actions are pinned to the commit of a release (the comment names it), as in ci.yml.
 name: Docker
 
@@ -24,6 +25,14 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The tag matches pyproject.toml
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: | # as in release.yml: a mismatched tag must not publish an image either
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version = \"$version\" in pyproject.toml"
+            exit 1
+          fi
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         if: github.event_name != 'pull_request'

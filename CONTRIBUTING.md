@@ -86,9 +86,10 @@ it to `ghcr.io/kfmndev/dero` from `main` (`:edge`) and from release tags (`v1.2.
 The compose files for running it are in `deploy/`.
 
 **Releases**: raise `version` in `pyproject.toml` (the footer reads it from there), commit, then push a tag
-`vX.Y.Z` on that commit. `.github/workflows/release.yml` fails if the tag and that version differ, and otherwise creates
-the GitHub release with notes grouped by commit type (`cliff.toml`; preview them with `git cliff --unreleased`). A tag
-with a hyphen (`v0.2.0-rc1`) is marked as a pre-release.
+`vX.Y.Z` on that commit. `.github/workflows/release.yml` and `docker.yml` fail if the tag and that version differ, so
+neither a release nor an image is published for a wrong tag. Otherwise release.yml creates the GitHub release with
+notes grouped by commit type (`cliff.toml`; preview them with `git cliff --unreleased`). A tag with a hyphen
+(`v0.2.0-rc1`) is marked as a pre-release.
 
 ## Code layout
 
