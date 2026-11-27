@@ -206,7 +206,7 @@ function linkWarnings(form) {
   if (url !== target.defaultValue.trim()) {
     const reasons = unusualUrl(url);
     if (reasons.length) {
-      notes.push(`This address looks unusual: it ${joinList(reasons)}.`);
+      notes.push(`This address looks unusual – it ${joinList(reasons)}.`);
       icons.push("alert");
       fields.push(target);
     }
