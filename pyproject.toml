@@ -4,7 +4,7 @@ description = "A privacy-first, self-hosted URL shortener"
 requires-python = ">=3.13"
 license = "AGPL-3.0-or-later"
 # the one place the version is written; the footer reads it, and the release workflow checks the tag against it
-version = "0.1.0"
+version = "0.2.0"
 # what the app imports itself; the rest (Jinja2, click, blinker) comes along with Flask. uv.lock pins every version.
 dependencies = [
     "Flask>=3.1.3",
