@@ -38,7 +38,7 @@ formatting of the code.
 
 Scopes name the area: `ui` (layout, spacing, components), `search` (the search language and bar), `links`
 (the table and the details), `slugs`, `live`, `rules`, `auth`, `forms`, `deploy` (Docker, compose, Caddy),
-`python`, `types`, `static` (the scripts and the stylesheet as files), `tooling`, `ci`, `docs`, `tests`.
+`python`, `cli` (the command line tools and the log), `types`, `static` (the scripts and the stylesheet as files), `tooling`, `ci`, `docs`, `tests`.
 Add a new one when none fits.
 
 Breaking changes are marked with `!` after the scope (`feat(rules)!: ...`) or a `BREAKING CHANGE:` footer.
