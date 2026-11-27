@@ -89,7 +89,7 @@ def _same_target_key(url: str) -> tuple[str, str, str, str, str]:
 
 @bp.get("/links/lookup")
 def lookup_target() -> ViewResult:
-    """Which links already point to this address? Slugs are only revealed for links the user may see."""
+    """Which links already point to this address? Only links the user may see are named or counted."""
     url = request.args.get("target", "").strip()
     exclude = request.args.get("exclude", type=int)  # the link being edited doesn't count
 
@@ -100,8 +100,9 @@ def lookup_target() -> ViewResult:
     want = _same_target_key(url)
     rows = db.get_db().execute("SELECT id, slug, target, created_by FROM links ORDER BY created_at, id").fetchall()
     hits = [r for r in rows if r["id"] != exclude and _same_target_key(r["target"]) == want]
+    # other people's links are neither named nor counted: that would tell what they have shortened
     mine = [r["slug"] for r in hits if g.user["is_admin"] or r["created_by"] == g.user["username"]]
-    resp = jsonify(count=len(hits), slugs=mine)
+    resp = jsonify(count=len(mine), slugs=mine)
     resp.headers["Cache-Control"] = "no-store"
 
     return resp

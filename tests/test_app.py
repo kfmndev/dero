@@ -1128,9 +1128,9 @@ def test_lookup_finds_links_with_the_same_target_but_hides_other_peoples_slugs(c
     post(client, "/admin/links", USER, target="https://Example.com/a/", slug="mine")
     post(client, "/admin/links", USER2, target="https://example.com/a", slug="theirs")
     post(client, "/admin/links", USER, target="https://example.com/b", slug="other")
-    # trailing slash and the case of scheme/host don't matter; both links count, only visible slugs are named
-    assert lookup(client, USER, "https://example.com/a") == {"count": 2, "slugs": ["mine"]}
-    assert lookup(client, USER2, "https://EXAMPLE.com/a/") == {"count": 2, "slugs": ["theirs"]}
+    # trailing slash and the case of scheme/host don't matter; only links the user may see are named or counted
+    assert lookup(client, USER, "https://example.com/a") == {"count": 1, "slugs": ["mine"]}
+    assert lookup(client, USER2, "https://EXAMPLE.com/a/") == {"count": 1, "slugs": ["theirs"]}
     assert lookup(client, ADMIN, "https://example.com/a") == {"count": 2, "slugs": ["mine", "theirs"]}
     # a different path, query or fragment is a different target
     for different in (
