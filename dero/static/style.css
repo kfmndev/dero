@@ -2129,9 +2129,6 @@ input::placeholder {
   color: var(--muted);
   opacity: 1; /* one colour for every placeholder (Firefox fades its own) */
 }
-.slug-group .slug-edit input.url-input::placeholder {
-  font-style: italic;
-}
 .slug-group input.url-input:focus::placeholder {
   color: transparent;
 } /* the placeholder goes away when the field is clicked (or a slug is drawn: then it has text) */
