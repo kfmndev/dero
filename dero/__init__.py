@@ -57,6 +57,12 @@ def _check_auth_mode(app: Flask) -> None:
             app.config["ADMIN_PATH"],
         )
 
+    if mode == "proxy" and not app.config["PROXY_SECRET"]:
+        app.logger.warning(
+            "AUTH_MODE=proxy without PROXY_SECRET: anyone who can reach dero directly, not only the proxy, "
+            "can sign in as any user by sending the identity headers. Set PROXY_SECRET or close the port."
+        )
+
     if mode == "basic" and not auth.load_users(app.config["USERS_FILE"]):
         app.logger.warning(
             "No users found in %s: nobody can sign in. "
@@ -136,6 +142,12 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
         app.config.update(test_config)
     app.teardown_appcontext(db.close_db)
     _check_auth_mode(app)
+
+    if not (os.environ.get("SECRET_KEY") or (test_config and "SECRET_KEY" in test_config)):
+        app.logger.warning(
+            "SECRET_KEY is not set: a random one is used, so open forms stop working after a restart "
+            "and several separate processes would reject each other's forms. Set it (openssl rand -hex 32)."
+        )
     _prepare_database(app)
 
     app.config["BASE_URL"] = normalise_base_url(app.config["BASE_URL"])

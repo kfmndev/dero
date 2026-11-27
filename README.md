@@ -56,7 +56,7 @@ Everyone who can reach `/admin` is an admin, recorded as `NONE_USER`. Only use t
 
 ### SSO instead (`AUTH_MODE=proxy`)
 
-dero then trusts the identity headers (`Remote-User`, `Remote-Groups`) set by your proxy and does no password checking itself, so it **must only be reachable through that proxy** (don't publish its port; `PROXY_SECRET` adds a second lock). Examples for Caddy + Authelia are in [`deploy/`](deploy). Members of the group `dero-users` manage their own links, `dero-admins` everything.
+dero then trusts the identity headers (`Remote-User`, `Remote-Groups`) set by your proxy and does no password checking itself, so it **must only be reachable through that proxy** (don't publish its port; without `PROXY_SECRET` dero logs a warning, with it the proxy must also send it in `X-Proxy-Secret`). Examples for Caddy + Authelia are in [`deploy/`](deploy). Members of the group `dero-users` manage their own links, `dero-admins` everything.
 
 ## 🔎 Search
 
@@ -120,7 +120,7 @@ Captured text is URL-encoded before it is placed into the target.
 | `AUTH_MODE` | `basic` | `basic` (users file), `proxy` (SSO headers from the reverse proxy) or `none` (no authentication) |
 | `NONE_USER` | `admin` | `none` mode: the username recorded as creator of new links |
 | `USERS_FILE` | `users.txt` (`/data/users.txt` in Docker) | Basic-auth users, one `username:role:hash` per line; create with `python -m dero.passwd` |
-| `SECRET_KEY` | random per start | Signs form tokens (CSRF). Set it, or forms break after restarts |
+| `SECRET_KEY` | random per start | Signs form tokens (CSRF). Set it: without it open forms stop working after a restart and dero logs a warning |
 | `PROXY_SECRET` | *(empty)* | `proxy` mode only: if set, requests must carry a matching `X-Proxy-Secret` header |
 | `BASE_URL` | request host | Public address of the slugs, e.g. `https://s.example.com`. Used to display and copy links; set it when dero runs behind a proxy under a different name |
 | `FALLBACK_URL` | *(empty)* | Initial fallback target; later editable in the UI. Empty means `404` |
