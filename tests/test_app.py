@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from dero import create_app
-from dero.db import get_db
+from dero.db import get_db, get_setting
 from dero.display import highlight_slug, target_box
 from dero.forms import ALPHABETS, random_slug
 from dero.passwd import main as passwd_main
@@ -149,6 +149,35 @@ def test_ownership(client):
     assert client.get("/mine").status_code == 302
     assert post(client, "/admin/links/1/delete", ADMIN).status_code == 302
     assert client.get("/mine").status_code == 404
+
+
+def test_nobody_reaches_other_peoples_links_or_settings(client, app):
+    post(client, "/admin/links", USER, target="https://secret.example/private", slug="mine")
+    link = link_row(app, "mine")["id"]
+    for action in ("toggle", "delete", "update"):
+        r = post(client, f"/admin/links/{link}/{action}", USER2, target="https://evil.example/", slug="stolen")
+        assert r.status_code == 404, action
+    row = link_row(app, "mine")
+    assert row["target"] == "https://secret.example/private" and row["enabled"] == 1
+    assert "mine" not in slugs(client, USER2) and "mine" not in slugs(client, USER2, "?q=created_by=alice")
+    assert "https://secret.example/private" not in client.get("/admin/", headers=USER2).get_data(as_text=True)
+    # the rules, the fallback and their forms are for admins only; nothing changes
+    for path in (
+        "/admin/rules/1/priority",
+        "/admin/rules/1/toggle",
+        "/admin/rules/1/delete",
+        "/admin/settings/fallback",
+    ):
+        assert post(client, path, USER2, priority="1", fallback_url="https://evil.example/").status_code == 403, path
+    with app.app_context():
+        assert get_setting("fallback_url") in (None, "")
+
+
+def test_pages_cannot_be_framed_and_only_load_their_own_files(client):
+    for r in (client.get("/admin/", headers=USER), client.get("/nothing")):
+        assert r.headers["X-Frame-Options"] == "DENY"
+        csp = r.headers["Content-Security-Policy"]
+        assert "default-src 'self'" in csp and "frame-ancestors 'none'" in csp and "script-src" not in csp
 
 
 def test_rules_admin_only(client):
