@@ -53,20 +53,20 @@ def _check_auth_mode(app: Flask) -> None:
 
     if mode == "none":
         app.logger.warning(
-            "AUTH_MODE=none: the admin UI at %s has NO authentication. Anyone who can reach it is an admin.",
+            "AUTH_MODE=none – the admin UI at %s has NO authentication. Anyone who can reach it is an admin.",
             app.config["ADMIN_PATH"],
         )
 
     if mode == "proxy" and not app.config["PROXY_SECRET"]:
         app.logger.warning(
-            "AUTH_MODE=proxy without PROXY_SECRET: anyone who can reach dero directly, not only the proxy, "
+            "AUTH_MODE=proxy without PROXY_SECRET – anyone who can reach dero directly, not only the proxy, "
             "can sign in as any user by sending the identity headers. Set PROXY_SECRET or close the port."
         )
 
     if mode == "basic" and not auth.load_users(app.config["USERS_FILE"]):
         app.logger.warning(
-            "No users found in %s: nobody can sign in. "
-            "Create one with: python -m dero.passwd --file %s <name> --role admin",
+            "No users found in %s – nobody can sign in. "
+            "Create one with python -m dero.passwd --file %s <name> --role admin",
             app.config["USERS_FILE"],
             app.config["USERS_FILE"],
         )
@@ -145,7 +145,7 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
 
     if not (os.environ.get("SECRET_KEY") or (test_config and "SECRET_KEY" in test_config)):
         app.logger.warning(
-            "SECRET_KEY is not set: a random one is used, so open forms stop working after a restart "
+            "SECRET_KEY is not set – a random one is used, so open forms stop working after a restart "
             "and several separate processes would reject each other's forms. Set it (openssl rand -hex 32)."
         )
     _prepare_database(app)
