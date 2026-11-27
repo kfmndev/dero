@@ -48,12 +48,13 @@ TARGET_LAST_PART = 24  # ... or the last part of the path, if it is not longer t
 
 
 _SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+_WWW = re.compile(r"^www\.(?=[^/?#]*\.)")  # a "www." in front of a domain (not the whole host, as in www.com)
 
 
 def target_box(url: str) -> Markup:
-    """A target as the table shows it: from the domain on (no http:// or https://), in two parts so that the
+    """A target as the table shows it: from the domain on (no http://, https:// or www.), in two parts so that the
     stylesheet can cut the middle (the start gets the ellipsis, the end stays). The whole address is on hover."""
-    shown = _SCHEME.sub("", url)
+    shown = _WWW.sub("", _SCHEME.sub("", url))
     slash = shown.rfind("/")
     cut = slash if 0 < slash and 4 <= len(shown) - slash <= TARGET_LAST_PART else max(0, len(shown) - TARGET_TAIL)
     box = (

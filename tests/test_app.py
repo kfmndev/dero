@@ -1691,6 +1691,13 @@ def test_targets_lose_https_and_keep_their_end_when_the_middle_is_cut():
     assert parts("https://example.com/" + "x" * 40) == ["example.com/" + "x" * 28, "x" * 12]  # no usable last part
     assert parts("https://a.com/<b>&") == ["a.com", "/&lt;b&gt;&amp;"]  # escaped
     assert 'title="https://github.com/kfmndev/podutils"' in str(target_box("https://github.com/kfmndev/podutils"))
+    # the common www. is hidden too (the whole address stays in the tooltip); only in front of a domain
+    assert "".join(parts("https://www.example.com/page")) == "example.com/page"
+    assert "".join(parts("http://www.example.co.uk/a/b")) == "example.co.uk/a/b"
+    assert "".join(parts("https://www.com/page")) == "www.com/page"  # (that is the host itself)
+    assert "".join(parts("https://sub.www.example.com/")) == "sub.www.example.com/"  # only the very first label
+    assert "".join(parts("https://example.com/www.page.html")) == "example.com/www.page.html"  # not in the path
+    assert 'title="https://www.example.com/page"' in str(target_box("https://www.example.com/page"))
 
 
 def test_a_plus_after_an_operator_in_the_address_is_warned_about(client):
