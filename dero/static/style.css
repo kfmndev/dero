@@ -2125,20 +2125,23 @@ dialog p.setting-note {
 .nl-type > label input {
   margin-top: 0;
 }
-.slug-group .slug-edit input.url-input::placeholder {
+input::placeholder {
   color: var(--muted);
+  opacity: 1; /* one colour for every placeholder (Firefox fades its own) */
+}
+.slug-group .slug-edit input.url-input::placeholder {
   font-style: italic;
 }
-#new-link-slug input.url-input:focus::placeholder {
+.slug-group input.url-input:focus::placeholder {
   color: transparent;
 } /* the placeholder goes away when the field is clicked (or a slug is drawn: then it has text) */
-/* The slug of the new link keeps its box when it is empty, five or six characters wide: it shows where the slug will
-   appear (and holds the placeholder). In a link's details an empty slug has no box. */
+/* An empty slug (of the new link, or in a link's details) keeps its box, five characters wide: it shows where the
+   slug will appear and holds the placeholder. */
 .slug-edit .slug-hl code.slug:empty {
   display: none;
 }
-#new-link-slug .slug-hl code.slug,
-#new-link-slug .slug-hl code.slug:empty {
+.slug-group .slug-hl code.slug,
+.slug-group .slug-hl code.slug:empty {
   display: inline-flex;
   min-width: calc(
     5ch +
