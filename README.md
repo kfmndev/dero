@@ -7,7 +7,7 @@
 
 **Tiny, privacy-first URL shortener. Counts visits, nothing else.**
 
-[![License](https://img.shields.io/github/license/kfmndev/dero?style=flat-square)](https://github.com/kfmndev/dero/blob/main/LICENSE) [![Python](https://img.shields.io/badge/python-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org) [![Flask](https://img.shields.io/badge/flask-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com) [![Tag](https://img.shields.io/github/v/tag/kfmndev/dero?style=flat-square)](https://github.com/kfmndev/dero/tags)
+[![Tag](https://img.shields.io/github/v/tag/kfmndev/dero?style=flat-square&color=0055ff)](https://github.com/kfmndev/dero/tags) [![Build](https://img.shields.io/github/actions/workflow/status/kfmndev/dero/ci.yml?branch=main&style=flat-square)](https://github.com/kfmndev/dero/actions/workflows/ci.yml?query=branch%3Amain) [![Docker](https://img.shields.io/github/actions/workflow/status/kfmndev/dero/docker.yml?branch=main&style=flat-square&label=docker&logo=docker&logoColor=white)](https://github.com/kfmndev/dero/pkgs/container/dero) [![Python](https://img.shields.io/badge/python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org) [![Flask](https://img.shields.io/badge/flask-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com) [![License](https://img.shields.io/github/license/kfmndev/dero?style=flat-square)](https://github.com/kfmndev/dero/blob/main/LICENSE)
 </div>
 
 ## 🎯 TL;DR
