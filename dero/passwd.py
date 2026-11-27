@@ -13,7 +13,7 @@ USERNAME_RE = re.compile(r"[A-Za-z0-9._@-]{1,64}")
 def make_line(username: str, role: str, password: str) -> str:
     """One line of the users file: name, role and the password hash. Raises ValueError for bad input."""
     if not USERNAME_RE.fullmatch(username):
-        raise ValueError("Username: letters, digits and . _ @ - only, up to 64.")
+        raise ValueError("A username can only use letters, digits and . _ @ - and has at most 64 characters.")
     if role not in ("admin", "user"):
         raise ValueError("Role must be 'admin' or 'user'.")
     if len(password) < 8:
