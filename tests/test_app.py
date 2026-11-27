@@ -1603,8 +1603,8 @@ def test_the_browser_tokenizer_has_the_same_rules_as_the_server(client):
     assert "q-paren q-pill q-open" in js and 'closer.classList.add("q-stray")' in js
     assert '".q-term, .q-group, .q-op, .q-stray"' in js and "no room for a second x" in js
     assert css_rule(css, ".q-paren.q-open.q-pill") == {
-        "padding-right": "3px",
-        "margin-right": "calc(-3px - var(--hair, 1px))",
+        "padding-right": "calc(0.74em - 4.6px)",
+        "margin-right": "calc(4.6px - 0.74em - var(--hair, 1px))",
     }
     # parentheses next to each other are spaced out too, so each one is a pill; a query that comes from the address or a
     # dropdown is spaced the same way as one that is typed

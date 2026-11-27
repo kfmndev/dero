@@ -1510,10 +1510,12 @@ html[data-hl~="toast"] .toasts .hl-symbol {
 } /* same size as a chip, outline only: a real border (a box-shadow ring is smeared differently at each fractional position
      of the pill, and some outlines came out heavier than others), --hair wide (set by the script: one pixel, or whole
      device pixels at a fractional pixel ratio); the margins cancel its width and the padding */
-/* an opening parenthesis never has an x, so it has no room for one: its padding is as wide on both sides */
+/* An opening parenthesis never has an x. The space after it is a fixed em (a plain space is a little over a quarter of
+   an em plus the word spacing), so the pill is wider on the right by what the em is more: the gap to the next token is
+   the same as between any two tokens. The margin cancels the padding, so the text stays where the input has it. */
 .q-paren.q-open.q-pill {
-  padding-right: 3px;
-  margin-right: calc(-3px - var(--hair, 1px));
+  padding-right: calc(0.74em - 4.6px);
+  margin-right: calc(4.6px - 0.74em - var(--hair, 1px));
 }
 .q-not {
   color: var(--q-not);
@@ -2130,7 +2132,10 @@ dialog p.setting-note {
 #new-link-slug .slug-hl code.slug,
 #new-link-slug .slug-hl code.slug:empty {
   display: inline-flex;
-  min-width: 7ch; /* wide enough for the placeholder 'my-link' */
+  min-width: calc(
+    5ch +
+    12px
+  ); /* five characters inside the box (10px padding and 2px border): the width of the placeholder */
 }
 .nl-type > .field,
 .nl-slug > .field {

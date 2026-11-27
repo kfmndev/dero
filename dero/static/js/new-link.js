@@ -35,13 +35,13 @@
   }
 
   // Random or typed: only the options that belong to the chosen type are shown, next to the dropdown.
-  // The slug field is always there: with a random type it is empty (placeholder "random") until the generator is used
+  // The slug field is always there: with a random type it is empty (placeholder "?????") until the generator is used
   // (it then shows the drawn slug) or the user clicks or types in it, which switches the generator to Custom.
   function syncGenerator() {
     const source = sourceOf();
     const random = source !== "slug";
     slugGroup.classList.toggle("is-random", random);
-    slugField.placeholder = random ? "random" : "my-link";
+    slugField.placeholder = random ? "?????" : "my-id"; // five characters: as wide as the empty box
     form
       .querySelectorAll("[data-when-source]")
       .forEach((el) => (el.hidden = !el.dataset.whenSource.split(" ").includes(source)));
