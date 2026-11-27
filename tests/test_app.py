@@ -1062,7 +1062,11 @@ def test_new_link_form_markup_and_remembered_choice(client):
         html,
     )
     assert re.search(r'name="length" type="number" value="5" min="3" max="32"', html)
-    assert 'data-when-source="chars"' in html and 'data-when-source="default letters chars"' in html
+    assert 'data-when-source="default letters chars"' in html and 'data-when-source="chars"' not in html
+    # the characters show what the chosen generator draws from, in front of the length and the Generate button
+    assert 'name="alphabet_custom" type="text" data-own="" value="abcdefghjkmnpqrstuvwxyz23456789"' in html
+    assert html.index('name="alphabet_custom"') < html.index('name="length"') < html.index('id="new-link-generate"')
+    assert 'placeholder="·····"' in html and "?????" not in html
     assert 'data-when-source="slug"' not in html and 'id="new-link-slug"' in html  # the slug field is always there
     assert "alphabet-hint" not in html  # illegal characters are reported, so the alphabet is not listed
     rows = html.split('class="nl-row')

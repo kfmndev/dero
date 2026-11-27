@@ -49,11 +49,11 @@
           <option value="slug"{% if slug_source == 'slug' %} selected{% endif %}>Custom</option>
         </select>
       </div>
-      <button type="button" class="btn" id="new-link-generate" data-when-source="default letters chars"
-        title="Draw a slug of this kind now, then create it or edit it">{{ icon('refresh') }}Generate</button>
-      <label class="nl-chars" data-when-source="chars">Characters
-        <input name="alphabet_custom" type="text" value="{{ form.get('alphabet_custom', '') }}"
-          placeholder="e.g. aab12  (a repeat is more likely)" maxlength="64" autocomplete="off" spellcheck="false"
+      <label class="nl-chars" data-when-source="default letters chars"
+        title="The characters a random slug is drawn from. A repeated character is drawn more often. Editing them selects your own characters.">Characters
+        <input name="alphabet_custom" type="text" data-own="{{ form.get('alphabet_custom', '') }}"
+          value="{{ form.get('alphabet_custom', '') if slug_source == 'chars' else alphabets.get(slug_source, '') }}"
+          placeholder="e.g. aab12" maxlength="64" autocomplete="off" spellcheck="false"
           {% if error_field == 'alphabet_custom' %}aria-invalid="true" autofocus{% endif %}>
       </label>
       <label class="nl-length" data-when-source="default letters chars">Length
@@ -61,6 +61,8 @@
           min="{{ length_range[0] }}" max="{{ length_range[1] }}" {% if error_field == 'length' %}aria-invalid="true"
           autofocus{% endif %}>
       </label>
+      <button type="button" class="btn" id="new-link-generate" data-when-source="default letters chars"
+        title="Draw a slug of this kind now, then create it or edit it">{{ icon('refresh') }}Generate</button>
     </div>
     <div class="nl-row nl-slug">
       <div class="field grow">
@@ -69,7 +71,7 @@
           <span class="slug-prefix">{{ host }}</span>
           <span class="slug-edit">
             <span class="slug-hl" aria-hidden="true"></span>
-            <input name="slug" type="text" class="url-input" id="new-link-slug-input" placeholder="?????"
+            <input name="slug" type="text" class="url-input" id="new-link-slug-input" placeholder="·····"
               value="{{ form.get('slug', '') }}" maxlength="64" autocomplete="off" spellcheck="false"
               pattern="[A-Za-z0-9._~\-]{1,64}"
               {% if error_field == 'slug' %}aria-invalid="true" autofocus{% endif %}>

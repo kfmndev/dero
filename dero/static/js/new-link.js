@@ -34,6 +34,31 @@
     slugField.dispatchEvent(new Event("input")); // the coloured copy behind it follows (not bubbling: not the user typing)
   }
 
+  // The Characters field shows the characters the chosen generator draws from. Editing it (clicking in it or typing)
+  // switches the generator to "own characters", which keeps what is shown as the start. The own characters are
+  // remembered while another generator is chosen.
+  const chars = form.elements.alphabet_custom;
+  let own = chars.dataset.own || (sourceOf() === "chars" ? chars.value : "");
+  function showCharacters(source) {
+    if (source === "chars") chars.value = own;
+    else if (alphabets[source]) chars.value = alphabets[source];
+  }
+  function switchToOwnCharacters() {
+    if (sourceOf() === "chars" || sourceOf() === "slug") return;
+    own = chars.value;
+    const select = form.elements.slug_source;
+    select.value = "chars";
+    refreshSelect(select);
+    shown = "chars";
+    if (slugField.value) {
+      slugField.value = ""; // a drawn slug is out of date when the characters change
+      repaintSlug();
+    }
+    syncGenerator();
+    savePrefs();
+  }
+  chars.addEventListener("pointerdown", switchToOwnCharacters);
+
   // Random or typed: only the options that belong to the chosen type are shown, next to the dropdown.
   // The slug field is always there: with a random type it is empty (placeholder "?????") until the generator is used
   // (it then shows the drawn slug) or the user clicks or types in it, which switches the generator to Custom.
@@ -41,7 +66,8 @@
     const source = sourceOf();
     const random = source !== "slug";
     slugGroup.classList.toggle("is-random", random);
-    slugField.placeholder = random ? "?????" : "my-id"; // five characters: as wide as the empty box
+    slugField.placeholder = random ? "·····" : "my-id"; // five characters: as wide as the empty box
+    showCharacters(source);
     form
       .querySelectorAll("[data-when-source]")
       .forEach((el) => (el.hidden = !el.dataset.whenSource.split(" ").includes(source)));
@@ -105,7 +131,7 @@
         PREFS,
         JSON.stringify({
           source: sourceOf(),
-          custom: form.elements.alphabet_custom.value,
+          custom: own,
           length: lengthField().value,
         }),
       );
@@ -121,7 +147,7 @@
         select.value = saved.source;
         refreshSelect(select);
       }
-      form.elements.alphabet_custom.value = saved.custom || "";
+      own = saved.custom || "";
       if (saved.length) lengthField().value = saved.length;
     } catch {}
   }
@@ -155,6 +181,10 @@
     const name = event.target.name;
     if (name === "slug") switchToCustom();
     if (name === "target" || name === "expires_at") forgetWarning(form); // a different value deserves a new look
+    if (name === "alphabet_custom") {
+      switchToOwnCharacters();
+      if (sourceOf() === "chars") own = chars.value;
+    }
     if (["slug_source", "alphabet_custom", "length"].includes(name)) {
       syncGenerator();
       savePrefs();
