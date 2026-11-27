@@ -1487,6 +1487,10 @@ html[data-hl~="toast"] .toasts .hl-symbol {
 .qfield input.qinput:placeholder-shown {
   text-overflow: ellipsis;
 }
+::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+} /* selected text follows the accent instead of the browser's own blue or grey */
 .qfield input.qinput::selection {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
   color: transparent;
