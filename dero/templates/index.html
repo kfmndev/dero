@@ -108,7 +108,7 @@
       <div class="qfield">
         <div class="qhighlight" aria-hidden="true"><span class="qhl"></span></div>
         <input type="text" name="q" id="q" class="qinput" value="{{ query }}" autocomplete="off" spellcheck="false"
-          autocapitalize="off" placeholder="Search links, or try: status=expired · visits&gt;10 · created&gt;-7d · sort_by=-visits">
+          autocapitalize="off" placeholder="Search links, or try status=expired · visits&gt;10 · created&gt;-7d · sort_by=-visits">
         <div class="qx-layer"></div>
       </div>
     </div>
@@ -214,7 +214,7 @@
     {% set can_reset = query or cols != default_cols %}
     <div class="field live-field">
       <label class="field-label" for="live-switch" id="live-name">Live view</label>
-      <span class="live-toggle" id="live-toggle" title="Live visits: a visited slug is marked in the table and the counts stay current. Only the counter changes: no visit is recorded.">
+      <span class="live-toggle" id="live-toggle" title="Live visits – a visited slug is marked in the table and the counts stay current. Only the counter changes, no visit is recorded.">
         <label class="switch small">
           <input type="checkbox" role="switch" id="live-switch" aria-labelledby="live-name">
           <span class="track"></span>
@@ -264,7 +264,7 @@
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <input type="hidden" name="back" value="{{ back }}">
             <label class="switch"
-              title="{{ 'Enabled: click to disable' if l.enabled else 'Disabled: click to enable' }}">
+              title="{{ 'Enabled – click to disable' if l.enabled else 'Disabled – click to enable' }}">
               <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if l.enabled %}
                 checked{% endif %}>
               <span class="track"></span>

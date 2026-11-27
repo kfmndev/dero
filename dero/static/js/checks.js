@@ -59,7 +59,7 @@ function generatorProblem(form, reserved, source = form.elements.slug_source.val
           : names.length === 1
             ? names[0]
             : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`; // "and" before the last
-      return [field, `${shown} can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩`];
+      return [field, `${shown} can't be used in a slug – use letters, digits or ⟨- _ . ~⟩`];
     }
     if (new Set(chars).size < 2) return [field, "Use at least 2 different characters."];
   }

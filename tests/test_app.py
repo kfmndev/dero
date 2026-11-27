@@ -1727,7 +1727,7 @@ def test_search_placeholder_has_plain_spacing_and_ends_in_an_ellipsis(client):
     placeholder = re.search(r'<input[^>]*id="q"[^>]*placeholder="([^"]*)"', html).group(1)
     assert "  " not in placeholder  # no double space (the CSS word spacing made it a huge gap)
     assert placeholder.startswith(
-        "Search links, or try: status=expired"
+        "Search links, or try status=expired"
     )  # no indent of its own: the padding is the inset
     for example in ("visits&gt;10", "created&gt;-7d", "sort_by=-visits"):
         assert example in placeholder  # examples of what the language can do
@@ -1790,14 +1790,14 @@ def test_custom_characters_errors_name_the_problem(client):
         return html_lib.unescape(r.get_data(as_text=True))
 
     page = error("1Il|")
-    assert "<code>|</code> can't be used in a slug. Allowed: letters, digits and <code>- _ . ~</code>" in page
+    assert "<code>|</code> can't be used in a slug – use letters, digits or <code>- _ . ~</code>" in page
     assert "<code> </code>" not in error("ab c") and "space can't be used in a slug" in error("ab c")
     assert "<code>|</code> and <code>?</code> can't be used" in error("ab|?")  # two: and
     assert "<code>|</code>, <code>?</code> and <code>#</code> can't be used" in error("ab|?#")  # more: commas, and
     assert "<code>%</code>, <code>\"</code>, <code><</code>, … can't be used" in error('ab|?#%"<>')  # six at most
     assert "Use at least 2 different characters." in error("aaaa")
     js = js_source(client)
-    assert "can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩" in js and "Use at least 2 different" in js
+    assert "can't be used in a slug – use letters, digits or ⟨- _ . ~⟩" in js and "Use at least 2 different" in js
 
 
 def test_slugs_look_the_same_in_every_message(client, app):

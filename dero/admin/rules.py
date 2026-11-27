@@ -118,7 +118,7 @@ def set_fallback() -> ViewResult:
         flash(
             with_icon("check", "Fallback saved")
             if value
-            else with_icon("trash", "Fallback removed · unmatched addresses now return 404"),
+            else with_icon("trash", "Fallback removed – unmatched addresses now return 404"),
             "fallback",
         )
     except resolve.ValidationError as exc:

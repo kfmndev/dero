@@ -107,7 +107,7 @@ def validate_rule(pattern: str, match_type: str, target: str) -> None:
     try:
         compiled = _compile(pattern, match_type)
     except regex.error as exc:
-        raise ValidationError(f"This pattern doesn't work: {exc}") from exc
+        raise ValidationError(f"This pattern doesn't work – {exc}") from exc
     indices = [int(n) for n in PLACEHOLDER_RE.findall(target)]
 
     bad = next((n for n in indices if n < 1 or n > compiled.groups), None)

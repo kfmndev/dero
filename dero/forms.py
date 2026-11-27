@@ -76,7 +76,7 @@ def _own_characters(f: Mapping[str, str]) -> str:
 
     if bad:
         raise resolve.ValidationError(
-            f"{_quoted(bad)} can't be used in a slug. Allowed: letters, digits and ⟨- _ . ~⟩", "alphabet_custom"
+            f"{_quoted(bad)} can't be used in a slug – use letters, digits or ⟨- _ . ~⟩", "alphabet_custom"
         )
 
     if len(set(chars)) < 2:

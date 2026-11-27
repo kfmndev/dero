@@ -59,7 +59,7 @@
           <form method="post" action="{{ url_for('admin.rule_toggle', rule_id=r.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token() }}">
             <label class="switch"
-              title="{{ 'Enabled: click to disable' if r.enabled else 'Disabled: click to enable' }}">
+              title="{{ 'Enabled – click to disable' if r.enabled else 'Disabled – click to enable' }}">
               <input type="checkbox" role="switch" class="row-switch" aria-label="Enabled"{% if r.enabled %}
                 checked{% endif %}>
               <span class="track"></span>
