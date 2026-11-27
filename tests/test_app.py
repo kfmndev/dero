@@ -2116,3 +2116,19 @@ def test_the_search_bar_shows_the_query_without_font_ligatures(client):
     css = flat_css(client.get("/static/style.css").get_data(as_text=True))
     rule = css_rule(css, ".qhighlight, .qfield input.qinput, .qfield input.qinput:focus")
     assert rule["font-variant-ligatures"] == "none" and "calt" in rule["font-feature-settings"]  # <- stays <-
+
+
+def test_a_toast_has_one_gap_around_its_icon_text_and_x(client):
+    css = flat_css(client.get("/static/style.css").get_data(as_text=True))
+    assert "--toast-gap: 0.625rem" in css
+    toast = css_rule(css, ".toasts .toast")
+    assert toast["padding"] == "0.5rem var(--toast-gap)"  # the edge, left and right
+    assert toast["gap"].startswith("calc(var(--toast-gap) -")  # between icon, text and x (less the letters' own space)
+    js = js_source(client)
+    # the ink of every icon a notification can show is known, so its box can be pulled in to the lines
+    for name in (
+        "plus save equal power power-off trash arrow-up-down check copy share alert link clock link-off lock ban type "
+        "calendar wifi-off"
+    ).split():
+        assert re.search(rf'"?{re.escape(name)}"?: \[', js), name
+    assert "function fitIcon" in js and 'viewBox="5.2 5.2 13.6 13.6"' in js  # and the x is cropped to its lines

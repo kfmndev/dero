@@ -59,6 +59,7 @@
   /* a whole number of pixels: with a fraction, boxes of the same height came out 1px different */
   --control-h: round(1.875rem, 1px);
   --icon-line: 1.4px; /* the line width of every icon, whatever its size (the sprite does not scale it) */
+  --toast-gap: 0.625rem; /* between the edge of a toast, its icon, its text and its x: all the same */
   --slug-gap: 0.14rem; /* between the base address and the box of a slug, wherever they are shown together */
   --slug-size: 0.72rem; /* a slug (mono) at the same visual size as the text around it: mono looks bigger at the same size */
   --label-gap: 0.25rem; /* between a label and its field, in every form */
@@ -2299,13 +2300,13 @@ td > .cell:has(> .badge) {
 .toasts .toast {
   display: flex; /* (the live toast has none of the form-ok rules that give the others this) */
   align-items: center;
-  gap: 0.375rem;
+  gap: calc(var(--toast-gap) - 0.045rem); /* (the letters of the text have a little space of their own at both ends) */
   font-size: 0.8125rem;
   line-height: 1.5; /* room for the boxes in a message: boxes on two lines do not touch */
   pointer-events: auto;
   max-width: min(100%, 38rem);
   margin: 0;
-  padding: 0.5rem 0.625rem; /* the same room on every side of the content (the x has less around it, see below) */
+  padding: 0.5rem var(--toast-gap); /* the same room on every side of the content */
   border: 1px solid color-mix(in srgb, currentColor 45%, var(--card)); /* its text colour, muted (green, amber, red, blue) */
   border-radius: 0.5rem;
   background: var(--card);
@@ -2319,14 +2320,20 @@ td > .cell:has(> .badge) {
   min-width: 0;
 }
 .toast-close {
+  position: relative;
   flex: 0 0 auto;
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 0.5rem;
+  height: 0.5rem;
   margin: 0;
-} /* just the x itself: no padding of its own, so the edge of the toast is as far from it as from the text */
+} /* just the x itself, cropped to its lines: the edge of the toast is as far from it as from the text */
+.toast-close::before {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+} /* (a bigger target to click) */
 .toast-close .icon {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 100%;
+  height: 100%;
 }
 @keyframes toast-in {
   from {
@@ -2355,7 +2362,7 @@ td > .cell:has(> .badge) {
   flex: 0 0 auto;
   width: 0.35rem;
   height: 0.35rem;
-  margin: 0 1px;
+  margin: 0;
   border-radius: 50%;
   background: currentColor;
   animation: blink 1.4s ease-in-out infinite;

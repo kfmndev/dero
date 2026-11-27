@@ -14,6 +14,43 @@ const TOAST_KINDS = {
 };
 let toastStack = null;
 
+// Where the lines of each icon of the sprite start and end, in its 24 units (the geometry: a line is 1.4px thick on top
+// of that). A toast puts the ink of its icon, not the icon's box, at the same distance from its edge and from its text
+// as the x has.
+const ICON_INK = {
+  alert: [1.98, 22],
+  ban: [2, 22],
+  calendar: [3, 21],
+  check: [4, 20],
+  clock: [2, 22],
+  copy: [2, 22],
+  equal: [5, 19],
+  "arrow-up-down": [3, 21],
+  link: [2.06, 21.94],
+  "link-off": [2, 22],
+  lock: [3, 21],
+  plus: [5, 19],
+  power: [3.03, 21.03],
+  "power-off": [2, 22],
+  refresh: [3, 21],
+  save: [3, 21],
+  share: [3, 21],
+  trash: [3, 21],
+  type: [4, 20],
+  "wifi-off": [2, 22],
+};
+const ICON_SIZE = 1.15; // em, as in the stylesheet
+const ICON_LINE = 0.97; // half the line, in units of 24 (at that size)
+
+// Pull the margins of an icon in by the space between its box and its ink.
+function fitIcon(svg) {
+  const name = svg.querySelector("use")?.getAttribute("href")?.split("#")[1];
+  const ink = ICON_INK[name];
+  if (!ink) return;
+  const em = (units) => `${((Math.max(0, units - ICON_LINE) / 24) * ICON_SIZE).toFixed(3)}em`;
+  svg.style.marginInline = `-${em(ink[0])} -${em(24 - ink[1])}`;
+}
+
 function toastHost() {
   if (!toastStack) {
     toastStack = document.createElement("div");
@@ -50,7 +87,10 @@ function placeToast(el, kind, key) {
     // the same place speaks again: its toast changes in place, with a small nudge
     same.querySelector("span:not(.toast-icon)").replaceWith(body);
     const icon = el.querySelector("svg"); // (the message may come with another icon)
-    if (icon) same.querySelector("svg")?.replaceWith(icon);
+    if (icon) {
+      fitIcon(icon);
+      same.querySelector("svg")?.replaceWith(icon);
+    }
     same.classList.remove("bump");
     void same.offsetWidth;
     same.classList.add("bump");
@@ -68,12 +108,19 @@ function placeToast(el, kind, key) {
   close.type = "button";
   close.className = "mini toast-close";
   close.title = close.ariaLabel = "Dismiss";
-  close.innerHTML = `<svg class="icon" aria-hidden="true"><use href="${toastSprite()}#x"/></svg>`;
+  // the x is drawn here, cropped to its lines: no space of its own around it
+  close.innerHTML =
+    '<svg class="icon" aria-hidden="true" viewBox="5.2 5.2 13.6 13.6" fill="none" stroke="currentColor" ' +
+    'stroke-linecap="round" style="stroke-width: var(--icon-line, 1.4px)">' +
+    '<path vector-effect="non-scaling-stroke" d="M18 6 6 18"/>' +
+    '<path vector-effect="non-scaling-stroke" d="m6 6 12 12"/></svg>';
   el.classList.add("toast", TOAST_KINDS[kind].cls);
   el.setAttribute("role", TOAST_KINDS[kind].role);
   el.dataset.kind = kind;
   if (key) el.dataset.key = key;
   el.append(close);
+  const own = el.querySelector(":scope > svg.icon");
+  if (own) fitIcon(own);
   // the live toast stays at the bottom of the stack, below the others
   const live = toastHost().querySelector(':scope > [data-kind="live"]');
   if (kind !== "live" && live) toastHost().insertBefore(el, live);
